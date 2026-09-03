@@ -4,6 +4,8 @@ import NotFoundView from '../views/NotFoundView.vue'
 import PlaceholderView from '../views/PlaceholderView.vue'
 import LoginView from '../views/LoginView.vue'
 import { useAuthStore } from '../stores/auth'
+import SkillsView from '../views/SkillsView.vue'
+import SkillDetailView from '../views/SkillDetailView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -23,8 +25,13 @@ const router = createRouter({
         {
           path: 'skills',
           name: 'skills',
-          component: PlaceholderView,
-          props: { title: 'Skill 目录' },
+          component: SkillsView,
+        },
+        {
+          path: 'skills/:skillKey',
+          name: 'skill-detail',
+          component: SkillDetailView,
+          meta: { title: 'Skill 详情' },
         },
         {
           path: 'workflows',

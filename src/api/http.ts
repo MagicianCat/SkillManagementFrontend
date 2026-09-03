@@ -7,3 +7,14 @@ export const http = axios.create({
     Accept: 'application/json',
   },
 })
+
+let accessToken: string | null = null
+
+export function setAccessToken(token: string | null) {
+  accessToken = token
+}
+
+http.interceptors.request.use((config) => {
+  if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`
+  return config
+})

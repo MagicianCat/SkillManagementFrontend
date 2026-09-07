@@ -11,6 +11,8 @@ import SkillDraftView from '../views/SkillDraftView.vue'
 import ReviewsView from '../views/ReviewsView.vue'
 import ReviewDetailView from '../views/ReviewDetailView.vue'
 import NotificationsView from '../views/NotificationsView.vue'
+import OrganizationView from '../views/OrganizationView.vue'
+import OAuthCallbackView from '../views/OAuthCallbackView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -28,6 +30,12 @@ const router = createRouter({
       name: 'login',
       component: LoginView,
       meta: { title: '登录' },
+    },
+    {
+      path: '/oauth/callback',
+      name: 'oauth-callback',
+      component: OAuthCallbackView,
+      meta: { title: '飞书登录' },
     },
     {
       path: '/',
@@ -66,6 +74,12 @@ const router = createRouter({
           meta: { title: '审核中心', permissions: ['skill:review'] },
         },
         {
+          path: 'organization',
+          name: 'organization',
+          component: OrganizationView,
+          meta: { title: '组织与团队权限', permissions: ['admin:identity', 'skill:review'] },
+        },
+        {
           path: 'reviews/:reviewId',
           name: 'review-detail',
           component: ReviewDetailView,
@@ -76,6 +90,12 @@ const router = createRouter({
           name: 'notifications',
           component: NotificationsView,
           meta: { title: '通知中心' },
+        },
+        {
+          path: 'dev-pipeline',
+          name: 'dev-pipeline',
+          component: () => import('../views/DevPipelineView.vue'),
+          meta: { title: '开发全链路最佳实践' },
         },
         {
           path: 'agent',

@@ -61,6 +61,8 @@ const page = computed(() => Number(route.query.page || 0))
 const selectedCategoryId = computed(() =>
   typeof route.query.categoryId === 'string' ? route.query.categoryId : '',
 )
+const selectedPlatform = computed(() => typeof route.query.platform === 'string' ? route.query.platform : '')
+const selectedOsType = computed(() => typeof route.query.osType === 'string' ? route.query.osType : '')
 
 async function fetchSkills() {
   loading.value = true
@@ -76,6 +78,8 @@ async function fetchSkills() {
         ? Number(selectedCategoryId.value)
         : undefined,
       status: 'ACTIVE',
+      platform: selectedPlatform.value || undefined,
+      osType: selectedOsType.value || undefined,
       page: page.value,
       size: 12,
       sort: 'timeUpdated,desc',
@@ -129,7 +133,7 @@ function goToPage(nextPage: number) {
 }
 
 function openSkill(skillKey: string) {
-  void router.push({ name: 'skill-detail', params: { skillKey } })
+  void router.push({ name: 'skill-detail', params: { skillKey }, query: { ...route.query } })
 }
 
 async function editSkill(skill: SkillView) {
@@ -208,6 +212,8 @@ onMounted(() => {
           </option>
         </select>
       </label>
+      <label class="category-filter"><span>平台</span><select :value="selectedPlatform" @change="updateQuery({ platform: (($event.target as HTMLSelectElement).value || undefined) })"><option value="">默认平台</option><option value="CODEBUDDY">CodeBuddy</option><option value="OPENCODE">OpenCode</option></select></label>
+      <label class="category-filter"><span>系统</span><select :value="selectedOsType" @change="updateQuery({ osType: (($event.target as HTMLSelectElement).value || undefined) })"><option value="">默认系统</option><option value="ANY">通用</option><option value="WINDOWS">Windows</option><option value="MACOS">macOS</option><option value="LINUX">Linux</option></select></label>
       <span v-if="response" class="result-count"
         >共 {{ response.totalElements }} 个 Skill</span
       >

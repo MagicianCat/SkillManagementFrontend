@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { login, logout, refresh } from '../api/auth.api'
+import { feishuCallback, login, logout, refresh } from '../api/auth.api'
 import { setAccessToken } from '../api/http'
 import type { AuthUser } from '../types/auth'
 
@@ -42,6 +42,11 @@ export const useAuthStore = defineStore('auth', () => {
     setSession(result.accessToken, result.refreshToken, result.user)
   }
 
+  async function authenticateFeishu(code: string, state: string) {
+    const result = await feishuCallback(code, state)
+    setSession(result.accessToken, result.refreshToken, result.user)
+  }
+
   async function initialize() {
     if (initialized.value) return
     initialized.value = true
@@ -69,6 +74,7 @@ export const useAuthStore = defineStore('auth', () => {
     initialized,
     isAuthenticated,
     authenticate,
+    authenticateFeishu,
     initialize,
     signOut,
     clearSession,

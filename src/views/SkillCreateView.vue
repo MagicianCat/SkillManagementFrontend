@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { createSkill, uploadDraftZip } from '../api/skills.api'
 import { DEVELOPMENT_STAGES, type DevelopmentStage } from '../types/skill'
+import { getTeamTree, type TeamView } from '../api/org.api'
 
 const router = useRouter()
 
@@ -12,10 +13,12 @@ const form = reactive({
   displayName: '',
   description: '',
   developmentStage: 'REQUIREMENT' as DevelopmentStage,
+  teamId: null as number | null,
 })
 const submitting = ref(false)
 const errorMessage = ref('')
 const keyConflict = ref(false)
+const teams = ref<TeamView[]>([])
 
 // 上传 ZIP 阶段
 const createdKey = ref('')
@@ -25,6 +28,8 @@ const uploading = ref(false)
 const uploadError = ref('')
 
 const KEY_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
+
+void getTeamTree().then((value) => { teams.value = value }).catch(() => undefined)
 
 function validate(): string {
   if (!KEY_PATTERN.test(form.skillKey))
@@ -49,6 +54,7 @@ async function submit() {
       displayName: form.displayName.trim(),
       description: form.description.trim(),
       developmentStage: form.developmentStage,
+      teamId: form.teamId,
     })
     createdKey.value = form.skillKey
   } catch (error: unknown) {
@@ -171,6 +177,13 @@ function skipUpload() {
           :class="{ 'has-error': keyConflict }"
         />
         <small>小写字母、数字和单个连字符；创建后不可修改</small>
+      </label>
+      <label class="form-field">
+        <span>可见范围</span>
+        <select v-model="form.teamId" :disabled="submitting || Boolean(createdKey)">
+          <option :value="null">平台级（全公司可见）</option>
+          <option v-for="team in teams" :key="team.id" :value="team.id">团队：{{ team.name }}</option>
+        </select>
       </label>
       <label class="form-field">
         <span>展示名称 <em>*</em></span>

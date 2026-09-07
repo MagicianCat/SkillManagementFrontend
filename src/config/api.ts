@@ -9,7 +9,7 @@ if (!configuredApiBaseUrl) {
  * builds use the configured absolute URL directly.
  */
 export const apiBaseUrl = import.meta.env.DEV
-  ? new URL(configuredApiBaseUrl).pathname.replace(/\/$/, '')
+  ? new URL(configuredApiBaseUrl, window.location.origin).pathname.replace(/\/$/, '')
   : configuredApiBaseUrl.replace(/\/$/, '')
 
 export function apiUrl(path: string) {

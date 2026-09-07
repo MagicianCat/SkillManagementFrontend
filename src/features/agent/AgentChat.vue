@@ -17,7 +17,7 @@ async function submit() {
 }
 
 function openSkill(skillKey: string) {
-  void router.push({ name: 'skill-detail', params: { skillKey } })
+  void router.push({ name: 'skill-detail', params: { skillKey }, query: { ...(store.platform ? { platform: store.platform } : {}), ...(store.osType ? { osType: store.osType } : {}) } })
   store.floatingOpen = false
 }
 

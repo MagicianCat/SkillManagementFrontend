@@ -39,6 +39,12 @@ const navEntries = computed<NavEntry[]>(() => [
     visible: hasPermission(authStore.user?.permissions, 'skill:review'),
   },
   {
+    label: '组织与权限',
+    routeName: 'organization',
+    icon: 'users',
+    visible: hasPermission(authStore.user?.permissions, 'admin:identity'),
+  },
+  {
     label: '通知中心',
     routeName: 'notifications',
     icon: 'bell',
@@ -49,6 +55,12 @@ const navEntries = computed<NavEntry[]>(() => [
     routeName: 'agent',
     icon: 'robot',
     visible: agentEnabled,
+  },
+  {
+    label: '流程最佳实践',
+    routeName: 'dev-pipeline',
+    icon: 'pipeline',
+    visible: true,
   },
 ])
 const visibleNav = computed(() => navEntries.value.filter((e) => e.visible))
@@ -224,7 +236,21 @@ async function signOut() {
               ><rect x="4" y="8" width="16" height="12" rx="2" /><path
                 d="M12 8V4" /><circle cx="12" cy="3" r="1" /><path
                 d="M2 14h2" /><path d="M20 14h2" /><path d="M9 13v2" /><path
-                d="M15 13v2" /></svg></span
+                d="M15 13v2" /></svg
+            ><svg
+              v-else-if="entry.icon === 'pipeline'"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><circle cx="5" cy="6" r="2" /><circle cx="19" cy="6" r="2" /><circle
+                cx="12"
+                cy="18"
+                r="2" /><path d="M7 6h10" /><path
+                d="M5 8v5a2 2 0 0 0 2 2h2.5" /><path d="M19 8v2.5" /><path
+                d="M16.5 15 12 18l-4.5-3" /></svg></span
           >{{ entry.label
           }}<em
             v-if="entry.routeName === 'notifications' && unreadCount > 0"

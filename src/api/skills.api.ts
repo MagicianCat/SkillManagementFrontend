@@ -8,6 +8,7 @@ import type {
   SkillView,
   UploadDraftResponse,
   VersionView,
+  SkillFeedbackPage,
 } from '../types/skill'
 
 export interface SkillListParams {
@@ -18,6 +19,22 @@ export interface SkillListParams {
   page: number
   size: number
   sort?: string
+  platform?: string
+  osType?: string
+}
+
+export async function getSkillFeedback(skillKey: string, page = 0) {
+  const { data } = await http.get<SkillFeedbackPage>(`/skills/${encodeURIComponent(skillKey)}/feedback`, { params: { page, size: 20, sort: 'timeCreated,desc' } })
+  return data
+}
+
+export async function saveSkillFeedback(skillKey: string, rating: number, comment: string) {
+  const { data } = await http.put(`/skills/${encodeURIComponent(skillKey)}/feedback`, { rating, comment })
+  return data
+}
+
+export async function deleteSkillFeedback(skillKey: string) {
+  await http.delete(`/skills/${encodeURIComponent(skillKey)}/feedback`)
 }
 
 export async function getSkillCategories() {

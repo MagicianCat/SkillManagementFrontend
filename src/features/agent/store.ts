@@ -28,6 +28,8 @@ export const useAgentStore = defineStore('agent', () => {
   const toolStatus = ref('')
   const error = ref('')
   const activeRunKey = ref<string | null>(null)
+  const platform = ref('')
+  const osType = ref('')
   let streamController: AbortController | null = null
 
   const running = computed(() => Boolean(activeRunKey.value))
@@ -68,7 +70,7 @@ export const useAgentStore = defineStore('agent', () => {
     if (available) {
       await selectSession(available.sessionKey)
     } else {
-      current.value = await createAgentSession()
+      current.value = await createAgentSession(platform.value || undefined, osType.value || undefined)
       await refreshSessions()
     }
     return current.value!
@@ -76,7 +78,7 @@ export const useAgentStore = defineStore('agent', () => {
 
   async function newSession() {
     if (running.value) return
-    current.value = await createAgentSession()
+    current.value = await createAgentSession(platform.value || undefined, osType.value || undefined)
     streamingText.value = ''
     toolStatus.value = ''
     await refreshSessions()
@@ -167,6 +169,11 @@ export const useAgentStore = defineStore('agent', () => {
     await reloadCurrent()
   }
 
+  function setContext(nextPlatform: string, nextOsType: string) {
+    platform.value = nextPlatform
+    osType.value = nextOsType
+  }
+
   return {
     sessions,
     current,
@@ -185,5 +192,8 @@ export const useAgentStore = defineStore('agent', () => {
     removeSession,
     send,
     cancel,
+    platform,
+    osType,
+    setContext,
   }
 })

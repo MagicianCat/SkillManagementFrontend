@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { getAuthProviders, getFeishuAuthorizeUrl } from '../api/auth.api'
 
 const router = useRouter()
 const route = useRoute()
@@ -12,6 +13,23 @@ const form = reactive({ username: '', password: '' })
 const submitting = ref(false)
 const errorMessage = ref('')
 const requestId = ref('')
+const feishuEnabled = ref(false)
+const feishuLoading = ref(false)
+const OAUTH_REDIRECT_KEY = 'skill-management.oauth-redirect'
+
+onMounted(async () => {
+  try { feishuEnabled.value = (await getAuthProviders()).providers.includes('feishu') } catch { feishuEnabled.value = false }
+})
+
+async function loginWithFeishu() {
+  feishuLoading.value = true
+  try {
+    const redirectPath = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/') ? route.query.redirect : '/skills'
+    sessionStorage.setItem(OAUTH_REDIRECT_KEY, redirectPath)
+    const authorizeUrl = await getFeishuAuthorizeUrl(redirectPath)
+    window.location.assign(authorizeUrl)
+  } catch { ElMessage.error('飞书登录暂不可用，请稍后重试') } finally { feishuLoading.value = false }
+}
 
 async function submit() {
   errorMessage.value = ''
@@ -111,6 +129,10 @@ function showProviderNotice() {
           >{{ submitting ? '登录中…' : '登录' }}
         </button>
       </form>
+      <div v-if="feishuEnabled" class="oauth-divider"><span>或</span></div>
+      <button v-if="feishuEnabled" class="feishu-login" type="button" :disabled="feishuLoading" @click="loginWithFeishu">
+        {{ feishuLoading ? '正在跳转…' : '使用飞书登录 / 扫码登录' }}
+      </button>
       <p class="login-panel__footer">
         登录即表示你同意遵守平台的访问与使用规范。
       </p>

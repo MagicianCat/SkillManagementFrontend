@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
   if (!env.VITE_API_BASE_URL) {
     throw new Error('VITE_API_BASE_URL is required')
   }
-  const apiUrl = new URL(env.VITE_API_BASE_URL)
+  const apiUrl = new URL(env.VITE_API_BASE_URL, 'http://127.0.0.1:8090')
 
   return {
     plugins: [vue()],

@@ -67,6 +67,26 @@ export interface SkillView {
   versionNo: number
   latestPublishedVersion: string | null
   activeDraftVersionId: number | null
+  scopeType?: 'PLATFORM' | 'TEAM'
+  teamId?: number | null
+}
+
+export interface SkillFeedback {
+  id: number
+  userId: number
+  userName: string
+  rating: number
+  comment: string | null
+  createdAt: string
+  versionNo: number
+}
+
+export interface SkillFeedbackPage {
+  averageRating: number
+  ratingCount: number
+  downloadCount: number
+  mine: SkillFeedback | null
+  items: { content: SkillFeedback[]; totalElements: number; totalPages: number }
 }
 
 export interface VersionView {
@@ -142,4 +162,5 @@ export interface CreateSkillRequest {
   ownerUserIds?: number[]
   tagIds?: number[]
   developmentStage?: DevelopmentStage
+  teamId?: number | null
 }

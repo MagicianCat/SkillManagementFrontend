@@ -13,10 +13,10 @@ export async function getAgentProfiles() {
   return data
 }
 
-export async function createAgentSession() {
+export async function createAgentSession(platform?: string, osType?: string) {
   const { data } = await http.post<AgentSessionDetail>('/agent/sessions', {
     profileKey: 'skill-advisor',
-    context: {},
+    context: { platform: platform || null, osType: osType || null },
   })
   return data
 }

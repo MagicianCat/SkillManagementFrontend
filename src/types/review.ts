@@ -29,6 +29,7 @@ export interface ReviewView {
   reviewedAt: string | null
   submitComment: string
   reviewComment: string | null
+  reviewScope?: 'TEAM' | 'PLATFORM'
 }
 
 export interface BatchReviewItem {

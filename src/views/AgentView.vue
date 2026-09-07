@@ -25,6 +25,11 @@ async function create() {
   if (store.current) await router.replace({ name: 'agent', query: { session: store.current.session.sessionKey } })
 }
 
+function changeContext(event: Event, kind: 'platform' | 'osType') {
+  const value = (event.target as unknown as { value: string }).value
+  store.setContext(kind === 'platform' ? value : store.platform, kind === 'osType' ? value : store.osType)
+}
+
 onMounted(() => void loadRequestedSession())
 watch(() => route.query.session, () => void loadRequestedSession())
 </script>
@@ -47,7 +52,7 @@ watch(() => route.query.session, () => void loadRequestedSession())
       </button>
     </aside>
     <section class="agent-workspace">
-      <header><div><h1>Agent 助手</h1><p>根据研发需求推荐内部 Skill</p></div></header>
+      <header><div><h1>Agent 助手</h1><p>根据研发需求推荐内部 Skill</p></div><div class="agent-selectors"><label>平台<select :value="store.platform" @change="changeContext($event, 'platform')"><option value="">默认</option><option value="CODEBUDDY">CodeBuddy</option><option value="OPENCODE">OpenCode</option></select></label><label>系统<select :value="store.osType" @change="changeContext($event, 'osType')"><option value="">默认</option><option value="ANY">通用</option><option value="WINDOWS">Windows</option><option value="MACOS">macOS</option><option value="LINUX">Linux</option></select></label></div></header>
       <AgentChat />
     </section>
     <aside class="agent-context">

@@ -6,12 +6,16 @@ import {
   getSkill,
   getSkillVersions,
   downloadSkillVersion,
+  getSkillFeedback,
+  saveSkillFeedback,
+  deleteSkillFeedback,
 } from '../api/skills.api'
 import { saveBlobResponse } from '../utils/download'
 import {
   developmentStageLabel,
   type SkillView,
   type VersionView,
+  type SkillFeedbackPage,
 } from '../types/skill'
 
 const route = useRoute()
@@ -19,8 +23,12 @@ const router = useRouter()
 const skill = ref<SkillView | null>(null)
 const versions = ref<VersionView[]>([])
 const selectedId = ref<number | null>(null)
-const platform = ref('CODEBUDDY')
-const osType = ref('ANY')
+const platform = ref(typeof route.query.platform === 'string' ? route.query.platform : 'CODEBUDDY')
+const osType = ref(typeof route.query.osType === 'string' ? route.query.osType : 'ANY')
+const feedback = ref<SkillFeedbackPage | null>(null)
+const myRating = ref(0)
+const myComment = ref('')
+const feedbackBusy = ref(false)
 const loading = ref(true)
 const downloading = ref(false)
 const errorMessage = ref('')
@@ -48,12 +56,16 @@ async function load() {
   loading.value = true
   errorMessage.value = ''
   try {
-    const [skillResult, versionsResult] = await Promise.all([
+    const [skillResult, versionsResult, feedbackResult] = await Promise.all([
       getSkill(skillKey.value),
       getSkillVersions(skillKey.value),
+      getSkillFeedback(skillKey.value),
     ])
     skill.value = skillResult
     versions.value = versionsResult
+    feedback.value = feedbackResult
+    myRating.value = feedbackResult.mine?.rating ?? 0
+    myComment.value = feedbackResult.mine?.comment ?? ''
     selectedId.value =
       downloadable.value[0]?.id ?? versionsResult[0]?.id ?? null
   } catch (error: unknown) {
@@ -63,6 +75,18 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+async function saveFeedback() {
+  if (!myRating.value) return
+  feedbackBusy.value = true
+  try { await saveSkillFeedback(skillKey.value, myRating.value, myComment.value); feedback.value = await getSkillFeedback(skillKey.value); }
+  finally { feedbackBusy.value = false }
+}
+async function removeFeedback() {
+  feedbackBusy.value = true
+  try { await deleteSkillFeedback(skillKey.value); myRating.value = 0; myComment.value = ''; feedback.value = await getSkillFeedback(skillKey.value); }
+  finally { feedbackBusy.value = false }
 }
 
 async function download() {
@@ -210,11 +234,17 @@ onMounted(load)
           </button>
         </aside>
       </div>
+      <section v-if="feedback" class="feedback-section">
+        <div class="feedback-summary"><strong>评分 {{ feedback.averageRating.toFixed(1) }} / 5</strong><span>{{ feedback.ratingCount }} 条评价 · {{ feedback.downloadCount }} 次下载</span></div>
+        <div class="feedback-editor"><div class="stars" role="radiogroup" aria-label="评分"><button v-for="star in 5" :key="star" type="button" :aria-label="`${star} 分`" :class="{ active: star <= myRating }" @click="myRating = star">★</button></div><textarea v-model="myComment" maxlength="2000" placeholder="分享你对这个 Skill 的使用体验（可选）"></textarea><div><button class="download-button" :disabled="feedbackBusy || !myRating" @click="saveFeedback">提交评价</button><button v-if="feedback.mine" class="link-button" :disabled="feedbackBusy" @click="removeFeedback">删除我的评价</button></div></div>
+        <div class="feedback-list"><article v-for="item in feedback.items.content" :key="item.id" class="feedback-item"><div><strong>{{ item.userName }}</strong><span class="stars readonly">{{ '★'.repeat(item.rating) }}{{ '☆'.repeat(5 - item.rating) }}</span></div><p v-if="item.comment">{{ item.comment }}</p></article><p v-if="!feedback.items.content.length" class="download-help">还没有评价，欢迎成为第一位评价者。</p></div>
+      </section>
     </template>
   </div>
 </template>
 
 <style scoped>
+.feedback-section{margin-top:22px;padding:22px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}.feedback-summary{display:flex;justify-content:space-between;align-items:center;color:#64748b;font-size:12px}.feedback-summary strong{color:#0f172a;font-size:20px}.feedback-editor{display:grid;gap:10px;margin:18px 0;padding-bottom:18px;border-bottom:1px solid #e2e8f0}.stars{display:flex;gap:2px}.stars button{border:0;background:transparent;color:#cbd5e1;font-size:25px;cursor:pointer}.stars button.active,.stars.readonly{color:#f59e0b}.stars.readonly{font-size:14px;margin-left:8px}.feedback-editor textarea{min-height:70px;padding:10px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;resize:vertical}.feedback-item{padding:12px 0;border-bottom:1px solid #f1f5f9}.feedback-item strong{font-size:13px;color:#334155}.feedback-item p{margin:7px 0 0;color:#475569;font-size:13px;white-space:pre-wrap}
 .detail-header__badges {
   display: flex;
   flex: 0 0 auto;

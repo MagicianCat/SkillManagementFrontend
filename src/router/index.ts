@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import NotFoundView from '../views/NotFoundView.vue'
 import ForbiddenView from '../views/ForbiddenView.vue'
-import PlaceholderView from '../views/PlaceholderView.vue'
 import LoginView from '../views/LoginView.vue'
 import { useAuthStore } from '../stores/auth'
 import { hasAnyPermission, type Permission } from '../types/permissions'
@@ -81,9 +80,8 @@ const router = createRouter({
         {
           path: 'agent',
           name: 'agent',
-          component: PlaceholderView,
-          props: { title: 'Agent 助手' },
-          meta: { title: 'Agent 助手' },
+          component: () => import('../views/AgentView.vue'),
+          meta: { title: 'Agent 助手', permissions: ['skill:browse'] },
         },
         {
           path: '403',

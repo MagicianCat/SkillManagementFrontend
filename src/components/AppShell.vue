@@ -10,6 +10,7 @@ import {
   unreadNotificationCount,
 } from '../api/notifications.api'
 import type { NotificationView } from '../types/notification'
+import AgentFloatingWindow from '../features/agent/AgentFloatingWindow.vue'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -298,5 +299,12 @@ async function signOut() {
       </header>
       <main class="workspace-content"><RouterView /></main>
     </div>
+    <AgentFloatingWindow
+      v-if="
+        agentEnabled &&
+        route.name !== 'agent' &&
+        hasPermission(authStore.user?.permissions, 'skill:browse')
+      "
+    />
   </div>
 </template>

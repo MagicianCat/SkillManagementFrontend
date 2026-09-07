@@ -11,6 +11,15 @@ npm run dev
 
 默认访问地址为 `http://127.0.0.1:5173`。
 
+所有后端 HTTP 和 SSE 请求统一由 `VITE_API_BASE_URL` 配置。例如本地后端运行在
+8090 时：
+
+```dotenv
+VITE_API_BASE_URL=http://127.0.0.1:8090/api/v1
+```
+
+开发服务器会自动把 `/api/v1` 转发到该地址，无需在代码或 Vite 配置中重复填写端口。
+
 ## 质量检查
 
 ```bash

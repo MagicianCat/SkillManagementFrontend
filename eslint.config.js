@@ -15,6 +15,17 @@ export default tseslint.config(
       globals: {
         clearTimeout: 'readonly',
         setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        window: 'readonly',
+        document: 'readonly',
+        File: 'readonly',
+        Event: 'readonly',
+        HTMLInputElement: 'readonly',
+        FormData: 'readonly',
+        URL: 'readonly',
+        Blob: 'readonly',
+        sessionStorage: 'readonly',
       },
       parserOptions: {
         parser: tseslint.parser,

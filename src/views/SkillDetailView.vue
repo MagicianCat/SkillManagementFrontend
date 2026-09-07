@@ -8,7 +8,11 @@ import {
   downloadSkillVersion,
 } from '../api/skills.api'
 import { saveBlobResponse } from '../utils/download'
-import type { SkillView, VersionView } from '../types/skill'
+import {
+  developmentStageLabel,
+  type SkillView,
+  type VersionView,
+} from '../types/skill'
 
 const route = useRoute()
 const router = useRouter()
@@ -110,9 +114,19 @@ onMounted(load)
             {{ skill.description || '暂无描述' }}
           </p>
         </div>
-        <span class="status-badge status-active">{{
-          skill.status === 'ACTIVE' ? '有效' : '已归档'
-        }}</span>
+        <div class="detail-header__badges">
+          <span
+            v-if="skill.developmentStage"
+            class="status-badge"
+            :class="`stage-${skill.developmentStage.toLowerCase()}`"
+            >{{ developmentStageLabel(skill.developmentStage) }}</span
+          >
+          <span
+            class="status-badge"
+            :class="`status-${skill.status.toLowerCase()}`"
+            >{{ skill.status === 'ACTIVE' ? '有效' : '已归档' }}</span
+          >
+        </div>
       </header>
       <div class="detail-layout">
         <section class="version-panel">
@@ -199,3 +213,36 @@ onMounted(load)
     </template>
   </div>
 </template>
+
+<style scoped>
+.detail-header__badges {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+.stage-requirement {
+  color: #0e7490;
+  background: #cffafe;
+}
+.stage-design {
+  color: #6d28d9;
+  background: #ede9fe;
+}
+.stage-frontend_coding,
+.stage-backend_coding {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+.stage-testing {
+  color: #b45309;
+  background: #fef3c7;
+}
+.stage-released {
+  color: #15803d;
+  background: #dcfce7;
+}
+.stage-other {
+  color: #475569;
+  background: #e2e8f0;
+}
+</style>

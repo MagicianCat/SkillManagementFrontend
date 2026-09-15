@@ -12,7 +12,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [vue()],
     server: {
-      host: '127.0.0.1',
+      // Bind all local interfaces so localhost (IPv4/IPv6) and 127.0.0.1
+      // use the same dev proxy for the Feishu OAuth request.
+      host: '::',
       port: 5173,
       proxy: {
         [apiUrl.pathname]: {

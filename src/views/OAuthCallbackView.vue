@@ -18,7 +18,7 @@ onMounted(async () => {
     await authStore.authenticateFeishu(code, state)
     const storedRedirect = sessionStorage.getItem(OAUTH_REDIRECT_KEY)
     sessionStorage.removeItem(OAUTH_REDIRECT_KEY)
-    const redirect = storedRedirect && storedRedirect.startsWith('/') ? storedRedirect : '/skills'
+    const redirect = storedRedirect && storedRedirect.startsWith('/') ? storedRedirect : '/agent'
     await router.replace(redirect)
   } catch (err: unknown) {
     message.value = axios.isAxiosError(err) ? (err.response?.data?.message ?? '飞书登录失败，请重试') : '飞书登录失败，请重试'

@@ -4,6 +4,7 @@ import { apiBaseUrl } from '../config/api'
 export const http = axios.create({
   baseURL: apiBaseUrl,
   timeout: 15_000,
+  withCredentials: true,
   headers: {
     Accept: 'application/json',
   },

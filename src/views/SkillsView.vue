@@ -2,15 +2,13 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
-import { getSkillCategories, getSkills, openDraft } from '../api/skills.api'
+import { getSkills, openDraft } from '../api/skills.api'
 import { useAuthStore } from '../stores/auth'
 import { hasPermission } from '../types/permissions'
 import {
-  DEVELOPMENT_STAGES,
   developmentStageLabel,
   type DevelopmentStage,
   type PageResponse,
-  type SkillCategory,
   type SkillView,
 } from '../types/skill'
 
@@ -21,7 +19,6 @@ const keywordInput = ref(
   typeof route.query.keyword === 'string' ? route.query.keyword : '',
 )
 const response = ref<PageResponse<SkillView> | null>(null)
-const categories = ref<SkillCategory[]>([])
 const loading = ref(false)
 const errorMessage = ref('')
 let debounceTimer: ReturnType<typeof setTimeout> | undefined
@@ -57,12 +54,38 @@ const selectedStage = computed(() =>
     ? route.query.developmentStage
     : '',
 )
+const selectedStages = computed(() => new Set(selectedStage.value.split(',').filter(Boolean)))
 const page = computed(() => Number(route.query.page || 0))
-const selectedCategoryId = computed(() =>
-  typeof route.query.categoryId === 'string' ? route.query.categoryId : '',
-)
 const selectedPlatform = computed(() => typeof route.query.platform === 'string' ? route.query.platform : '')
 const selectedOsType = computed(() => typeof route.query.osType === 'string' ? route.query.osType : '')
+
+const stageFilterTree: Array<{
+  id: string
+  label: string
+  values: DevelopmentStage[]
+  parallel?: boolean
+  children?: Array<{ id: string; label: string; values: DevelopmentStage[] }>
+}> = [
+  { id: 'requirements', label: '需求', values: ['REQUIREMENT'] },
+  { id: 'product', label: '产品', values: ['PRODUCT'] },
+  {
+    id: 'design', label: '设计阶段', values: ['ARCHITECTURE_DESIGN', 'UI_DESIGN'], parallel: true,
+    children: [
+      { id: 'architecture', label: '架构设计', values: ['ARCHITECTURE_DESIGN'] },
+      { id: 'ui', label: 'UI 设计', values: ['UI_DESIGN'] },
+    ],
+  },
+  {
+    id: 'coding', label: '编码阶段', values: ['FRONTEND_CODING', 'BACKEND_CODING'], parallel: true,
+    children: [
+      { id: 'frontend', label: '前端编码', values: ['FRONTEND_CODING'] },
+      { id: 'backend', label: '后端编码', values: ['BACKEND_CODING'] },
+    ],
+  },
+  { id: 'security', label: '安全审核', values: ['SECURITY_REVIEW'] },
+  { id: 'testing', label: '测试', values: ['TESTING'] },
+  { id: 'deployment', label: '部署', values: ['DEPLOYMENT'] },
+]
 
 async function fetchSkills() {
   loading.value = true
@@ -74,9 +97,6 @@ async function fetchSkills() {
           ? route.query.keyword
           : undefined,
       developmentStage: (selectedStage.value as DevelopmentStage) || undefined,
-      categoryId: selectedCategoryId.value
-        ? Number(selectedCategoryId.value)
-        : undefined,
       status: 'ACTIVE',
       platform: selectedPlatform.value || undefined,
       osType: selectedOsType.value || undefined,
@@ -106,16 +126,17 @@ function updateQuery(values: Record<string, string | undefined>) {
   void router.push({ query })
 }
 
-function selectStage(value?: DevelopmentStage) {
+function selectStage(values: DevelopmentStage[]) {
+  const next = new Set(selectedStages.value)
+  const hasAll = values.every((value) => next.has(value))
+  values.forEach((value) => (hasAll ? next.delete(value) : next.add(value)))
   updateQuery({
-    developmentStage:
-      value && selectedStage.value !== value ? value : undefined,
+    developmentStage: [...next].join(',') || undefined,
   })
 }
 
-function selectCategory(event: Event) {
-  const value = (event.target as { value?: string } | null)?.value ?? ''
-  updateQuery({ categoryId: value || undefined })
+function isStageSelected(values: DevelopmentStage[]) {
+  return values.every((value) => selectedStages.value.has(value))
 }
 
 function onKeywordInput() {
@@ -134,6 +155,22 @@ function goToPage(nextPage: number) {
 
 function openSkill(skillKey: string) {
   void router.push({ name: 'skill-detail', params: { skillKey }, query: { ...route.query } })
+}
+
+function skillStage(skill: SkillView): DevelopmentStage | null {
+  return skill.category?.stage ?? skill.developmentStage
+}
+
+function skillStageClass(skill: SkillView): string {
+  const stage = skillStage(skill)
+  return stage ? `stage-${stage.toLowerCase()}` : ''
+}
+
+function handleSkillCardKeydown(event: KeyboardEvent, skillKey: string) {
+  if (event.target !== event.currentTarget) return
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  openSkill(skillKey)
 }
 
 async function editSkill(skill: SkillView) {
@@ -167,9 +204,6 @@ watch(
 )
 onMounted(() => {
   void fetchSkills()
-  void getSkillCategories().then((items) => {
-    categories.value = items
-  })
 })
 </script>
 
@@ -199,19 +233,6 @@ onMounted(() => {
           placeholder="根据 skill 名称搜索..."
           @input="onKeywordInput"
       /></label>
-      <label class="category-filter">
-        <span>分类</span>
-        <select :value="selectedCategoryId" @change="selectCategory">
-          <option value="">全部分类</option>
-          <option
-            v-for="category in categories"
-            :key="category.id"
-            :value="category.id"
-          >
-            {{ category.name }}
-          </option>
-        </select>
-      </label>
       <label class="category-filter"><span>平台</span><select :value="selectedPlatform" @change="updateQuery({ platform: (($event.target as HTMLSelectElement).value || undefined) })"><option value="">默认平台</option><option value="CODEBUDDY">CodeBuddy</option><option value="OPENCODE">OpenCode</option></select></label>
       <label class="category-filter"><span>系统</span><select :value="selectedOsType" @change="updateQuery({ osType: (($event.target as HTMLSelectElement).value || undefined) })"><option value="">默认系统</option><option value="ANY">通用</option><option value="WINDOWS">Windows</option><option value="MACOS">macOS</option><option value="LINUX">Linux</option></select></label>
       <span v-if="response" class="result-count"
@@ -221,22 +242,19 @@ onMounted(() => {
     <div class="market-body">
       <aside class="stage-filter" aria-label="开发阶段筛选">
         <p class="filter-label">开发阶段</p>
-        <button
-          class="stage-option"
-          :class="{ 'is-selected': !selectedStage }"
-          @click="selectStage(undefined)"
-        >
+        <t-button class="stage-option" variant="text" :class="{ 'is-selected': !selectedStage }" @click="updateQuery({ developmentStage: undefined })">
           全部
-        </button>
-        <button
-          v-for="stage in DEVELOPMENT_STAGES"
-          :key="stage.value"
-          class="stage-option"
-          :class="{ 'is-selected': selectedStage === stage.value }"
-          @click="selectStage(stage.value)"
-        >
-          {{ stage.label }}
-        </button>
+        </t-button>
+        <div v-for="node in stageFilterTree" :key="node.id" class="stage-tree-node">
+          <t-button class="stage-option" variant="text" :class="{ 'is-selected': isStageSelected(node.values) }" @click="selectStage(node.values)">
+            <span class="stage-option__marker">{{ isStageSelected(node.values) ? '✓' : '○' }}</span>{{ node.label }}<small v-if="node.parallel">并行</small>
+          </t-button>
+          <div v-if="node.children" class="stage-tree-children">
+            <t-button v-for="child in node.children" :key="child.id" class="stage-option stage-option--child" variant="text" :class="{ 'is-selected': isStageSelected(child.values) }" @click="selectStage(child.values)">
+              <span class="stage-option__marker">{{ isStageSelected(child.values) ? '✓' : '○' }}</span>{{ child.label }}
+            </t-button>
+          </div>
+        </div>
       </aside>
       <section class="skill-results" aria-live="polite">
         <div v-if="loading" class="result-state">正在加载 Skill…</div>
@@ -251,21 +269,25 @@ onMounted(() => {
             v-for="skill in response.items"
             :key="skill.id"
             class="skill-card"
+            role="link"
+            tabindex="0"
+            @click="openSkill(skill.skillKey)"
+            @keydown="handleSkillCardKeydown($event, skill.skillKey)"
           >
             <div class="skill-card__top">
               <div class="skill-icon">□</div>
               <div class="skill-card__badges">
                 <span
-                  v-if="skill.developmentStage"
+                  v-if="skillStage(skill)"
                   class="status-badge"
-                  :class="`stage-${skill.developmentStage.toLowerCase()}`"
-                  >{{ developmentStageLabel(skill.developmentStage) }}</span
+                  :class="skillStageClass(skill)"
+                  >{{ developmentStageLabel(skillStage(skill)) }}</span
                 >
               </div>
             </div>
             <button
               class="skill-card__title"
-              @click="openSkill(skill.skillKey)"
+              @click.stop="openSkill(skill.skillKey)"
             >
               {{ skill.displayName }}<small>{{ skill.skillKey }}</small>
             </button>
@@ -287,7 +309,7 @@ onMounted(() => {
                 }}</span>
               </div>
               <div class="skill-card__actions">
-                <button class="link-button" @click="openSkill(skill.skillKey)">
+                <button class="link-button" @click.stop="openSkill(skill.skillKey)">
                   查看
                 </button>
                 <button
@@ -335,22 +357,22 @@ onMounted(() => {
 .btn-primary {
   border: 0;
   color: #fff;
-  background: #4f46e5;
+  background: #e86600;
 }
 .btn-primary:hover:not(:disabled) {
-  background: #4338ca;
+  background: #c25400;
 }
 .btn-primary:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 .btn-secondary {
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dfcfb8;
   color: #475569;
   background: #fff;
 }
 .btn-secondary:hover:not(:disabled) {
-  background: #f8fafc;
+  background: #fbf6f0;
 }
 .category-filter {
   display: flex;
@@ -364,7 +386,7 @@ onMounted(() => {
   height: 38px;
   min-width: 132px;
   padding: 0 30px 0 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #ece1d2;
   border-radius: 7px;
   color: #334155;
   background: #fff;
@@ -372,8 +394,8 @@ onMounted(() => {
   outline: none;
 }
 .category-filter select:focus {
-  border-color: #818cf8;
-  box-shadow: 0 0 0 2px rgb(99 102 241 / 15%);
+  border-color: #ff9a3d;
+  box-shadow: 0 0 0 2px rgb(232 102 0 / 20%);
 }
 .skill-card__actions {
   display: flex;
@@ -383,10 +405,10 @@ onMounted(() => {
   padding: 5px 12px;
   border-radius: 6px;
   color: #fff;
-  background: #4f46e5;
+  background: #e86600;
 }
 .link-button--primary:hover {
-  background: #4338ca;
+  background: #c25400;
 }
 .inline-error {
   margin: 0;
@@ -401,7 +423,7 @@ onMounted(() => {
 }
 .stage-filter {
   padding: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #ece1d2;
   border-radius: 10px;
   background: #fff;
 }
@@ -428,8 +450,34 @@ onMounted(() => {
 }
 .stage-option:hover,
 .stage-option.is-selected {
-  color: #4f46e5;
-  background: #eef2ff;
+  color: #e86600;
+  background: #fff1e0;
+}
+.stage-tree-node + .stage-tree-node {
+  margin-top: 3px;
+}
+.stage-tree-children {
+  margin: 2px 0 5px 15px;
+  padding-left: 8px;
+  border-left: 1px solid #ffe0c2;
+}
+.stage-option--child {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  color: #7a6a58;
+  font-size: 11px;
+}
+.stage-option__marker {
+  display: inline-block;
+  width: 18px;
+  color: #e86600;
+  font-size: 12px;
+  font-weight: 700;
+}
+.stage-option small {
+  margin-left: auto;
+  color: #b34a00;
+  font-size: 9px;
 }
 @media (max-width: 720px) {
   .market-body {
@@ -453,28 +501,43 @@ onMounted(() => {
   gap: 6px;
 }
 .stage-requirement {
-  color: #0e7490;
-  background: #cffafe;
+  color: #0f766e;
+  background: #ccfbf1;
+}
+.stage-product {
+  color: #c2410c;
+  background: #ffedd5;
+}
+.stage-architecture_design {
+  color: #6d28d9;
+  background: #ede9fe;
+}
+.stage-ui_design {
+  color: #be185d;
+  background: #fce7f3;
 }
 .stage-design {
   color: #6d28d9;
   background: #ede9fe;
 }
-.stage-frontend_coding,
-.stage-backend_coding {
+.stage-frontend_coding {
   color: #1d4ed8;
   background: #dbeafe;
 }
+.stage-backend_coding {
+  color: #4338ca;
+  background: #e0e7ff;
+}
 .stage-testing {
-  color: #b45309;
+  color: #a16207;
   background: #fef3c7;
 }
-.stage-released {
+.stage-security_review {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+.stage-deployment {
   color: #15803d;
   background: #dcfce7;
-}
-.stage-other {
-  color: #475569;
-  background: #e2e8f0;
 }
 </style>

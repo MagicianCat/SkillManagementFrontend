@@ -10,9 +10,16 @@ import SkillCreateView from '../views/SkillCreateView.vue'
 import SkillDraftView from '../views/SkillDraftView.vue'
 import ReviewsView from '../views/ReviewsView.vue'
 import ReviewDetailView from '../views/ReviewDetailView.vue'
+import WikiReviewsView from '../views/WikiReviewsView.vue'
+import WikiReviewDetailView from '../views/WikiReviewDetailView.vue'
 import NotificationsView from '../views/NotificationsView.vue'
 import OrganizationView from '../views/OrganizationView.vue'
 import OAuthCallbackView from '../views/OAuthCallbackView.vue'
+import WikiView from '../views/WikiView.vue'
+import MobileSkillDetailView from '../views/MobileSkillDetailView.vue'
+import AgentMcpAuditView from '../views/AgentMcpAuditView.vue'
+import IdeAuthorizeView from '../views/IdeAuthorizeView.vue'
+import SkillUsageDashboardView from '../views/SkillUsageDashboardView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -38,11 +45,23 @@ const router = createRouter({
       meta: { title: '飞书登录' },
     },
     {
+      path: '/m/skills/:skillKey',
+      name: 'mobile-skill-detail',
+      component: MobileSkillDetailView,
+      meta: { title: 'Skill 详情', requiresAuth: true, permissions: ['skill:browse'] },
+    },
+    {
+      path: '/ide/authorize',
+      name: 'ide-authorize',
+      component: IdeAuthorizeView,
+      meta: { title: '授权 CodeBuddy', requiresAuth: true },
+    },
+    {
       path: '/',
       component: () => import('../components/AppShell.vue'),
       meta: { requiresAuth: true },
       children: [
-        { path: '', name: 'home', redirect: { name: 'skills' } },
+        { path: '', name: 'home', redirect: { name: 'agent' } },
         {
           path: 'skills',
           name: 'skills',
@@ -62,6 +81,12 @@ const router = createRouter({
           meta: { title: 'Skill 详情', permissions: ['skill:browse'] },
         },
         {
+          path: 'wiki',
+          name: 'wiki',
+          component: WikiView,
+          meta: { title: '团队 Wiki', permissions: ['skill:browse'] },
+        },
+        {
           path: 'skills/:skillKey/draft',
           name: 'skill-draft',
           component: SkillDraftView,
@@ -71,7 +96,25 @@ const router = createRouter({
           path: 'reviews',
           name: 'reviews',
           component: ReviewsView,
-          meta: { title: '审核中心', permissions: ['skill:review'] },
+          meta: { title: '审核中心', permissions: ['skill:review', 'wiki:review'] },
+        },
+        {
+          path: 'wiki-reviews',
+          name: 'wiki-reviews',
+          component: WikiReviewsView,
+          meta: { title: 'Wiki 审核', permissions: ['wiki:review'] },
+        },
+        {
+          path: 'agent/mcp-audits',
+          name: 'agent-mcp-audits',
+          component: AgentMcpAuditView,
+          meta: { title: 'Agent MCP 审计', permissions: ['admin:audit'] },
+        },
+        {
+          path: 'admin/skill-usage',
+          name: 'skill-usage-dashboard',
+          component: SkillUsageDashboardView,
+          meta: { title: 'Skill 使用看板' },
         },
         {
           path: 'organization',
@@ -84,6 +127,12 @@ const router = createRouter({
           name: 'review-detail',
           component: ReviewDetailView,
           meta: { title: '审核详情', permissions: ['skill:review'] },
+        },
+        {
+          path: 'wiki-reviews/:reviewId',
+          name: 'wiki-review-detail',
+          component: WikiReviewDetailView,
+          meta: { title: 'Wiki 审核详情', permissions: ['wiki:review'] },
         },
         {
           path: 'notifications',
@@ -101,7 +150,7 @@ const router = createRouter({
           path: 'agent',
           name: 'agent',
           component: () => import('../views/AgentView.vue'),
-          meta: { title: 'Agent 助手', permissions: ['skill:browse'] },
+          meta: { title: '研途助手', permissions: ['skill:browse'] },
         },
         {
           path: '403',
@@ -115,11 +164,15 @@ const router = createRouter({
   ],
 })
 
+router.afterEach((to) => {
+  document.title = `${to.meta.title ?? '研发全流程助手'} - 研途助手`
+})
+
 router.beforeEach(async (to) => {
   const authStore = useAuthStore()
   await authStore.initialize()
   if (to.name === 'login' && authStore.isAuthenticated) {
-    return (to.query.redirect as string) || { name: 'skills' }
+    return (to.query.redirect as string) || { name: 'agent' }
   }
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }

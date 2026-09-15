@@ -16,6 +16,8 @@ import {
   type ReviewView,
 } from '../types/review'
 import type { PageResponse } from '../types/skill'
+import type { WikiTeam } from '../types/skill'
+import { searchWikiTeams } from '../api/wiki.api'
 
 const route = useRoute()
 const router = useRouter()
@@ -29,6 +31,8 @@ const response = ref<PageResponse<ReviewView> | null>(null)
 const loading = ref(false)
 const errorMessage = ref('')
 let debounceTimer: ReturnType<typeof setTimeout> | undefined
+const teams = ref<WikiTeam[]>([])
+let teamSearchTimer: ReturnType<typeof setTimeout> | undefined
 
 const selectedIds = ref<Set<number>>(new Set())
 
@@ -55,6 +59,9 @@ const selectedStatus = computed(() =>
   typeof route.query.status === 'string' ? route.query.status : 'PENDING',
 )
 const page = computed(() => Number(route.query.page || 0))
+const selectedScope = computed(() => typeof route.query.scope === 'string' ? route.query.scope : 'ALL')
+const selectedTeamId = computed(() => Number(route.query.teamId) || undefined)
+const teamOptions = computed(() => [{ label: '全部审核', value: 'ALL' }, { label: '平台级审核', value: 'PLATFORM' }, ...teams.value.map((team) => ({ label: team.name, value: `TEAM:${team.id}` }))])
 
 const statusTabs: Array<{ value: ReviewStatus | ''; label: string }> = [
   { value: 'PENDING', label: '待审核' },
@@ -85,6 +92,8 @@ async function fetchReviews() {
       page: page.value,
       size: 12,
       sort: 'submittedAt,desc',
+      scope: selectedScope.value as 'ALL' | 'PLATFORM' | 'TEAM',
+      teamId: selectedTeamId.value,
     })
     selectedIds.value = new Set()
   } catch (error: unknown) {
@@ -109,6 +118,20 @@ function updateQuery(values: Record<string, string | undefined>) {
 
 function selectStatus(value: ReviewStatus | '') {
   updateQuery({ status: value || undefined })
+}
+
+function selectTeam(value: string) {
+  if (value === 'ALL') updateQuery({ scope: undefined, teamId: undefined })
+  else if (value === 'PLATFORM') updateQuery({ scope: 'PLATFORM', teamId: undefined })
+  else updateQuery({ scope: 'TEAM', teamId: value.split(':')[1] })
+}
+
+function searchTeams(keyword = '') {
+  if (teamSearchTimer) clearTimeout(teamSearchTimer)
+  teamSearchTimer = setTimeout(async () => {
+    try { teams.value = (await searchWikiTeams(keyword)).items }
+    catch { errorMessage.value = '团队加载失败，请稍后重试' }
+  }, 300)
 }
 
 function onKeywordInput() {
@@ -249,6 +272,10 @@ function formatTime(value: string) {
   }
 }
 
+function changeReviewType(value: string | number) {
+  if (String(value) === 'wiki') void router.push({ name: 'wiki-reviews' })
+}
+
 watch(
   () => route.query,
   () => {
@@ -258,7 +285,7 @@ watch(
   },
   { deep: true },
 )
-onMounted(fetchReviews)
+onMounted(() => { searchTeams(); fetchReviews() })
 </script>
 
 <template>
@@ -270,6 +297,10 @@ onMounted(fetchReviews)
         <p class="page-subtitle">处理 Skill 版本的审核任务</p>
       </div>
     </div>
+    <t-tabs class="review-type-tabs" value="skill" @change="changeReviewType">
+      <t-tab-panel value="skill" label="Skill 审核" />
+      <t-tab-panel value="wiki" label="Wiki 审核" />
+    </t-tabs>
 
     <section class="market-toolbar" aria-label="审核任务搜索">
       <label class="search-box"
@@ -280,6 +311,7 @@ onMounted(fetchReviews)
           placeholder="按 Skill 名称或 Key 搜索..."
           @input="onKeywordInput"
       /></label>
+      <t-select class="review-team-filter" :value="selectedScope === 'PLATFORM' ? 'PLATFORM' : selectedTeamId ? `TEAM:${selectedTeamId}` : 'ALL'" filterable :options="teamOptions" placeholder="筛选团队" @search="searchTeams" @change="selectTeam" />
       <div class="status-tabs" role="tablist" aria-label="状态筛选">
         <button
           v-for="tab in statusTabs"
@@ -519,6 +551,11 @@ onMounted(fetchReviews)
 </template>
 
 <style scoped>
+.review-type-tabs {
+  margin: 18px 0;
+}
+
+.review-team-filter{width:240px;min-width:200px}
 .btn-primary,
 .btn-secondary,
 .btn-danger {
@@ -533,10 +570,10 @@ onMounted(fetchReviews)
 .btn-primary {
   border: 0;
   color: #fff;
-  background: #4f46e5;
+  background: #e86600;
 }
 .btn-primary:hover:not(:disabled) {
-  background: #4338ca;
+  background: #c25400;
 }
 .btn-primary:disabled,
 .btn-danger:disabled {
@@ -544,12 +581,12 @@ onMounted(fetchReviews)
   opacity: 0.55;
 }
 .btn-secondary {
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dfcfb8;
   color: #475569;
   background: #fff;
 }
 .btn-secondary:hover:not(:disabled) {
-  background: #f8fafc;
+  background: #fbf6f0;
 }
 .btn-danger {
   border: 0;
@@ -580,8 +617,8 @@ onMounted(fetchReviews)
 }
 .status-tab:hover,
 .status-tab.is-selected {
-  color: #4f46e5;
-  background: #eef2ff;
+  color: #e86600;
+  background: #fff1e0;
 }
 .batch-bar {
   display: flex;
@@ -589,10 +626,10 @@ onMounted(fetchReviews)
   gap: 10px;
   margin-bottom: 14px;
   padding: 10px 14px;
-  border: 1px solid #c7d2fe;
+  border: 1px solid #ffd9a3;
   border-radius: 10px;
-  color: #3730a3;
-  background: #eef2ff;
+  color: #b34a00;
+  background: #fff1e0;
   font-size: 12px;
 }
 .select-all-row {
@@ -613,18 +650,18 @@ onMounted(fetchReviews)
   align-items: flex-start;
   gap: 12px;
   padding: 16px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #ece1d2;
   border-radius: 10px;
   background: #fff;
 }
 .review-card.is-selectable {
-  border-left: 3px solid #c7d2fe;
+  border-left: 3px solid #ffd9a3;
 }
 .review-card__check {
   margin-top: 4px;
   width: 15px;
   height: 15px;
-  accent-color: #4f46e5;
+  accent-color: #e86600;
   cursor: pointer;
 }
 .review-card__main {
@@ -653,7 +690,7 @@ onMounted(fetchReviews)
   cursor: pointer;
 }
 .review-card__title:hover {
-  color: #4f46e5;
+  color: #e86600;
 }
 .review-card__title small {
   color: #64748b;
@@ -680,7 +717,7 @@ onMounted(fetchReviews)
   padding: 8px 10px;
   border-radius: 6px;
   color: #64748b;
-  background: #f8fafc;
+  background: #fbf6f0;
   font-size: 11px;
   line-height: 1.6;
 }
@@ -724,7 +761,7 @@ onMounted(fetchReviews)
 .modal-field textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dfcfb8;
   border-radius: 7px;
   color: #0f172a;
   font: inherit;
@@ -734,8 +771,8 @@ onMounted(fetchReviews)
   outline: none;
 }
 .modal-field textarea:focus {
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 3px rgb(79 70 229 / 12%);
+  border-color: #e86600;
+  box-shadow: 0 0 0 3px rgb(232 102 0 / 18%);
 }
 .modal-actions {
   display: flex;

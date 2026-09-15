@@ -12,3 +12,26 @@ export interface TokenResult {
   expiresIn: number
   user: AuthUser
 }
+
+export interface BrowserAuthResult {
+  accessToken: string
+  expiresIn: number
+  user: AuthUser
+}
+
+export interface IdeAuthorizationApprovalRequest {
+  userCode: string
+}
+
+export type IdeAuthorizationStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'DENIED'
+  | 'CONSUMED'
+  | 'EXPIRED'
+
+export interface IdeAuthorizationDetails {
+  clientName: string
+  status: IdeAuthorizationStatus
+  expiresAt: string
+}

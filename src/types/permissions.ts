@@ -4,10 +4,12 @@ export type Permission =
   | 'skill:upload'
   | 'skill:edit'
   | 'skill:review'
+  | 'wiki:review'
   | 'skill:publish'
   | 'skill:offline'
   | 'admin:identity'
   | 'admin:audit'
+  | 'admin:telemetry'
 
 export function hasPermission(
   userPermissions: readonly string[] | undefined,

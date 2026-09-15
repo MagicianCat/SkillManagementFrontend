@@ -5,12 +5,14 @@ export type LifecycleStatus =
 /** Skill 本体开发阶段（与版本 lifecycleStatus 无关），取值与后端 DevelopmentStage 枚举一致 */
 export type DevelopmentStage =
   | 'REQUIREMENT'
-  | 'DESIGN'
+  | 'PRODUCT'
+  | 'ARCHITECTURE_DESIGN'
+  | 'UI_DESIGN'
   | 'FRONTEND_CODING'
   | 'BACKEND_CODING'
+  | 'SECURITY_REVIEW'
   | 'TESTING'
-  | 'RELEASED'
-  | 'OTHER'
+  | 'DEPLOYMENT'
 
 export interface SkillTag {
   id: number
@@ -24,6 +26,8 @@ export interface SkillCategory {
   name: string
   parentId: number | null
   sortOrder: number
+  stage: DevelopmentStage
+  selectable: boolean
 }
 
 /** 开发阶段唯一文案映射（列表筛选、卡片、详情共用） */
@@ -32,12 +36,14 @@ export const DEVELOPMENT_STAGES: Array<{
   label: string
 }> = [
   { value: 'REQUIREMENT', label: '需求' },
-  { value: 'DESIGN', label: '设计' },
+  { value: 'PRODUCT', label: '产品' },
+  { value: 'ARCHITECTURE_DESIGN', label: '架构设计' },
+  { value: 'UI_DESIGN', label: 'UI 设计' },
   { value: 'FRONTEND_CODING', label: '前端编码' },
   { value: 'BACKEND_CODING', label: '后端编码' },
+  { value: 'SECURITY_REVIEW', label: '安全审核' },
   { value: 'TESTING', label: '测试' },
-  { value: 'RELEASED', label: '已发布' },
-  { value: 'OTHER', label: '其他' },
+  { value: 'DEPLOYMENT', label: '部署' },
 ]
 
 export function developmentStageLabel(
@@ -53,7 +59,7 @@ export interface SkillView {
   skillKey: string
   displayName: string
   description: string
-  categoryId: number | null
+  categoryId: number
   category?: SkillCategory | null
   tags: SkillTag[]
   owners: Array<{
@@ -69,15 +75,22 @@ export interface SkillView {
   activeDraftVersionId: number | null
   scopeType?: 'PLATFORM' | 'TEAM'
   teamId?: number | null
+  sourceUrl?: string | null
 }
 
 export interface SkillFeedback {
   id: number
   userId: number
   userName: string
-  rating: number
-  comment: string | null
+  comment: string
   createdAt: string
+  versionNo: number
+}
+
+export interface SkillRating {
+  id: number
+  rating: number
+  updatedAt: string
   versionNo: number
 }
 
@@ -85,8 +98,8 @@ export interface SkillFeedbackPage {
   averageRating: number
   ratingCount: number
   downloadCount: number
-  mine: SkillFeedback | null
-  items: { content: SkillFeedback[]; totalElements: number; totalPages: number }
+  myRating: SkillRating | null
+  comments: { content: SkillFeedback[]; number: number; totalElements: number; totalPages: number; last: boolean }
 }
 
 export interface VersionView {
@@ -158,9 +171,48 @@ export interface CreateSkillRequest {
   skillKey: string
   displayName: string
   description: string
-  categoryId?: number | null
+  categoryId: number
   ownerUserIds?: number[]
   tagIds?: number[]
-  developmentStage?: DevelopmentStage
   teamId?: number | null
+  sourceUrl?: string | null
+}
+
+export type WikiDocumentType = 'SKILL_README' | 'SKILL_GUIDE'
+
+export interface WikiTeam {
+  id: number
+  name: string
+  parentId: number | null
+}
+
+export interface WikiSkillLink {
+  id: number
+  skillKey: string
+  displayName: string
+}
+
+export interface WikiDocument {
+  id: number
+  title: string
+  documentType: WikiDocumentType
+  teamId: number | null
+  platformVisible: boolean
+  markdownContent: string
+  revisionNo: number
+  versionNo: number
+  skills: WikiSkillLink[]
+  canEdit: boolean
+  active: boolean
+  pendingPlatformReviewId: number | null
+  pendingPlatformReviewStatus: 'PENDING' | null
+}
+
+export interface WikiRevision {
+  id: number
+  revisionNo: number
+  markdownContent: string
+  createdBy: number
+  createdByName: string
+  createdAt: string
 }

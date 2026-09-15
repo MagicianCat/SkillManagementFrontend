@@ -9,11 +9,12 @@ import type {
   UploadDraftResponse,
   VersionView,
   SkillFeedbackPage,
+  WikiDocument,
 } from '../types/skill'
 
 export interface SkillListParams {
   keyword?: string
-  developmentStage?: DevelopmentStage
+  developmentStage?: DevelopmentStage | string
   categoryId?: number
   status?: SkillStatus
   page: number
@@ -28,13 +29,18 @@ export async function getSkillFeedback(skillKey: string, page = 0) {
   return data
 }
 
-export async function saveSkillFeedback(skillKey: string, rating: number, comment: string) {
-  const { data } = await http.put(`/skills/${encodeURIComponent(skillKey)}/feedback`, { rating, comment })
+export async function saveSkillRating(skillKey: string, rating: number) {
+  const { data } = await http.put(`/skills/${encodeURIComponent(skillKey)}/feedback/rating`, { rating })
   return data
 }
 
-export async function deleteSkillFeedback(skillKey: string) {
-  await http.delete(`/skills/${encodeURIComponent(skillKey)}/feedback`)
+export async function addSkillComment(skillKey: string, comment: string) {
+  const { data } = await http.post(`/skills/${encodeURIComponent(skillKey)}/feedback/comments`, { comment })
+  return data
+}
+
+export async function deleteSkillComment(skillKey: string, commentId: number) {
+  await http.delete(`/skills/${encodeURIComponent(skillKey)}/feedback/comments/${commentId}`)
 }
 
 export async function getSkillCategories() {
@@ -64,10 +70,10 @@ export async function createSkill(request: CreateSkillRequest) {
 export interface UpdateSkillMetaRequest {
   displayName: string
   description: string
-  categoryId?: number | null
+  categoryId: number
   tagIds?: number[]
-  developmentStage?: DevelopmentStage
   versionNo: number
+  sourceUrl?: string | null
 }
 
 export async function updateSkillMeta(
@@ -137,4 +143,9 @@ export async function downloadSkillVersion(
     },
   )
   return response
+}
+
+export async function getSkillWikiDocuments(skillKey: string) {
+  const { data } = await http.get<PageResponse<WikiDocument>>('/wiki/documents', { params: { skillKey, size: 50 } })
+  return data.items
 }

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
-import { createSkill, uploadDraftZip } from '../api/skills.api'
-import { DEVELOPMENT_STAGES, type DevelopmentStage } from '../types/skill'
-import { getTeamTree, type TeamView } from '../api/org.api'
+import { createSkill, getSkillCategories, uploadDraftZip } from '../api/skills.api'
+import { searchWikiTeams } from '../api/wiki.api'
+import type { SkillCategory, WikiTeam } from '../types/skill'
 
 const router = useRouter()
 
@@ -12,13 +12,22 @@ const form = reactive({
   skillKey: '',
   displayName: '',
   description: '',
-  developmentStage: 'REQUIREMENT' as DevelopmentStage,
+  sourceUrl: '',
+  categoryId: null as number | null,
   teamId: null as number | null,
 })
 const submitting = ref(false)
 const errorMessage = ref('')
 const keyConflict = ref(false)
-const teams = ref<TeamView[]>([])
+const teams = ref<WikiTeam[]>([])
+const categories = ref<SkillCategory[]>([])
+const categoryOptions = computed(() => categories.value.filter((item) => item.parentId === null).map((root) => ({
+  // 父级仅用于展开，不能 disabled，否则 TDesign 会连同叶子一起禁用。
+  label: root.name, value: root.id,
+  children: categories.value.filter((item) => item.parentId === root.id).map((leaf) => ({ label: leaf.name, value: leaf.id, disabled: !leaf.selectable })),
+})))
+const teamLoading = ref(false)
+let teamSearchTimer: ReturnType<typeof setTimeout> | undefined
 
 // 上传 ZIP 阶段
 const createdKey = ref('')
@@ -29,13 +38,33 @@ const uploadError = ref('')
 
 const KEY_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
-void getTeamTree().then((value) => { teams.value = value }).catch(() => undefined)
+function searchTeams(keyword = '') {
+  if (teamSearchTimer) clearTimeout(teamSearchTimer)
+  teamSearchTimer = setTimeout(async () => {
+    teamLoading.value = true
+    try {
+      const page = await searchWikiTeams(keyword)
+      const selectedTeam = teams.value.find((team) => team.id === form.teamId)
+      teams.value = selectedTeam && !page.items.some((team) => team.id === selectedTeam.id)
+        ? [selectedTeam, ...page.items]
+        : page.items
+    } catch {
+      errorMessage.value = '团队加载失败，请稍后重试'
+    } finally {
+      teamLoading.value = false
+    }
+  }, 300)
+}
+
+searchTeams()
+onMounted(async () => { categories.value = await getSkillCategories() })
 
 function validate(): string {
   if (!KEY_PATTERN.test(form.skillKey))
     return 'Skill Key 只能使用小写字母、数字和单个连字符分段'
   if (!form.displayName.trim()) return '请输入展示名称'
   if (!form.description.trim()) return '请输入描述'
+  if (!form.categoryId) return '请选择研发全流程分类'
   return ''
 }
 
@@ -53,8 +82,9 @@ async function submit() {
       skillKey: form.skillKey,
       displayName: form.displayName.trim(),
       description: form.description.trim(),
-      developmentStage: form.developmentStage,
+      categoryId: form.categoryId!,
       teamId: form.teamId,
+      sourceUrl: form.sourceUrl.trim() || null,
     })
     createdKey.value = form.skillKey
   } catch (error: unknown) {
@@ -180,10 +210,19 @@ function skipUpload() {
       </label>
       <label class="form-field">
         <span>可见范围</span>
-        <select v-model="form.teamId" :disabled="submitting || Boolean(createdKey)">
-          <option :value="null">平台级（全公司可见）</option>
-          <option v-for="team in teams" :key="team.id" :value="team.id">团队：{{ team.name }}</option>
-        </select>
+        <t-select
+          v-model="form.teamId"
+          filterable
+          clearable
+          :loading="teamLoading"
+          :disabled="submitting || Boolean(createdKey)"
+          :options="[
+            { label: '平台级（全公司可见）', value: null },
+            ...teams.map((team) => ({ label: `团队：${team.name}`, value: team.id })),
+          ]"
+          placeholder="选择可见范围，支持搜索团队"
+          @search="searchTeams"
+        />
       </label>
       <label class="form-field">
         <span>展示名称 <em>*</em></span>
@@ -195,19 +234,9 @@ function skipUpload() {
         />
       </label>
       <label class="form-field">
-        <span>开发阶段</span>
-        <select
-          v-model="form.developmentStage"
-          :disabled="submitting || Boolean(createdKey)"
-        >
-          <option
-            v-for="stage in DEVELOPMENT_STAGES"
-            :key="stage.value"
-            :value="stage.value"
-          >
-            {{ stage.label }}
-          </option>
-        </select>
+        <span>研发全流程分类 <em>*</em></span>
+        <t-cascader v-model="form.categoryId" :options="categoryOptions" clearable filterable
+          placeholder="请选择具体分类" :disabled="submitting || Boolean(createdKey)" />
       </label>
       <label class="form-field">
         <span>描述 <em>*</em></span>
@@ -217,6 +246,16 @@ function skipUpload() {
           placeholder="简要描述这个 Skill 的用途"
           :disabled="submitting || Boolean(createdKey)"
         ></textarea>
+      </label>
+      <label class="form-field">
+        <span>来源网址</span>
+        <input
+          v-model="form.sourceUrl"
+          type="url"
+          placeholder="例如 https://github.com/example/repository"
+          :disabled="submitting || Boolean(createdKey)"
+        />
+        <small>可填写 Skill 的官方文档、代码仓库或内部来源地址</small>
       </label>
       <p v-if="errorMessage" class="inline-error" role="alert">
         {{ errorMessage }}
@@ -251,7 +290,7 @@ function skipUpload() {
   display: grid;
   gap: 18px;
   padding: 24px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #ece1d2;
   border-radius: 10px;
   background: #fff;
 }
@@ -276,7 +315,7 @@ function skipUpload() {
 .form-field select,
 .form-field textarea {
   padding: 9px 11px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dfcfb8;
   border-radius: 7px;
   color: #1e293b;
   background: #fff;
@@ -287,8 +326,8 @@ function skipUpload() {
 .form-field input:focus,
 .form-field select:focus,
 .form-field textarea:focus {
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 3px rgb(79 70 229 / 12%);
+  border-color: #e86600;
+  box-shadow: 0 0 0 3px rgb(232 102 0 / 18%);
 }
 .form-field input.has-error {
   border-color: #dc2626;
@@ -312,22 +351,22 @@ function skipUpload() {
 .btn-primary {
   border: 0;
   color: #fff;
-  background: #4f46e5;
+  background: #e86600;
 }
 .btn-primary:hover:not(:disabled) {
-  background: #4338ca;
+  background: #c25400;
 }
 .btn-primary:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 .btn-secondary {
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dfcfb8;
   color: #475569;
   background: #fff;
 }
 .btn-secondary:hover:not(:disabled) {
-  background: #f8fafc;
+  background: #fbf6f0;
 }
 .inline-error {
   margin: 0;
@@ -363,7 +402,7 @@ function skipUpload() {
 .modal-desc code {
   padding: 1px 5px;
   border-radius: 4px;
-  background: #f1f5f9;
+  background: #f6efe5;
   font-family: var(--font-mono, monospace);
   font-size: 12px;
 }
@@ -377,7 +416,7 @@ function skipUpload() {
 }
 .modal-field input {
   padding: 8px 10px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dfcfb8;
   border-radius: 7px;
   font: inherit;
   font-size: 13px;

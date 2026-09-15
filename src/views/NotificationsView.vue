@@ -9,10 +9,13 @@ import {
   sortNotifications,
 } from '../api/notifications.api'
 import type { NotificationView } from '../types/notification'
+import { notificationContent } from '../types/notification'
 import type { PageResponse } from '../types/skill'
+import { useNotificationStore } from '../stores/notifications'
 
 const route = useRoute()
 const router = useRouter()
+const notificationStore = useNotificationStore()
 
 const response = ref<PageResponse<NotificationView> | null>(null)
 const loading = ref(false)
@@ -93,6 +96,7 @@ async function markSelected() {
     if (succeeded < selectedIds.value.size) {
       errorMessage.value = `部分通知标记失败（成功 ${succeeded}/${selectedIds.value.size}），请重试`
     }
+    await notificationStore.refresh()
     await fetchNotifications()
   } finally {
     marking.value = false
@@ -115,6 +119,7 @@ async function markAll() {
       await markNotificationsRead(unreadPage.items.map((item) => item.id))
       if (unreadPage.items.length < 50) break
     }
+    await notificationStore.refresh()
     await fetchNotifications()
   } catch (error: unknown) {
     errorMessage.value = axios.isAxiosError(error)
@@ -131,6 +136,7 @@ async function openNotification(item: NotificationView) {
     try {
       await markNotificationRead(item.id)
       item.readAt = new Date().toISOString()
+      notificationStore.decrement()
     } catch {
       // 忽略标记失败，仍允许跳转
     }
@@ -156,6 +162,20 @@ async function openNotification(item: NotificationView) {
     } else {
       void router.push({ name: 'reviews' })
     }
+  } else if (item.targetType === 'WIKI_REVIEW') {
+    if (item.targetId) {
+      void router.push({
+        name: 'wiki-review-detail',
+        params: { reviewId: item.targetId },
+      })
+    } else {
+      void router.push({ name: 'wiki-reviews' })
+    }
+  } else if (item.targetType === 'WIKI_DOCUMENT' && item.targetId) {
+    void router.push({
+      name: 'wiki',
+      query: { documentId: String(item.targetId) },
+    })
   } else if (item.skillKey) {
     void router.push({
       name: 'skill-detail',
@@ -260,7 +280,7 @@ onMounted(fetchNotifications)
           />
           <button class="notification-row__main" @click="openNotification(item)">
             <strong>{{ item.title }}</strong>
-            <span>{{ item.content }}</span>
+            <span>{{ notificationContent(item) }}</span>
             <small>{{ formatTime(item.createdAt) }}</small>
           </button>
           <span v-if="!item.readAt" class="unread-dot" title="未读"></span>
@@ -300,10 +320,10 @@ onMounted(fetchNotifications)
 .btn-primary {
   border: 0;
   color: #fff;
-  background: #4f46e5;
+  background: #e86600;
 }
 .btn-primary:hover:not(:disabled) {
-  background: #4338ca;
+  background: #c25400;
 }
 .btn-primary:disabled,
 .btn-secondary:disabled {
@@ -311,12 +331,12 @@ onMounted(fetchNotifications)
   opacity: 0.55;
 }
 .btn-secondary {
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dfcfb8;
   color: #475569;
   background: #fff;
 }
 .btn-secondary:hover:not(:disabled) {
-  background: #f8fafc;
+  background: #fbf6f0;
 }
 .status-tabs {
   display: flex;
@@ -334,8 +354,8 @@ onMounted(fetchNotifications)
 }
 .status-tab:hover,
 .status-tab.is-selected {
-  color: #4f46e5;
-  background: #eef2ff;
+  color: #e86600;
+  background: #fff1e0;
 }
 .select-all {
   display: flex;
@@ -354,19 +374,19 @@ onMounted(fetchNotifications)
   align-items: center;
   gap: 12px;
   padding: 13px 16px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #ece1d2;
   border-radius: 10px;
   background: #fff;
 }
 .notification-row.is-unread {
-  border-left: 3px solid #4f46e5;
-  background: #fafaff;
+  border-left: 3px solid #e86600;
+  background: #fff6ec;
 }
 .notification-row__check {
   width: 15px;
   height: 15px;
   flex: 0 0 15px;
-  accent-color: #4f46e5;
+  accent-color: #e86600;
   cursor: pointer;
 }
 .notification-row__main {
@@ -386,7 +406,7 @@ onMounted(fetchNotifications)
   font-size: 13px;
 }
 .is-unread .notification-row__main strong {
-  color: #4f46e5;
+  color: #e86600;
 }
 .notification-row__main span {
   overflow: hidden;
@@ -404,6 +424,6 @@ onMounted(fetchNotifications)
   height: 8px;
   flex: 0 0 8px;
   border-radius: 50%;
-  background: #4f46e5;
+  background: #e86600;
 }
 </style>

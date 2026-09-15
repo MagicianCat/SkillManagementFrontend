@@ -1,17 +1,13 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { feishuCallback, login, logout, refresh } from '../api/auth.api'
+import { feishuCallback, getFeishuDocumentAccess, logout, restoreBrowserSession } from '../api/auth.api'
 import { setAccessToken } from '../api/http'
 import type { AuthUser } from '../types/auth'
 
-const REFRESH_TOKEN_KEY = 'skill-management.refresh-token'
-
 export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref<string | null>(null)
-  const refreshToken = ref<string | null>(
-    sessionStorage.getItem(REFRESH_TOKEN_KEY),
-  )
   const user = ref<AuthUser | null>(null)
+  const feishuDocumentAccess = ref('NOT_AVAILABLE')
   const initialized = ref(false)
   const isAuthenticated = computed(() =>
     Boolean(accessToken.value && user.value),
@@ -19,52 +15,50 @@ export const useAuthStore = defineStore('auth', () => {
 
   function setSession(
     nextAccessToken: string,
-    nextRefreshToken: string,
     nextUser: AuthUser,
   ) {
     accessToken.value = nextAccessToken
     setAccessToken(nextAccessToken)
-    refreshToken.value = nextRefreshToken
     user.value = nextUser
-    sessionStorage.setItem(REFRESH_TOKEN_KEY, nextRefreshToken)
+  }
+
+  async function refreshFeishuDocumentAccess() {
+    if (!accessToken.value) { feishuDocumentAccess.value = 'NOT_AVAILABLE'; return }
+    try { feishuDocumentAccess.value = (await getFeishuDocumentAccess()).status }
+    catch { feishuDocumentAccess.value = 'NOT_AVAILABLE' }
   }
 
   function clearSession() {
     accessToken.value = null
     setAccessToken(null)
-    refreshToken.value = null
     user.value = null
-    sessionStorage.removeItem(REFRESH_TOKEN_KEY)
-  }
-
-  async function authenticate(username: string, password: string) {
-    const result = await login({ username, password, provider: 'MOCK' })
-    setSession(result.accessToken, result.refreshToken, result.user)
+    feishuDocumentAccess.value = 'NOT_AVAILABLE'
   }
 
   async function authenticateFeishu(code: string, state: string) {
     const result = await feishuCallback(code, state)
-    setSession(result.accessToken, result.refreshToken, result.user)
+    setSession(result.accessToken, result.user)
+    await refreshFeishuDocumentAccess()
   }
 
   async function initialize() {
     if (initialized.value) return
     initialized.value = true
-    if (!refreshToken.value) return
     try {
-      const result = await refresh(refreshToken.value)
-      setSession(result.accessToken, result.refreshToken, result.user)
+      const result = await restoreBrowserSession()
+      setSession(result.accessToken, result.user)
+      await refreshFeishuDocumentAccess()
     } catch {
       clearSession()
     }
   }
 
   async function signOut() {
-    const token = refreshToken.value
+    clearSession()
     try {
-      if (token) await logout(token)
-    } finally {
-      clearSession()
+      await logout()
+    } catch {
+      // 服务端登出失败不阻塞本地退出和路由跳转。
     }
   }
 
@@ -73,7 +67,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     initialized,
     isAuthenticated,
-    authenticate,
+    feishuDocumentAccess,
     authenticateFeishu,
     initialize,
     signOut,

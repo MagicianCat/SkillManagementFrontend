@@ -405,10 +405,10 @@ onMounted(loadReview)
 .btn-primary {
   border: 0;
   color: #fff;
-  background: #4f46e5;
+  background: #e86600;
 }
 .btn-primary:hover:not(:disabled) {
-  background: #4338ca;
+  background: #c25400;
 }
 .btn-primary:disabled,
 .btn-danger:disabled {
@@ -416,12 +416,12 @@ onMounted(loadReview)
   opacity: 0.55;
 }
 .btn-secondary {
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dfcfb8;
   color: #475569;
   background: #fff;
 }
 .btn-secondary:hover:not(:disabled) {
-  background: #f8fafc;
+  background: #fbf6f0;
 }
 .btn-danger {
   border: 0;
@@ -451,14 +451,14 @@ onMounted(loadReview)
   align-self: start;
   max-height: 70vh;
   overflow-y: auto;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #ece1d2;
   border-radius: 10px;
   background: #fff;
 }
 .panel-label {
   margin: 0;
   padding: 10px 12px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f6efe5;
   color: #94a3b8;
   font-size: 10px;
   font-weight: 700;
@@ -491,8 +491,8 @@ onMounted(loadReview)
 }
 .file-row:hover,
 .file-row.is-selected {
-  color: #4f46e5;
-  background: #eef2ff;
+  color: #e86600;
+  background: #fff1e0;
 }
 .file-row__path {
   overflow: hidden;
@@ -504,7 +504,7 @@ onMounted(loadReview)
   padding: 2px 5px;
   border-radius: 4px;
   color: #64748b;
-  background: #f1f5f9;
+  background: #f6efe5;
   font-size: 9px;
 }
 .review-main {
@@ -516,7 +516,7 @@ onMounted(loadReview)
 .tab-bar {
   display: flex;
   gap: 4px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #ece1d2;
 }
 .tab {
   padding: 9px 14px;
@@ -529,8 +529,8 @@ onMounted(loadReview)
   cursor: pointer;
 }
 .tab.is-selected {
-  border-bottom-color: #4f46e5;
-  color: #4f46e5;
+  border-bottom-color: #e86600;
+  color: #e86600;
   font-weight: 650;
 }
 .tab-content {
@@ -542,7 +542,7 @@ onMounted(loadReview)
 }
 .diff-card {
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #ece1d2;
   border-radius: 10px;
   background: #fff;
 }
@@ -560,7 +560,7 @@ onMounted(loadReview)
   cursor: pointer;
 }
 .diff-card__head:hover {
-  background: #f8fafc;
+  background: #fbf6f0;
 }
 .diff-card__path {
   flex: 1;
@@ -586,8 +586,8 @@ onMounted(loadReview)
   background: #dcfce7;
 }
 .diff-modified {
-  color: #1d4ed8;
-  background: #dbeafe;
+  color: #b34a00;
+  background: #ffe6c7;
 }
 .diff-deleted {
   color: #b91c1c;
@@ -596,7 +596,7 @@ onMounted(loadReview)
 .diff-card__body {
   display: grid;
   gap: 0;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #f6efe5;
 }
 .diff-pane__label {
   margin: 0;
@@ -633,7 +633,7 @@ onMounted(loadReview)
 }
 .comment-panel {
   padding: 16px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #ece1d2;
   border-radius: 10px;
   background: #fff;
 }
@@ -646,7 +646,7 @@ onMounted(loadReview)
 }
 .file-viewer {
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #ece1d2;
   border-radius: 10px;
   background: #fff;
 }
@@ -655,7 +655,7 @@ onMounted(loadReview)
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f6efe5;
   color: #1e293b;
   font-family: var(--font-mono);
   font-size: 12px;
@@ -675,7 +675,7 @@ onMounted(loadReview)
 }
 .action-panel {
   padding: 18px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #ece1d2;
   border-radius: 10px;
   background: #fff;
 }
@@ -687,7 +687,7 @@ onMounted(loadReview)
 .action-panel textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dfcfb8;
   border-radius: 7px;
   color: #0f172a;
   font: inherit;
@@ -696,8 +696,8 @@ onMounted(loadReview)
   outline: none;
 }
 .action-panel textarea:focus {
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 3px rgb(79 70 229 / 12%);
+  border-color: #e86600;
+  box-shadow: 0 0 0 3px rgb(232 102 0 / 18%);
 }
 .action-panel__buttons {
   display: flex;
@@ -714,7 +714,7 @@ onMounted(loadReview)
   padding: 10px 12px;
   border-radius: 7px;
   color: #334155 !important;
-  background: #f8fafc;
+  background: #fbf6f0;
   line-height: 1.7;
   white-space: pre-wrap;
 }

@@ -1,5 +1,6 @@
 /** 审核任务状态，与后端 ReviewStatus 枚举一致 */
 export type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
+export type WikiReviewStatus = ReviewStatus
 
 export const REVIEW_STATUS_LABELS: Record<ReviewStatus, string> = {
   PENDING: '待审核',
@@ -30,6 +31,8 @@ export interface ReviewView {
   submitComment: string
   reviewComment: string | null
   reviewScope?: 'TEAM' | 'PLATFORM'
+  teamId?: number | null
+  teamName?: string | null
 }
 
 export interface BatchReviewItem {
@@ -45,4 +48,34 @@ export interface BatchReviewResult {
   successCount: number
   failureCount: number
   items: BatchReviewItem[]
+}
+
+export interface WikiReviewSkillLink {
+  id: number
+  skillKey: string
+  displayName: string
+}
+
+export interface WikiReviewSummary {
+  reviewId: number
+  documentId: number
+  title: string
+  teamId: number | null
+  teamName: string | null
+  revisionNo: number
+  reviewNo: number
+  status: WikiReviewStatus
+  submitterId: number
+  submitterName: string
+  submittedAt: string
+  reviewerId: number | null
+  reviewerName: string | null
+  reviewedAt: string | null
+  submitComment: string | null
+  reviewComment: string | null
+}
+
+export interface WikiReview extends WikiReviewSummary {
+  markdownContent: string | null
+  skills: WikiReviewSkillLink[]
 }

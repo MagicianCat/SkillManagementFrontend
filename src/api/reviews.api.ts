@@ -12,6 +12,8 @@ export interface ReviewListParams {
   page: number
   size: number
   sort?: string
+  scope?: 'ALL' | 'PLATFORM' | 'TEAM'
+  teamId?: number
 }
 
 export async function listReviews(params: ReviewListParams) {

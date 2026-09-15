@@ -7,16 +7,20 @@ import {
   listNotifications,
   markNotificationRead,
   sortNotifications,
-  unreadNotificationCount,
 } from '../api/notifications.api'
 import type { NotificationView } from '../types/notification'
+import { notificationContent } from '../types/notification'
+import { useNotificationStore } from '../stores/notifications'
 import AgentFloatingWindow from '../features/agent/AgentFloatingWindow.vue'
+import { getSkillUsageAccessScope } from '../api/skill-usage.api'
 
 const authStore = useAuthStore()
+const notificationStore = useNotificationStore()
 const route = useRoute()
 const router = useRouter()
 
 const agentEnabled = import.meta.env.VITE_FEATURE_AGENT === 'true'
+const telemetryAccessible = ref(false)
 
 interface NavEntry {
   label: string
@@ -27,16 +31,45 @@ interface NavEntry {
 
 const navEntries = computed<NavEntry[]>(() => [
   {
+    label: '全流程助手',
+    routeName: 'agent',
+    icon: 'robot',
+    visible: agentEnabled,
+  },
+  {
     label: 'Skill 市场',
     routeName: 'skills',
     icon: 'box',
     visible: hasPermission(authStore.user?.permissions, 'skill:browse'),
   },
   {
+    label: '团队 Wiki',
+    routeName: 'wiki',
+    icon: 'book',
+    visible: hasPermission(authStore.user?.permissions, 'skill:browse'),
+  },
+  {
     label: '审核中心',
     routeName: 'reviews',
     icon: 'review',
-    visible: hasPermission(authStore.user?.permissions, 'skill:review'),
+    visible:
+      hasPermission(authStore.user?.permissions, 'skill:review') ||
+      hasPermission(authStore.user?.permissions, 'wiki:review'),
+  },
+  {
+    label: 'Agent 审计',
+    routeName: 'agent-mcp-audits',
+    icon: 'review',
+    visible: hasPermission(authStore.user?.permissions, 'admin:audit'),
+  },
+  {
+    label: 'Skill 使用看板',
+    routeName: 'skill-usage-dashboard',
+    icon: 'chart',
+    visible:
+      hasPermission(authStore.user?.permissions, 'admin:telemetry') ||
+      hasPermission(authStore.user?.permissions, 'skill:review') ||
+      telemetryAccessible.value,
   },
   {
     label: '组织与权限',
@@ -49,12 +82,6 @@ const navEntries = computed<NavEntry[]>(() => [
     routeName: 'notifications',
     icon: 'bell',
     visible: true,
-  },
-  {
-    label: 'Agent 助手',
-    routeName: 'agent',
-    icon: 'robot',
-    visible: agentEnabled,
   },
   {
     label: '流程最佳实践',
@@ -70,18 +97,14 @@ const userInitial = computed(
 )
 
 // 通知中心
-const unreadCount = ref(0)
 const showNotifications = ref(false)
 const notifications = ref<NotificationView[]>([])
 const notificationsLoading = ref(false)
+const notificationWrap = ref<HTMLDivElement | null>(null)
 let pollTimer: ReturnType<typeof setInterval> | undefined
 
 async function refreshUnread() {
-  try {
-    unreadCount.value = await unreadNotificationCount()
-  } catch {
-    // 静默失败，不打断页面
-  }
+  await notificationStore.refresh()
 }
 
 async function toggleNotifications() {
@@ -108,7 +131,7 @@ async function openNotification(item: NotificationView) {
     try {
       await markNotificationRead(item.id)
       item.readAt = new Date().toISOString()
-      unreadCount.value = Math.max(0, unreadCount.value - 1)
+      notificationStore.decrement()
     } catch {
       // 忽略标记失败，仍允许跳转
     }
@@ -137,6 +160,11 @@ async function openNotification(item: NotificationView) {
     } else {
       void router.push({ name: 'reviews' })
     }
+  } else if (item.targetType === 'WIKI_REVIEW') {
+    if (item.targetId) void router.push({ name: 'wiki-review-detail', params: { reviewId: item.targetId } })
+    else void router.push({ name: 'wiki-reviews' })
+  } else if (item.targetType === 'WIKI_DOCUMENT' && item.targetId) {
+    void router.push({ name: 'wiki', query: { documentId: String(item.targetId) } })
   } else if (item.skillKey) {
     void router.push({
       name: 'skill-detail',
@@ -153,12 +181,23 @@ function formatTime(value: string) {
   }
 }
 
+function onDocumentClick(event: MouseEvent) {
+  if (!showNotifications.value) return
+  const target = event.target as Node | null
+  if (target && notificationWrap.value && !notificationWrap.value.contains(target)) {
+    showNotifications.value = false
+  }
+}
+
 onMounted(() => {
   void refreshUnread()
+  void getSkillUsageAccessScope().then(() => { telemetryAccessible.value = true }).catch(() => { /* 非管理员忽略 */ })
   pollTimer = setInterval(() => void refreshUnread(), 30_000)
+  document.addEventListener('click', onDocumentClick)
 })
 onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer)
+  document.removeEventListener('click', onDocumentClick)
 })
 
 async function signOut() {
@@ -172,7 +211,7 @@ async function signOut() {
     <aside class="workspace-sidebar">
       <RouterLink class="workspace-brand" :to="{ name: 'skills' }"
         ><span class="workspace-brand__mark">SP</span
-        ><span>Skill 平台</span></RouterLink
+        ><span>研途助手</span></RouterLink
       >
       <nav class="workspace-nav" aria-label="主导航">
         <RouterLink
@@ -190,7 +229,16 @@ async function signOut() {
           :to="{ name: entry.routeName }"
           ><span class="workspace-nav__icon" aria-hidden="true"
             ><svg
-              v-if="entry.icon === 'box'"
+              v-if="entry.icon === 'book'"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z" /><path d="M4 5.5v16" /><path d="M8 7h8M8 11h8" /></svg
+            ><svg
+              v-else-if="entry.icon === 'box'"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -250,12 +298,34 @@ async function signOut() {
                 cy="18"
                 r="2" /><path d="M7 6h10" /><path
                 d="M5 8v5a2 2 0 0 0 2 2h2.5" /><path d="M19 8v2.5" /><path
-                d="M16.5 15 12 18l-4.5-3" /></svg></span
+                d="M16.5 15 12 18l-4.5-3" /></svg
+            ><svg
+              v-else-if="entry.icon === 'chart'"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><path d="M4 19V5" /><path d="M4 19h17" /><path d="m7 15 3-4 3 2 5-7" /><path d="M18 6h2v2" /></svg
+            ><svg
+              v-else-if="entry.icon === 'users'"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" /><circle
+                cx="10"
+                cy="7"
+                r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path
+                d="M16 3.13a4 4 0 0 1 0 7.75" /></svg></span
           >{{ entry.label
           }}<em
-            v-if="entry.routeName === 'notifications' && unreadCount > 0"
+            v-if="entry.routeName === 'notifications' && notificationStore.unreadCount > 0"
             class="workspace-nav__badge"
-            >{{ unreadCount > 99 ? '99+' : unreadCount }}</em
+            >{{ notificationStore.unreadCount > 99 ? '99+' : notificationStore.unreadCount }}</em
           ></RouterLink
         >
       </nav>
@@ -263,10 +333,7 @@ async function signOut() {
       <div class="workspace-user">
         <div class="workspace-user__avatar">{{ userInitial }}</div>
         <div class="workspace-user__info">
-          <strong>{{ authStore.user?.displayName || '当前用户' }}</strong
-          ><small>{{
-            authStore.user?.permissions?.[0] || 'skill:browse'
-          }}</small>
+          <strong>{{ authStore.user?.displayName || '当前用户' }}</strong>
         </div>
         <button aria-label="退出登录" title="退出登录" @click="signOut">
           ↪
@@ -277,16 +344,28 @@ async function signOut() {
       <header class="workspace-header">
         <div class="header-actions">
           <button aria-label="帮助">?</button>
-          <div class="notification-wrap">
+          <div class="notification-wrap" ref="notificationWrap">
             <button
               aria-label="通知"
               class="notification-bell"
               @click="toggleNotifications"
             >
-              ♧<span
-                v-if="unreadCount > 0"
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+                ><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path
+                  d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg
+              ><span
+                v-if="notificationStore.unreadCount > 0"
                 class="notification-badge"
-                >{{ unreadCount > 99 ? '99+' : unreadCount }}</span
+                >{{ notificationStore.unreadCount > 99 ? '99+' : notificationStore.unreadCount }}</span
               >
             </button>
             <div v-if="showNotifications" class="notification-panel">
@@ -309,7 +388,7 @@ async function signOut() {
                 @click="openNotification(item)"
               >
                 <strong>{{ item.title }}</strong>
-                <span>{{ item.content }}</span>
+                <span>{{ notificationContent(item) }}</span>
                 <small>{{ formatTime(item.createdAt) }}</small>
               </button>
               <RouterLink

@@ -27,6 +27,19 @@ export interface AgentMessage {
   role: 'USER' | 'ASSISTANT'
   content: string
   status: string
+  runKey?: string | null
+  recommendation?: AgentRecommendation | null
+}
+
+export interface BatchDownloadResult {
+  id: number
+  status: string
+  platform: string
+  osType: string
+  fileName: string | null
+  items: Array<{ skillKey: string; version: string; artifactOsType: string }>
+  failures: Array<{ skillKey: string; displayName?: string; errorCode: string; message: string }>
+  resultStatus: 'COMPLETE' | 'PARTIAL' | 'FAILED'
 }
 
 export interface RecommendationItem {
@@ -37,6 +50,9 @@ export interface RecommendationItem {
   developmentStage?: string | null
   priority: 'REQUIRED' | 'RECOMMENDED' | 'OPTIONAL'
   reason: string
+  platform?: string | null
+  osType?: string | null
+  detailPath?: string | null
 }
 
 export interface AgentRecommendation {
@@ -68,3 +84,5 @@ export interface AgentStreamEvent {
   type: string
   data: Record<string, unknown>
 }
+
+export type AgentPhase = 'CONTEXT' | 'SEARCHING_DOCUMENTS' | 'READING_DOCUMENTS' | 'COMPOSING'

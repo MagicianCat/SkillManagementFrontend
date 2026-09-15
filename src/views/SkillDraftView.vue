@@ -7,6 +7,7 @@ import axios from 'axios'
 import {
   cancelDraft,
   getActiveDraft,
+  getSkillCategories,
   getSkill,
   getSkillVersions,
   openDraft,
@@ -22,8 +23,7 @@ import {
 } from '../api/versions.api'
 import {
   developmentStageLabel,
-  DEVELOPMENT_STAGES,
-  type DevelopmentStage,
+  type SkillCategory,
   type FileView,
   type SkillView,
   type VersionView,
@@ -54,8 +54,15 @@ const dirty = computed(() => draftContent.value !== serverContent.value)
 const metaForm = ref({
   displayName: '',
   description: '',
-  developmentStage: 'REQUIREMENT' as DevelopmentStage,
+  sourceUrl: '',
+  categoryId: null as number | null,
 })
+const categories = ref<SkillCategory[]>([])
+const categoryOptions = computed(() => categories.value.filter((item) => item.parentId === null).map((root) => ({
+  // 父级仅用于展开，不能 disabled，否则 TDesign 会连同叶子一起禁用。
+  label: root.name, value: root.id,
+  children: categories.value.filter((item) => item.parentId === root.id).map((leaf) => ({ label: leaf.name, value: leaf.id, disabled: !leaf.selectable })),
+})))
 const metaSaving = ref(false)
 const metaMessage = ref('')
 
@@ -86,6 +93,10 @@ const publishedVersion = computed(() =>
 
 const isDraft = computed(() => draft.value?.lifecycleStatus === 'DRAFT')
 const readOnly = computed(() => !isDraft.value)
+// 文件内容受草稿生命周期控制；Skill 元数据由 skill:edit 权限独立控制。
+const metadataReadOnly = computed(
+  () => !hasPermission(authStore.user?.permissions, 'skill:edit'),
+)
 
 const currentFile = computed(
   () => files.value.find((f) => f.path === selectedPath.value) ?? null,
@@ -100,7 +111,8 @@ async function loadSkillAndDraft() {
     metaForm.value = {
       displayName: skill.value.displayName,
       description: skill.value.description,
-      developmentStage: skill.value.developmentStage ?? 'REQUIREMENT',
+      sourceUrl: skill.value.sourceUrl ?? '',
+      categoryId: skill.value.categoryId,
     }
   } catch {
     pageError.value = 'Skill 加载失败'
@@ -239,8 +251,9 @@ async function saveMeta() {
     skill.value = await updateSkillMeta(skillKey.value, {
       displayName: metaForm.value.displayName.trim(),
       description: metaForm.value.description.trim(),
-      developmentStage: metaForm.value.developmentStage,
+      categoryId: metaForm.value.categoryId!,
       versionNo: skill.value.versionNo,
+      sourceUrl: metaForm.value.sourceUrl.trim() || null,
     })
     metaMessage.value = '已保存'
   } catch (error: unknown) {
@@ -364,7 +377,7 @@ onBeforeRouteLeave(() => {
   }
 })
 
-onMounted(loadSkillAndDraft)
+onMounted(async () => { categories.value = await getSkillCategories(); await loadSkillAndDraft() })
 onBeforeUnmount(() => {
   serverContent.value = ''
   draftContent.value = ''
@@ -393,6 +406,41 @@ onBeforeUnmount(() => {
       <button class="btn-primary" style="margin-top: 14px" @click="openNewDraft">
         打开草稿开始编辑
       </button>
+      <section v-if="!metadataReadOnly && skill" class="metadata-only-editor">
+        <p class="panel-label">Skill 元数据</p>
+        <label class="meta-field">
+          <span>展示名称</span>
+          <input v-model="metaForm.displayName" />
+        </label>
+        <label class="meta-field">
+          <span>研发全流程分类</span>
+          <t-cascader
+            v-model="metaForm.categoryId"
+            :options="categoryOptions"
+            filterable
+            :clearable="false"
+            placeholder="选择研发全流程分类"
+          />
+        </label>
+        <label class="meta-field">
+          <span>描述</span>
+          <textarea v-model="metaForm.description" rows="4"></textarea>
+        </label>
+        <label class="meta-field">
+          <span>来源网址</span>
+          <input
+            v-model="metaForm.sourceUrl"
+            type="url"
+            placeholder="例如 https://github.com/example/repository"
+          />
+        </label>
+        <div class="meta-actions">
+          <button class="btn-secondary" :disabled="metaSaving" @click="saveMeta">
+            {{ metaSaving ? '保存中…' : '保存元数据' }}
+          </button>
+          <span v-if="metaMessage" class="meta-message">{{ metaMessage }}</span>
+        </div>
+      </section>
     </div>
 
     <template v-else>
@@ -515,30 +563,28 @@ onBeforeUnmount(() => {
           <p class="panel-label">元数据</p>
           <label class="meta-field">
             <span>展示名称</span>
-            <input v-model="metaForm.displayName" :disabled="readOnly" />
+            <input v-model="metaForm.displayName" :disabled="metadataReadOnly" />
           </label>
           <label class="meta-field">
-            <span>开发阶段</span>
-            <select
-              v-model="metaForm.developmentStage"
-              :disabled="readOnly"
-            >
-              <option
-                v-for="stage in DEVELOPMENT_STAGES"
-                :key="stage.value"
-                :value="stage.value"
-              >
-                {{ stage.label }}
-              </option>
-            </select>
+            <span>研发全流程分类</span>
+            <t-cascader v-model="metaForm.categoryId" :options="categoryOptions" filterable :clearable="false" :disabled="metadataReadOnly" />
           </label>
           <label class="meta-field">
             <span>描述</span>
             <textarea
               v-model="metaForm.description"
               rows="5"
-              :disabled="readOnly"
+              :disabled="metadataReadOnly"
             ></textarea>
+          </label>
+          <label class="meta-field">
+            <span>来源网址</span>
+            <input
+              v-model="metaForm.sourceUrl"
+              type="url"
+              placeholder="例如 https://github.com/example/repository"
+              :disabled="metadataReadOnly"
+            />
           </label>
           <label class="meta-field">
             <span>候选版本</span>
@@ -547,7 +593,7 @@ onBeforeUnmount(() => {
               readonly
             />
           </label>
-          <div v-if="!readOnly" class="meta-actions">
+          <div v-if="!metadataReadOnly" class="meta-actions">
             <button
               class="btn-secondary"
               :disabled="metaSaving"
@@ -677,14 +723,14 @@ onBeforeUnmount(() => {
   display: flex;
   min-height: 0;
   flex-direction: column;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #ece1d2;
   border-radius: 10px;
   background: #fff;
 }
 .panel-label {
   margin: 0;
   padding: 10px 12px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f6efe5;
   color: #94a3b8;
   font-size: 10px;
   font-weight: 700;
@@ -716,8 +762,8 @@ onBeforeUnmount(() => {
 }
 .file-row:hover,
 .file-row.is-selected {
-  color: #4f46e5;
-  background: #eef2ff;
+  color: #e86600;
+  background: #fff1e0;
 }
 .file-row__path {
   overflow: hidden;
@@ -729,7 +775,7 @@ onBeforeUnmount(() => {
   padding: 2px 5px;
   border-radius: 4px;
   color: #64748b;
-  background: #f1f5f9;
+  background: #f6efe5;
   font-size: 9px;
 }
 .editor-pane__bar {
@@ -737,7 +783,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   padding: 9px 14px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f6efe5;
   color: #64748b;
   font-family: var(--font-mono, monospace);
   font-size: 12px;
@@ -776,7 +822,7 @@ onBeforeUnmount(() => {
 .meta-field select,
 .meta-field textarea {
   padding: 8px 10px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dfcfb8;
   border-radius: 6px;
   font: inherit;
   font-size: 12px;
@@ -784,7 +830,7 @@ onBeforeUnmount(() => {
 }
 .meta-field input[readonly] {
   color: #94a3b8;
-  background: #f8fafc;
+  background: #fbf6f0;
 }
 .meta-actions {
   display: flex;
@@ -810,14 +856,14 @@ onBeforeUnmount(() => {
 .btn-primary {
   border: 0;
   color: #fff;
-  background: #4f46e5;
+  background: #e86600;
 }
 .btn-primary:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 .btn-secondary {
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dfcfb8;
   color: #475569;
   background: #fff;
 }
@@ -886,7 +932,7 @@ onBeforeUnmount(() => {
 }
 .modal-field textarea {
   padding: 8px 10px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dfcfb8;
   border-radius: 7px;
   font: inherit;
   font-size: 13px;

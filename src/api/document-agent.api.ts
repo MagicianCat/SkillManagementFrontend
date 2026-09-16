@@ -17,7 +17,13 @@ export async function listDocumentAgentSessions(projectKey?: string) { return (a
 export async function createDocumentAgentSession(payload: { projectKey: string; profileKey: string; mode: string; documentId?: number; title?: string }) { return (await http.post<DocumentAgentSession>('/document-agent/sessions', payload, { headers: { 'Idempotency-Key': key() } })).data }
 export async function sendDocumentAgentTurn(sessionKey: string, instruction: string, context: { sourceArtifactIds?: number[]; feishuDocuments?: { docId: string; docType: string; title?: string }[] } = {}, idempotencyKey = key()) { return (await http.post<DocumentAgentJob>(`/document-agent/sessions/${sessionKey}/turns`, { instruction, ...context }, { headers: { 'Idempotency-Key': idempotencyKey } })).data }
 export async function getDocumentAgentJob(jobKey: string) { return (await http.get<DocumentAgentJob>(`/document-agent/jobs/${jobKey}`)).data }
-export async function getDocumentAgentEvents(jobKey: string, after = 0) { return (await http.get<string>(`/document-agent/jobs/${jobKey}/events`, { params: { after }, responseType: 'text' })).data }
+export async function getDocumentAgentEvents(jobKey: string, after = 0) {
+  return (await http.get<string>(`/document-agent/jobs/${jobKey}/events`, {
+    params: { after },
+    responseType: 'text',
+    headers: { Accept: 'text/event-stream' },
+  })).data
+}
 export async function cancelDocumentAgentJob(jobKey: string) { return (await http.post<void>(`/document-agent/jobs/${jobKey}:cancel`)).data }
 export async function retryDocumentAgentJob(jobKey: string) { return (await http.post<DocumentAgentJob>(`/document-agent/jobs/${jobKey}:retry`)).data }
 export async function resolveDocumentAgentFeishu(docId: string, docType: string) { return (await http.post<FeishuDocument>('/document-agent/feishu-documents:resolve', { docId, docType })).data }

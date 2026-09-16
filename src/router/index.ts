@@ -188,3 +188,21 @@ router.beforeEach(async (to) => {
 })
 
 export default router
+        {
+          path: 'projects',
+          name: 'projects',
+          component: () => import('../views/ProjectsView.vue'),
+          meta: { title: '虚拟项目组' },
+        },
+        {
+          path: 'projects/:projectKey/documents/:documentId',
+          name: 'project-document',
+          component: () => import('../views/ProjectDocumentView.vue'),
+          meta: { title: '项目文档' },
+        },
+        {
+          path: 'document-agent',
+          name: 'document-agent',
+          component: () => import('../views/DocumentAgentView.vue'),
+          meta: { title: '文档 Agent' },
+        },

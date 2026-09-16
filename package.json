@@ -8,6 +8,7 @@
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
+    "test": "node --test tests/document-agent-flow.test.mjs",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

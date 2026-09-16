@@ -49,6 +49,18 @@ const navEntries = computed<NavEntry[]>(() => [
     visible: hasPermission(authStore.user?.permissions, 'skill:browse'),
   },
   {
+    label: '虚拟项目组',
+    routeName: 'projects',
+    icon: 'folder-open',
+    visible: true,
+  },
+  {
+    label: '文档 Agent',
+    routeName: 'document-agent',
+    icon: 'document',
+    visible: true,
+  },
+  {
     label: '审核中心',
     routeName: 'reviews',
     icon: 'review',

@@ -19,5 +19,6 @@ export async function sendDocumentAgentTurn(sessionKey: string, instruction: str
 export async function getDocumentAgentJob(jobKey: string) { return (await http.get<DocumentAgentJob>(`/document-agent/jobs/${jobKey}`)).data }
 export async function getDocumentAgentEvents(jobKey: string, after = 0) { return (await http.get<string>(`/document-agent/jobs/${jobKey}/events`, { params: { after }, responseType: 'text' })).data }
 export async function cancelDocumentAgentJob(jobKey: string) { return (await http.post<void>(`/document-agent/jobs/${jobKey}:cancel`)).data }
+export async function retryDocumentAgentJob(jobKey: string) { return (await http.post<DocumentAgentJob>(`/document-agent/jobs/${jobKey}:retry`)).data }
 export async function resolveDocumentAgentFeishu(docId: string, docType: string) { return (await http.post<FeishuDocument>('/document-agent/feishu-documents:resolve', { docId, docType })).data }
 export async function searchDocumentAgentFeishu(query: string) { return (await http.get<{ items?: FeishuDocument[]; result?: { items?: FeishuDocument[] } | FeishuDocument[] }>('/document-agent/feishu-documents:search', { params: { query, limit: 10 } })).data }

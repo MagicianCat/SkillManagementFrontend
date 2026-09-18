@@ -55,12 +55,6 @@ const navEntries = computed<NavEntry[]>(() => [
     visible: true,
   },
   {
-    label: '文档 Agent',
-    routeName: 'document-agent',
-    icon: 'document',
-    visible: true,
-  },
-  {
     label: '审核中心',
     routeName: 'reviews',
     icon: 'review',

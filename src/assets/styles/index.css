@@ -162,11 +162,23 @@ a {
 }
 .workspace-user button,
 .header-actions button {
-  border: 0;
-  color: #94a3b8;
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #7a6a58;
   background: transparent;
   cursor: pointer;
-  font-size: 17px;
+  font-size: 16px;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.workspace-user button:hover,
+.header-actions button:hover {
+  color: #b34a00;
+  background: #fff1e0;
+  border-color: #ffd9a3;
 }
 .workspace-main {
   display: flex;
@@ -681,7 +693,7 @@ a {
   justify-content: center;
   padding: clamp(40px, 9vw, 132px);
   color: #fff8f0;
-  background: #1d2a4a;
+  background: linear-gradient(160deg, #7a3200 0%, #b34a00 42%, #ff7a00 100%);
 }
 .login-mark {
   display: grid;
@@ -689,14 +701,14 @@ a {
   height: 48px;
   margin-bottom: 64px;
   place-items: center;
-  border: 1px solid rgb(255 255 255 / 30%);
+  border: 1px solid rgb(255 255 255 / 35%);
   border-radius: 12px;
   font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.08em;
 }
 .login-intro .eyebrow {
-  color: #ffc28a;
+  color: #ffe0c0;
 }
 .login-intro h1 {
   font-size: clamp(34px, 4vw, 58px);
@@ -706,7 +718,7 @@ a {
 .login-intro__copy {
   max-width: 470px;
   margin-top: 28px;
-  color: #bbc6dc;
+  color: rgb(255 248 240 / 88%);
   font-size: 16px;
   line-height: 1.75;
 }
@@ -714,11 +726,11 @@ a {
   width: 64px;
   height: 1px;
   margin-top: 72px;
-  background: #d97a1a;
+  background: #ffc28a;
 }
 .login-intro__meta {
   margin-top: 16px;
-  color: #8f9bb6;
+  color: rgb(255 248 240 / 66%);
   font-size: 13px;
 }
 .login-panel {
@@ -758,7 +770,7 @@ a {
   width: 100%;
   height: 48px;
   padding: 0 14px;
-  border: 1px solid #cfd6e3;
+  border: 1px solid #dfcfb8;
   border-radius: 9px;
   color: var(--color-text);
   background: white;
@@ -769,7 +781,7 @@ a {
 .field-group input:focus,
 .provider-field:focus-visible {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgb(49 87 213 / 14%);
+  box-shadow: 0 0 0 3px rgb(232 102 0 / 18%);
 }
 .field-group input::placeholder {
   color: #98a2b4;
@@ -825,6 +837,30 @@ a {
 }
 .login-submit:disabled,
 .field-group input:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.feishu-login {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  margin-top: 40px;
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  background: var(--color-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+}
+.feishu-login:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+.feishu-login:disabled {
   cursor: not-allowed;
   opacity: 0.65;
 }
@@ -1029,4 +1065,152 @@ h1 {
   .app-content {
     padding: 36px 0;
   }
+}
+
+/* ===== 全局 Markdown 渲染样式（泰康橙主题） ===== */
+.markdown-body {
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.7;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.markdown-body > :first-child {
+  margin-top: 0;
+}
+.markdown-body > :last-child {
+  margin-bottom: 0;
+}
+.markdown-body p {
+  margin: 0 0 10px;
+}
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  margin: 18px 0 10px;
+  color: #1e293b;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.markdown-body h1 {
+  padding-bottom: 6px;
+  border-bottom: 1px solid #ece1d2;
+  font-size: 20px;
+}
+.markdown-body h2 {
+  padding-bottom: 5px;
+  border-bottom: 1px solid #f1e8dc;
+  font-size: 17px;
+}
+.markdown-body h3 {
+  font-size: 15px;
+}
+.markdown-body h4 {
+  font-size: 14px;
+}
+.markdown-body h5,
+.markdown-body h6 {
+  color: #475569;
+  font-size: 13px;
+}
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0 0 10px;
+  padding-left: 24px;
+}
+.markdown-body li {
+  margin: 3px 0;
+}
+.markdown-body li > ul,
+.markdown-body li > ol {
+  margin: 3px 0;
+}
+.markdown-body blockquote {
+  margin: 10px 0;
+  padding: 8px 14px;
+  border-left: 3px solid #e86600;
+  border-radius: 0 6px 6px 0;
+  color: #7a6a58;
+  background: #fff8ef;
+}
+.markdown-body a {
+  color: #e86600;
+  text-decoration: none;
+  border-bottom: 1px solid rgb(232 102 0 / 35%);
+}
+.markdown-body a:hover {
+  color: #c25400;
+  border-bottom-color: #c25400;
+}
+.markdown-body hr {
+  height: 1px;
+  margin: 16px 0;
+  border: 0;
+  background: #ece1d2;
+}
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+.markdown-body code {
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: #b34a00;
+  background: #fff1e0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.markdown-body pre {
+  margin: 10px 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  border: 1px solid #f1e8dc;
+  border-radius: 8px;
+  background: #fff8ef;
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+.markdown-body pre code {
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
+  background: transparent;
+  font-size: inherit;
+  word-break: normal;
+  overflow-wrap: normal;
+  white-space: pre;
+}
+.markdown-body table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  margin: 12px 0;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.markdown-body th,
+.markdown-body td {
+  padding: 7px 12px;
+  border: 1px solid #ece1d2;
+  text-align: left;
+  vertical-align: top;
+}
+.markdown-body th {
+  color: #7a3200;
+  background: #ffeedc;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.markdown-body tbody tr:nth-child(odd) {
+  background: #fffaf4;
+}
+.markdown-body tbody tr:hover {
+  background: #fff1e0;
 }

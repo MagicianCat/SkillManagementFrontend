@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { approveWikiReview, getWikiReview, rejectWikiReview } from '../api/wiki.api'
+import MarkdownView from '../components/MarkdownView.vue'
 import { reviewStatusLabel, type WikiReview, type WikiReviewStatus } from '../types/review'
 
 const route = useRoute()
@@ -83,7 +84,7 @@ onMounted(load)
         <div class="detail-grid">
           <div class="detail-main">
             <t-card title="提交时的 Markdown" :bordered="true">
-              <pre class="markdown-content">{{ review.markdownContent }}</pre>
+              <MarkdownView :content="review.markdownContent" class="markdown-content" />
             </t-card>
 
             <t-card :title="`关联 Skill（${review.skills.length}）`" :bordered="true">
@@ -122,5 +123,5 @@ onMounted(load)
 </template>
 
 <style scoped>
-.detail-loading{margin-top:18px}.detail-header-card{margin-top:18px}.detail-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.detail-header h1{margin:4px 0 10px;color:#0f172a;font-size:24px}.detail-meta{margin:5px 0;color:#64748b;font-size:13px}.detail-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;margin-top:16px}.detail-main,.detail-side{display:grid;align-content:start;gap:16px}.markdown-content{max-height:680px;overflow:auto;margin:0;padding:16px;border-radius:8px;color:#334155;background:#f8fafc;font:13px/1.8 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap}.detail-copy{margin:0;color:#475569;font-size:13px;line-height:1.8}.detail-side :deep(.t-space){width:100%}@media(max-width:900px){.detail-grid{grid-template-columns:1fr}.detail-header{flex-direction:column}}
+.detail-loading{margin-top:18px}.detail-header-card{margin-top:18px}.detail-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.detail-header h1{margin:4px 0 10px;color:#0f172a;font-size:24px}.detail-meta{margin:5px 0;color:#64748b;font-size:13px}.detail-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;margin-top:16px}.detail-main,.detail-side{display:grid;align-content:start;gap:16px}.markdown-content{max-height:680px;overflow:auto;margin:0;padding:16px;border-radius:8px;color:#334155;background:#fffaf4}.detail-copy{margin:0;color:#475569;font-size:13px;line-height:1.8}.detail-side :deep(.t-space){width:100%}@media(max-width:900px){.detail-grid{grid-template-columns:1fr}.detail-header{flex-direction:column}}
 </style>

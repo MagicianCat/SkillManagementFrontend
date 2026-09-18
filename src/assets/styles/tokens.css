@@ -1,4 +1,26 @@
 :root {
+  /* ===== 泰康橙系列色板 (Taikang Orange series) ===== */
+  --tk-50: #fff7ef;
+  --tk-100: #ffeedc;
+  --tk-200: #ffdfbe;
+  --tk-300: #ffc28a;
+  --tk-400: #ff9a3d;
+  --tk-500: #ff7a00; /* 品牌橙 */
+  --tk-600: #e86600; /* 主色 */
+  --tk-700: #c25400; /* hover */
+  --tk-800: #b34a00; /* active / 深橙文字 */
+  --tk-900: #8a3d00; /* 最深深橙 */
+
+  /* ===== 暖灰中性 (warm neutrals) ===== */
+  --tk-neutral-50: #fbf7f2;
+  --tk-neutral-100: #f6efe5;
+  --tk-neutral-200: #ece1d2;
+  --tk-neutral-300: #dfcfb8;
+  --tk-neutral-400: #b5a48e;
+  --tk-neutral-500: #7a6a58;
+  --tk-neutral-600: #2a2118;
+
+  /* ===== 兼容既有 CSS 变量 (backward compat) ===== */
   --color-primary: #e86600;
   --color-primary-hover: #c25400;
   --color-brand: #ff7a00;
@@ -29,9 +51,9 @@
   --td-brand-color-light: #fff1e0;
   --td-brand-color-light-hover: #ffe6c7;
   --td-brand-color-disabled: #ffd9a3;
-  --td-brand-color-1: #fff6ec;
-  --td-brand-color-2: #ffe6c7;
-  --td-brand-color-3: #ffd9a3;
+  --td-brand-color-1: #fff7ef;
+  --td-brand-color-2: #ffeedc;
+  --td-brand-color-3: #ffdfbe;
   --td-brand-color-4: #ffc28a;
   --td-brand-color-5: #ff9a3d;
   --td-brand-color-6: #ff7a00;
@@ -39,4 +61,7 @@
   --td-brand-color-8: #c25400;
   --td-brand-color-9: #b34a00;
   --td-brand-color-10: #8a3d00;
+  --td-error-color: #c0392b;
+  --td-warning-color: #b45309;
+  --td-success-color: #11875d;
 }

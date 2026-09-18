@@ -33,8 +33,21 @@ export interface SkillUsageOverview {
   skills: Array<{ skillKey: string; displayName: string; calls: number; users: number; lastInvokedAt: string | null }>
   members: Array<{ userId: number; displayName: string; username: string; calls: number; skills: number; lastInvokedAt: string | null }>
   conversationStatuses: Array<{ status: string; count: number }>
+  categories: SkillUsageDimension[]
+  teams: SkillUsageDimension[]
+  projects: SkillUsageDimension[]
+  clients: SkillUsageDimension[]
+  timeBands: Array<{ band: string; calls: number; users: number }>
   from: string
   to: string
+}
+
+export interface SkillUsageDimension {
+  key: string
+  name: string
+  calls: number
+  users: number
+  skills: number
 }
 
 export interface SkillUsageEvent {

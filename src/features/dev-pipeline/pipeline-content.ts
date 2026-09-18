@@ -1,4 +1,7 @@
 import type { SkillCategory } from '../../types/skill'
+import { recordingPrompts } from './recording-prompts'
+import type { RecordingVideo } from './recording-video-manifest'
+import { recordingVideos } from './recording-video-manifest'
 
 export interface FlowCategory {
   key: string
@@ -21,6 +24,7 @@ export interface SkillRecommendation {
   skillKey: string
   tagline: string
   prompt: string
+  video: RecordingVideo
   categoryKey: string
   required: boolean
   condition?: string
@@ -197,12 +201,18 @@ const s = (
   skillKey: string,
   tagline: string,
   categoryKey: string,
-  prompt: string,
+  _prompt: string,
   artifact: string,
   required = true,
   condition?: string,
   reusedIn?: string,
-): SkillRecommendation => ({ skillKey, tagline, categoryKey, prompt, artifact, required, condition, reusedIn })
+): SkillRecommendation => {
+  const resolvedPrompt = recordingPrompts[skillKey]
+  const video = recordingVideos[skillKey]
+  if (!resolvedPrompt) throw new Error(`Missing recording prompt for ${skillKey}`)
+  if (!video) throw new Error(`Missing recording video manifest entry for ${skillKey}`)
+  return { skillKey, tagline, categoryKey, prompt: resolvedPrompt, video, artifact, required, condition, reusedIn }
+}
 
 const step = (
   id: string,

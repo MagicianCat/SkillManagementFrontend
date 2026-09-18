@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { getDevPipelineVideoUrl } from '../../api/dev-pipeline.api'
 import type { SkillCategory } from '../../types/skill'
 import type { SkillRecommendation } from './pipeline-content'
 
@@ -11,13 +12,47 @@ const props = defineProps<{
 }>()
 
 const categoryLabel = computed(() => props.category?.name || props.fallbackCategory)
+const videoRef = ref<HTMLVideoElement | null>(null)
+const videoStarted = ref(false)
+const videoError = ref(false)
+const videoUrl = computed(() => getDevPipelineVideoUrl(props.skill.skillKey))
+const videoPreload = computed(() => props.skill.video.sizeBytes <= 512 * 1024 ? 'metadata' : 'none')
+
+async function startVideo() {
+  videoError.value = false
+  videoStarted.value = true
+  await nextTick()
+  try {
+    videoRef.value?.load()
+    await videoRef.value?.play()
+  } catch {
+    // 浏览器可能阻止自动播放，控件仍然可用，用户可再次点击播放。
+  }
+}
 </script>
 
 <template>
   <article class="recommendation-card">
-    <div class="recommendation-card__video" aria-label="演示视频待录制">
-      <span class="video-icon" aria-hidden="true">▶</span>
-      <span>演示视频待录制</span>
+    <div class="recommendation-card__video" :class="{ 'has-player': videoStarted }">
+      <video
+        v-if="videoStarted"
+        ref="videoRef"
+        class="recommendation-card__player"
+        :src="videoUrl"
+        :preload="videoPreload"
+        controls
+        playsinline
+        crossorigin="use-credentials"
+        :aria-label="`${skill.skillKey} 演示视频`"
+        @error="videoError = true"
+      />
+      <button v-else type="button" class="recommendation-card__video-trigger" @click="startVideo">
+        <span class="video-icon" aria-hidden="true">▶</span>
+        <span>播放演示视频</span>
+      </button>
+      <button v-if="videoError" type="button" class="recommendation-card__video-retry" @click="startVideo">
+        视频加载失败，点击重试
+      </button>
     </div>
 
     <div class="recommendation-card__body">
@@ -74,6 +109,53 @@ const categoryLabel = computed(() => props.category?.name || props.fallbackCateg
   background: linear-gradient(135deg, #eef2f7, #f8fafc);
   font-size: 11px;
 }
+
+.recommendation-card__video.has-player {
+  display: block;
+  min-height: 0;
+  background: #111827;
+}
+
+.recommendation-card__player {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #111827;
+}
+
+.recommendation-card__video-trigger {
+  display: grid;
+  width: 100%;
+  min-height: 112px;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.recommendation-card__video-trigger:hover { color: #386fa8; }
+.recommendation-card__video-trigger:focus-visible,
+.recommendation-card__video-retry:focus-visible { outline: 2px solid #2f7dcc; outline-offset: -3px; }
+
+.recommendation-card__video-retry {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  padding: 7px 10px;
+  border: 1px solid #cbd4e1;
+  border-radius: 6px;
+  color: #526176;
+  background: rgba(255, 255, 255, .94);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.recommendation-card__video:has(.recommendation-card__video-retry) { position: relative; }
 
 .video-icon {
   display: grid;

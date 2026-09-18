@@ -134,7 +134,7 @@ const router = createRouter({
           meta: { title: 'Agent 配置中心', permissions: ['skill:browse'] },
         },
         {
-          path: 'agent-config/:id',
+          path: 'agent-config/:code',
           name: 'agent-config-detail',
           component: () => import('../views/AgentConfigDetailView.vue'),
           meta: { title: 'Agent 配置详情', permissions: ['skill:browse'] },

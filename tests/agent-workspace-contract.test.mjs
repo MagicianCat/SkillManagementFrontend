@@ -20,7 +20,7 @@ test('final acceptance uses explicit decision contract', async () => {
 test('project entry creates a workflow run before opening workspace', async () => {
   const projects = await readFile(new URL('../src/views/ProjectsView.vue', import.meta.url), 'utf8')
   const workspace = await readFile(new URL('../src/views/ProjectWorkspaceView.vue', import.meta.url), 'utf8')
-  assert.match(projects, /startWorkflowRun\(selected\.value!\.projectKey\)/)
+  assert.match(projects, /startWorkflowRun\(selected\.value!\.projectKey,/)
   assert.match(projects, /runId:String\(workflowRun\.id\)/)
   assert.match(workspace, /route\.params\.runId \|\| ''/)
   assert.doesNotMatch(workspace, /route\.params\.runId \|\| route\.params\.projectId/)

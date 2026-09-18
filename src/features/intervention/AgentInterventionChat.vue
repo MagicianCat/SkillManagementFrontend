@@ -1,21 +1,25 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { InterventionType } from '../../types/workflow'
-const props = defineProps<{ running: boolean; canAsk?: boolean; canCorrect?: boolean; disabled?: boolean }>()
-const emit = defineEmits<{ submit: [type: InterventionType, content: string]; action: [type: InterventionType] }>()
-const content = ref(''); const mode = ref<InterventionType>('ASK')
-function submit() { const value = content.value.trim(); if (!value) return; emit('submit', mode.value, value); content.value = '' }
+import type { InterventionTarget, InterventionType } from '../../types/workflow'
+const props = defineProps<{ running: boolean; canAsk?: boolean; canCorrect?: boolean; disabled?: boolean; target?: InterventionTarget }>()
+const emit = defineEmits<{ submit: [type: InterventionType, content: string, target: InterventionTarget]; action: [type: InterventionType, target: InterventionTarget] }>()
+const content = ref(''); const mode = ref<InterventionType>('ASK'); const targetStageKey = ref(props.target?.targetStageKey || ''); const targetAgentNodeKey = ref(props.target?.targetAgentNodeKey || ''); const targetSessionId = ref(props.target?.targetSessionId || '')
+const targets = (): InterventionTarget => ({ targetStageKey: targetStageKey.value || undefined, targetAgentNodeKey: targetAgentNodeKey.value || undefined, targetSessionId: targetSessionId.value || undefined })
+function submit() { const value = content.value.trim(); if (!value) return; emit('submit', mode.value, value, targets()); content.value = '' }
 </script>
 <template>
   <section class="intervention-chat" aria-label="Agent 干预对话">
     <header><strong>Agent 对话与干预</strong><span v-if="props.running">运行中仍可发送消息</span></header>
     <textarea v-model="content" :disabled="props.disabled" rows="3" placeholder="询问进展，或输入纠正意见…" @keydown.ctrl.enter="submit" />
     <footer>
-      <select v-model="mode" :disabled="props.disabled"><option v-if="props.canAsk !== false" value="ASK">询问 Agent</option><option v-if="props.canCorrect !== false" value="CORRECT">发送纠正</option></select>
+      <select v-model="mode" :disabled="props.disabled"><option v-if="props.canAsk !== false" value="ASK">询问 Agent</option><option v-if="props.canCorrect !== false" value="CORRECT">发送纠正</option><option value="PROVIDE_INFO">补充信息</option></select>
       <button type="button" :disabled="props.disabled || !content.trim()" @click="submit">发送</button>
-      <button v-if="props.running" type="button" class="secondary" @click="emit('action', 'PAUSE')">暂停</button>
-      <button v-else type="button" class="secondary" @click="emit('action', 'RESUME')">继续</button>
-      <button type="button" class="danger" @click="emit('action', 'CANCEL')">取消</button>
+      <input v-model="targetStageKey" data-testid="intervention-target-stage" placeholder="目标 Stage" />
+      <input v-model="targetAgentNodeKey" placeholder="目标 Agent" />
+      <input v-model="targetSessionId" placeholder="目标 Session" />
+      <button v-if="props.running" type="button" class="secondary" @click="emit('action', 'PAUSE', targets())">暂停</button>
+      <button v-else type="button" class="secondary" @click="emit('action', 'RESUME', targets())">继续</button>
+      <button type="button" class="secondary" @click="emit('action', 'RETRY', targets())">重试</button><button type="button" class="danger" @click="emit('action', 'CANCEL', targets())">取消</button>
     </footer>
   </section>
 </template>

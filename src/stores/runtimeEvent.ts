@@ -11,7 +11,9 @@ export const useRuntimeEventStore = defineStore('runtimeEvent', () => {
   function connect(nextRunId: string) {
     const changedRun = runId !== nextRunId
     close(); runId = nextRunId; error.value = ''
-    if (changedRun) { events.value = []; lastEventId = '' }
+    if (changedRun) { events.value = []; lastEventId = '' } else if (!events.value.length) {
+      try { const saved = JSON.parse(sessionStorage.getItem(`workflow-events:${runId}`) || '{}') as { events?: WorkflowEvent[]; lastEventId?: string }; events.value = saved.events ?? []; lastEventId = saved.lastEventId ?? '' } catch { /* ignore stale browser cache */ }
+    }
     const query = new URLSearchParams(); if (lastEventId) query.set('lastEventId', lastEventId)
     source = new EventSource(`${apiUrl(workflowEventsUrl(runId))}${query.size ? `?${query}` : ''}`, { withCredentials: true })
     source.onopen = () => { connected.value = true; reconnecting.value = false }
@@ -22,6 +24,6 @@ export const useRuntimeEventStore = defineStore('runtimeEvent', () => {
     }
     source.onerror = () => { connected.value = false; source?.close(); reconnecting.value = true; retryTimer = setTimeout(() => connect(runId), 1500) }
   }
-  function dispatch(raw: string, id?: string) { if (id) lastEventId = id; try { const event = JSON.parse(raw) as WorkflowEvent; events.value.push(event); if (events.value.length > 500) events.value.shift() } catch { error.value = '执行事件格式无效' } }
+  function dispatch(raw: string, id?: string) { if (id) lastEventId = id; try { const event = JSON.parse(raw) as WorkflowEvent; events.value.push(event); if (events.value.length > 500) events.value.shift(); sessionStorage.setItem(`workflow-events:${runId}`, JSON.stringify({ events: events.value, lastEventId })) } catch { error.value = '执行事件格式无效' } }
   return { events, connected, reconnecting, error, connect, close, dispatch }
 })

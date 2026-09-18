@@ -1,0 +1,21 @@
+import { test, expect } from '@playwright/test'
+
+test('user enters requirement, starts run, sees agent team, revision and accepts', async ({ page }) => {
+  await page.route('**/api/v1/auth/session', async (route) => route.fulfill({ json: { accessToken: 'fixture', user: { id: 1, displayName: 'Fixture', permissions: ['skill:browse'] } } }))
+  await page.route('**/api/v1/auth/feishu/document-access', async (route) => route.fulfill({ json: { status: 'NOT_AVAILABLE' } }))
+  await page.route('**/api/v1/projects', async (route) => route.fulfill({ json: [{ projectKey: 'demo', name: 'Demo', role: 'OWNER' }] }))
+  await page.route('**/api/v1/projects/demo/workflow', async (route) => route.fulfill({ json: { progress: 0, stages: [{ stageKey: 'REQUIREMENT', order: 1, status: 'NOT_STARTED', availability: 'AVAILABLE', dependencies: [], skills: [], artifacts: [], submissions: [] }] } }))
+  await page.route('**/api/v1/projects/demo/members', async (route) => route.fulfill({ json: [] }))
+  await page.route('**/api/v1/projects/demo/documents', async (route) => route.fulfill({ json: { items: [] } }))
+  await page.route('**/api/v1/projects/demo/workflow-runs', async (route) => route.fulfill({ json: { id: 'run-1', projectId: 'demo', status: 'WAITING_DESIGN_ACCEPTANCE', stages: [{ id: 'req', key: 'REQUIREMENT', name: 'Requirement', status: 'HUMAN_REQUIRED', agents: [{ id: 'c', key: 'clarifier', name: 'Clarifier', status: 'COMPLETED' }, { id: 'w', key: 'writer', name: 'Writer', status: 'COMPLETED' }, { id: 'r', key: 'reviewer', name: 'Reviewer', status: 'COMPLETED' }], artifacts: [{ id: 'a', name: '需求说明书', revision: 1, reviewIssues: [] }] }] } }))
+  await page.route('**/api/v1/workflow-runs/run-1', async (route) => route.fulfill({ json: { id: 'run-1', projectId: 'demo', status: 'WAITING_DESIGN_ACCEPTANCE' } }))
+  await page.route('**/api/v1/workflow-runs/run-1/stages', async (route) => route.fulfill({ json: [{ id: 'req', key: 'REQUIREMENT', name: 'Requirement', status: 'HUMAN_REQUIRED', agents: [{ id: 'c', key: 'clarifier', name: 'Clarifier', status: 'COMPLETED' }, { id: 'w', key: 'writer', name: 'Writer', status: 'COMPLETED' }, { id: 'r', key: 'reviewer', name: 'Reviewer', status: 'COMPLETED' }], artifacts: [{ id: 'a', name: '需求说明书', revision: 1, reviewIssues: [] }] }] }))
+  await page.route('**/api/v1/workflow-runs/run-1/events', async (route) => route.fulfill({ status: 200, contentType: 'text/event-stream', body: '' }))
+  await page.goto('/projects/demo')
+  await page.getByTestId('initial-request').fill('实现需求分析 Agent 工作流')
+  await page.getByTestId('start-workflow').click()
+  await expect(page.getByTestId('agent-team')).toContainText('Clarifier')
+  await expect(page.getByTestId('document-revision')).toContainText('Revision 1')
+  await page.getByTestId('acceptance-comment').fill('需求确认通过')
+  await expect(page.getByTestId('final-acceptance')).toBeVisible()
+})

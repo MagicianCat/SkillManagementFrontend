@@ -356,29 +356,29 @@ onMounted(() => {
 }
 .btn-primary {
   border: 0;
-  color: #fff;
-  background: #e86600;
+  color: var(--text-on-accent);
+  background: var(--accent-500);
 }
 .btn-primary:hover:not(:disabled) {
-  background: #c25400;
+  background: var(--accent-400);
 }
 .btn-primary:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 .btn-secondary {
-  border: 1px solid #dfcfb8;
-  color: #475569;
-  background: #fff;
+  border: 1px solid var(--border-2);
+  color: var(--text-2);
+  background: var(--surface-1);
 }
 .btn-secondary:hover:not(:disabled) {
-  background: #fbf6f0;
+  background: var(--surface-2);
 }
 .category-filter {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #64748b;
+  color: var(--text-2);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -386,16 +386,16 @@ onMounted(() => {
   height: 38px;
   min-width: 132px;
   padding: 0 30px 0 10px;
-  border: 1px solid #ece1d2;
+  border: 1px solid var(--border-1);
   border-radius: 7px;
-  color: #334155;
-  background: #fff;
+  color: var(--text-1);
+  background: var(--surface-1);
   font: inherit;
   outline: none;
 }
 .category-filter select:focus {
-  border-color: #ff9a3d;
-  box-shadow: 0 0 0 2px rgb(232 102 0 / 20%);
+  border-color: var(--border-accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
 }
 .skill-card__actions {
   display: flex;
@@ -404,15 +404,15 @@ onMounted(() => {
 .link-button--primary {
   padding: 5px 12px;
   border-radius: 6px;
-  color: #fff;
-  background: #e86600;
+  color: var(--text-on-accent);
+  background: var(--accent-500);
 }
 .link-button--primary:hover {
-  background: #c25400;
+  background: var(--accent-400);
 }
 .inline-error {
   margin: 0;
-  color: #b91c1c;
+  color: var(--error);
   font-size: 12px;
 }
 .market-body {
@@ -423,13 +423,13 @@ onMounted(() => {
 }
 .stage-filter {
   padding: 8px;
-  border: 1px solid #ece1d2;
+  border: 1px solid var(--border-1);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface-1);
 }
 .filter-label {
   margin: 5px 10px 9px;
-  color: #94a3b8;
+  color: var(--text-3);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -441,7 +441,7 @@ onMounted(() => {
   padding: 8px 10px;
   border: 0;
   border-radius: 6px;
-  color: #64748b;
+  color: var(--text-2);
   background: transparent;
   font: inherit;
   font-size: 12px;
@@ -450,8 +450,8 @@ onMounted(() => {
 }
 .stage-option:hover,
 .stage-option.is-selected {
-  color: #e86600;
-  background: #fff1e0;
+  color: var(--accent-400);
+  background: var(--accent-soft);
 }
 .stage-tree-node + .stage-tree-node {
   margin-top: 3px;
@@ -459,24 +459,24 @@ onMounted(() => {
 .stage-tree-children {
   margin: 2px 0 5px 15px;
   padding-left: 8px;
-  border-left: 1px solid #ffe0c2;
+  border-left: 1px solid var(--border-2);
 }
 .stage-option--child {
   padding-top: 6px;
   padding-bottom: 6px;
-  color: #7a6a58;
+  color: var(--text-2);
   font-size: 11px;
 }
 .stage-option__marker {
   display: inline-block;
   width: 18px;
-  color: #e86600;
+  color: var(--accent-400);
   font-size: 12px;
   font-weight: 700;
 }
 .stage-option small {
   margin-left: auto;
-  color: #b34a00;
+  color: var(--accent-300);
   font-size: 9px;
 }
 @media (max-width: 720px) {
@@ -501,43 +501,43 @@ onMounted(() => {
   gap: 6px;
 }
 .stage-requirement {
-  color: #0f766e;
-  background: #ccfbf1;
+  color: var(--success);
+  background: var(--success-soft);
 }
 .stage-product {
-  color: #c2410c;
-  background: #ffedd5;
+  color: var(--warning);
+  background: var(--warning-soft);
 }
 .stage-architecture_design {
-  color: #6d28d9;
-  background: #ede9fe;
+  color: var(--purple);
+  background: var(--purple-soft);
 }
 .stage-ui_design {
-  color: #be185d;
-  background: #fce7f3;
+  color: var(--error);
+  background: var(--error-soft);
 }
 .stage-design {
-  color: #6d28d9;
-  background: #ede9fe;
+  color: var(--purple);
+  background: var(--purple-soft);
 }
 .stage-frontend_coding {
-  color: #1d4ed8;
-  background: #dbeafe;
+  color: var(--info);
+  background: var(--info-soft);
 }
 .stage-backend_coding {
-  color: #4338ca;
-  background: #e0e7ff;
+  color: var(--info);
+  background: var(--info-soft);
 }
 .stage-testing {
-  color: #a16207;
-  background: #fef3c7;
+  color: var(--warning);
+  background: var(--warning-soft);
 }
 .stage-security_review {
-  color: #b91c1c;
-  background: #fee2e2;
+  color: var(--error);
+  background: var(--error-soft);
 }
 .stage-deployment {
-  color: #15803d;
-  background: #dcfce7;
+  color: var(--success);
+  background: var(--success-soft);
 }
 </style>

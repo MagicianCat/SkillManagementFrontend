@@ -33,6 +33,6 @@ onMounted(async () => {
 
 <style scoped>
 .document-detail { max-width: 960px; margin: 0 auto; }
-.markdown-output { margin-top: 20px; padding: 20px; white-space: pre-wrap; line-height: 1.7; background: #fff; border-radius: 10px; }
-.muted { color: #64748b; }
+.markdown-output { margin-top: 20px; padding: 20px; white-space: pre-wrap; line-height: 1.7; background: var(--surface-1); backdrop-filter: blur(12px); border-radius: 10px; }
+.muted { color: var(--text-2); }
 </style>

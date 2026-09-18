@@ -59,6 +59,6 @@ onMounted(() => void load())
 
 <style scoped>
 .agent-audit-page { display: grid; gap: 18px; }
-.agent-audit-page :deep(.t-table) { background: var(--surface, #fff); }
+.agent-audit-page :deep(.t-table) { background: var(--surface-1); }
 .agent-audit-page :deep(.t-pagination) { justify-self: end; }
 </style>

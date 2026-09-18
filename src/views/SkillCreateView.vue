@@ -290,35 +290,37 @@ function skipUpload() {
   display: grid;
   gap: 18px;
   padding: 24px;
-  border: 1px solid #ece1d2;
+  border: 1px solid var(--border-1);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface-1);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--inner-highlight);
 }
 .form-field {
   display: grid;
   gap: 7px;
 }
 .form-field span {
-  color: #334155;
+  color: var(--text-1);
   font-size: 13px;
   font-weight: 650;
 }
 .form-field em {
-  color: #dc2626;
+  color: var(--error);
   font-style: normal;
 }
 .form-field small {
-  color: #94a3b8;
+  color: var(--text-3);
   font-size: 11px;
 }
 .form-field input,
 .form-field select,
 .form-field textarea {
   padding: 9px 11px;
-  border: 1px solid #dfcfb8;
+  border: 1px solid var(--border-2);
   border-radius: 7px;
-  color: #1e293b;
-  background: #fff;
+  color: var(--text-1);
+  background: var(--surface-2);
   font: inherit;
   font-size: 13px;
   outline: none;
@@ -326,11 +328,11 @@ function skipUpload() {
 .form-field input:focus,
 .form-field select:focus,
 .form-field textarea:focus {
-  border-color: #e86600;
-  box-shadow: 0 0 0 3px rgb(232 102 0 / 18%);
+  border-color: var(--accent-500);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 .form-field input.has-error {
-  border-color: #dc2626;
+  border-color: var(--error);
 }
 .form-actions {
   display: flex;
@@ -350,27 +352,27 @@ function skipUpload() {
 }
 .btn-primary {
   border: 0;
-  color: #fff;
-  background: #e86600;
+  color: var(--text-on-accent);
+  background: var(--accent-500);
 }
 .btn-primary:hover:not(:disabled) {
-  background: #c25400;
+  background: var(--accent-400);
 }
 .btn-primary:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 .btn-secondary {
-  border: 1px solid #dfcfb8;
-  color: #475569;
-  background: #fff;
+  border: 1px solid var(--border-2);
+  color: var(--text-2);
+  background: var(--surface-1);
 }
 .btn-secondary:hover:not(:disabled) {
-  background: #fbf6f0;
+  background: var(--surface-2);
 }
 .inline-error {
   margin: 0;
-  color: #b91c1c;
+  color: var(--error);
   font-size: 12px;
 }
 .modal-mask {
@@ -379,30 +381,32 @@ function skipUpload() {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgb(15 23 42 / 45%);
+  background: rgb(4 8 14 / 60%);
 }
 .modal {
   width: min(92vw, 460px);
   padding: 24px;
+  border: 1px solid var(--border-1);
   border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 20px 50px rgb(15 23 42 / 18%);
+  background: var(--surface-overlay);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-lg);
 }
 .modal h2 {
   margin: 0;
-  color: #0f172a;
+  color: var(--text-1);
   font-size: 17px;
 }
 .modal-desc {
   margin: 10px 0 18px;
-  color: #64748b;
+  color: var(--text-2);
   font-size: 13px;
   line-height: 1.6;
 }
 .modal-desc code {
   padding: 1px 5px;
   border-radius: 4px;
-  background: #f6efe5;
+  background: var(--surface-2);
   font-family: var(--font-mono, monospace);
   font-size: 12px;
 }
@@ -410,14 +414,16 @@ function skipUpload() {
   display: grid;
   gap: 7px;
   margin-bottom: 14px;
-  color: #334155;
+  color: var(--text-1);
   font-size: 12px;
   font-weight: 650;
 }
 .modal-field input {
   padding: 8px 10px;
-  border: 1px solid #dfcfb8;
+  border: 1px solid var(--border-2);
   border-radius: 7px;
+  color: var(--text-1);
+  background: var(--surface-2);
   font: inherit;
   font-size: 13px;
 }

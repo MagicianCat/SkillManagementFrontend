@@ -1,67 +1,243 @@
+/* ============================================================
+   Dark Glass Design Tokens
+   企业级 AI / Developer Platform — Dark · Glass · Subtle Futuristic
+   ============================================================ */
 :root {
-  /* ===== 泰康橙系列色板 (Taikang Orange series) ===== */
-  --tk-50: #fff7ef;
-  --tk-100: #ffeedc;
-  --tk-200: #ffdfbe;
-  --tk-300: #ffc28a;
-  --tk-400: #ff9a3d;
-  --tk-500: #ff7a00; /* 品牌橙 */
-  --tk-600: #e86600; /* 主色 */
-  --tk-700: #c25400; /* hover */
-  --tk-800: #b34a00; /* active / 深橙文字 */
-  --tk-900: #8a3d00; /* 最深深橙 */
+  /* ===== 基础背景：深灰蓝 / charcoal / navy-black（禁纯黑） ===== */
+  --bg-0: #070b12; /* 页面最底层 */
+  --bg-1: #0a0f18; /* workspace 主背景 */
+  --bg-2: #0d1420; /* sidebar / 次级背景 */
 
-  /* ===== 暖灰中性 (warm neutrals) ===== */
-  --tk-neutral-50: #fbf7f2;
-  --tk-neutral-100: #f6efe5;
-  --tk-neutral-200: #ece1d2;
-  --tk-neutral-300: #dfcfb8;
-  --tk-neutral-400: #b5a48e;
-  --tk-neutral-500: #7a6a58;
-  --tk-neutral-600: #2a2118;
+  /* ===== Glass Surface 分层（透明度递增 = 层级递增） ===== */
+  --surface-1: rgb(148 180 255 / 4%); /* 常规卡片 */
+  --surface-2: rgb(148 180 255 / 7%); /* 次级容器 / hover 抬升 */
+  --surface-3: rgb(148 180 255 / 10%); /* elevated 卡片 */
+  --surface-solid-1: #101826; /* 不透明 surface（图表容器内衬） */
+  --surface-solid-2: #151f30; /* 不透明 elevated */
+  --surface-overlay: rgb(16 24 38 / 82%); /* dialog / popover 玻璃底 */
+  --surface-overlay-solid: #131c2c;
 
-  /* ===== 兼容既有 CSS 变量 (backward compat) ===== */
-  --color-primary: #e86600;
-  --color-primary-hover: #c25400;
-  --color-brand: #ff7a00;
-  --color-brand-deep: #b34a00;
-  --color-primary-soft: #fff1e0;
-  --color-primary-border: #ffd9a3;
-  --color-text: #2a2118;
-  --color-text-muted: #7a6a58;
-  --color-surface: #ffffff;
-  --color-background: #faf5ee;
-  --color-border: #ece1d2;
-  --color-success: #11875d;
+  /* ===== 边框（低透明度亮边） ===== */
+  --border-1: rgb(160 195 255 / 9%);
+  --border-2: rgb(160 195 255 / 14%);
+  --border-3: rgb(160 195 255 / 20%);
+  --border-accent: rgb(56 199 255 / 40%);
+
+  /* ===== 文字色阶 ===== */
+  --text-1: #e8eef7; /* 主文字 */
+  --text-2: #aebacd; /* 次要文字 */
+  --text-3: #77849a; /* 弱提示 / placeholder */
+  --text-4: #525e72; /* 禁用 */
+  --text-on-accent: #04121f;
+
+  /* ===== Accent：Cyan / Blue 系 ===== */
+  --accent-50: #e6f8ff;
+  --accent-100: #b3ecff;
+  --accent-200: #80dfff;
+  --accent-300: #4dd2ff;
+  --accent-400: #26c6ff; /* 亮 cyan —— hover / 高光 */
+  --accent-500: #0fb5ec; /* 主 accent */
+  --accent-600: #0a9bd4; /* active */
+  --accent-700: #0b7fb0;
+  --accent-800: #0d6288;
+  --accent-900: #0e4a66;
+
+  --accent-soft: rgb(38 198 255 / 12%); /* accent 弱底 */
+  --accent-softer: rgb(38 198 255 / 7%);
+  --accent-glow: rgb(38 198 255 / 22%);
+
+  /* ===== 语义色 ===== */
+  --success: #34d399;
+  --success-soft: rgb(52 211 153 / 12%);
+  --warning: #fbbf24;
+  --warning-soft: rgb(251 191 36 / 12%);
+  --error: #f87171;
+  --error-soft: rgb(248 113 113 / 12%);
+  --info: #60a5fa;
+  --info-soft: rgb(96 165 250 / 12%);
+  --purple: #a78bfa;
+  --purple-soft: rgb(167 139 250 / 12%);
+
+  /* ===== 阴影 ===== */
+  --shadow-sm: 0 1px 2px rgb(2 6 12 / 30%);
+  --shadow-md: 0 4px 16px rgb(2 6 12 / 35%);
+  --shadow-lg: 0 12px 32px rgb(2 6 12 / 45%);
+  --shadow-xl: 0 24px 64px rgb(2 6 12 / 55%);
+  --shadow-accent: 0 4px 20px rgb(15 181 236 / 25%);
+  /* 玻璃内高光（顶部 1px 亮线） */
+  --inner-highlight: inset 0 1px 0 rgb(255 255 255 / 5%);
+
+  /* ===== 半径 ===== */
+  --radius-xs: 5px;
   --radius-sm: 8px;
-  --radius-lg: 18px;
-  --shadow-panel: 0 18px 50px rgb(216 90 0 / 10%);
-  --content-max-width: 1120px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 999px;
+
+  /* ===== 字体 ===== */
   --font-sans:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    'Segoe UI', sans-serif;
+    'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+  /* ===== 布局 ===== */
+  --content-max-width: 1120px;
+  --header-height: 56px;
+  --sidebar-width: 240px;
+
+  /* ===== 动画 ===== */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 0.15s;
+  --duration-base: 0.22s;
+
+  /* ===== 兼容旧变量名（平滑迁移，全部指向新 token） ===== */
+  --color-primary: var(--accent-500);
+  --color-primary-hover: var(--accent-400);
+  --color-brand: var(--accent-400);
+  --color-brand-deep: var(--accent-300);
+  --color-primary-soft: var(--accent-soft);
+  --color-primary-border: var(--border-accent);
+  --color-text: var(--text-1);
+  --color-text-muted: var(--text-2);
+  --color-surface: var(--surface-solid-1);
+  --color-background: var(--bg-1);
+  --color-border: var(--border-1);
+  --color-success: var(--success);
+  --shadow-panel: var(--shadow-md);
 }
 
-/* ---- TDesign 组件主题对齐泰康橙 ---- */
+/* ============================================================
+   TDesign Dark 主题映射
+   ============================================================ */
 :root {
-  --td-brand-color: #e86600;
-  --td-brand-color-hover: #c25400;
-  --td-brand-color-focus: #e86600;
-  --td-brand-color-active: #b34a00;
-  --td-brand-color-light: #fff1e0;
-  --td-brand-color-light-hover: #ffe6c7;
-  --td-brand-color-disabled: #ffd9a3;
-  --td-brand-color-1: #fff7ef;
-  --td-brand-color-2: #ffeedc;
-  --td-brand-color-3: #ffdfbe;
-  --td-brand-color-4: #ffc28a;
-  --td-brand-color-5: #ff9a3d;
-  --td-brand-color-6: #ff7a00;
-  --td-brand-color-7: #e86600;
-  --td-brand-color-8: #c25400;
-  --td-brand-color-9: #b34a00;
-  --td-brand-color-10: #8a3d00;
-  --td-error-color: #c0392b;
-  --td-warning-color: #b45309;
-  --td-success-color: #11875d;
+  /* ---- 品牌色 ---- */
+  --td-brand-color: var(--accent-500);
+  --td-brand-color-hover: var(--accent-400);
+  --td-brand-color-focus: var(--accent-500);
+  --td-brand-color-active: var(--accent-600);
+  --td-brand-color-light: var(--accent-soft);
+  --td-brand-color-light-hover: var(--accent-softer);
+  --td-brand-color-disabled: var(--accent-800);
+  --td-brand-color-1: var(--accent-softer);
+  --td-brand-color-2: var(--accent-soft);
+  --td-brand-color-3: rgb(38 198 255 / 20%);
+  --td-brand-color-4: var(--accent-300);
+  --td-brand-color-5: var(--accent-400);
+  --td-brand-color-6: var(--accent-500);
+  --td-brand-color-7: var(--accent-600);
+  --td-brand-color-8: var(--accent-700);
+  --td-brand-color-9: var(--accent-800);
+  --td-brand-color-10: var(--accent-900);
+
+  /* ---- 语义色 ---- */
+  --td-error-color: var(--error);
+  --td-error-color-hover: #f99191;
+  --td-error-color-active: #ef4444;
+  --td-error-color-light: var(--error-soft);
+  --td-warning-color: var(--warning);
+  --td-warning-color-hover: #fcd34d;
+  --td-warning-color-active: #f59e0b;
+  --td-warning-color-light: var(--warning-soft);
+  --td-success-color: var(--success);
+  --td-success-color-hover: #6ee7b7;
+  --td-success-color-active: #10b981;
+  --td-success-color-light: var(--success-soft);
+
+  /* ---- 灰阶（深色下反转映射） ---- */
+  --td-gray-color-1: var(--bg-2);
+  --td-gray-color-2: var(--surface-solid-1);
+  --td-gray-color-3: var(--surface-solid-2);
+  --td-gray-color-4: var(--border-1);
+  --td-gray-color-5: var(--border-2);
+  --td-gray-color-6: var(--border-3);
+  --td-gray-color-7: var(--text-4);
+  --td-gray-color-8: var(--text-3);
+  --td-gray-color-9: var(--text-2);
+  --td-gray-color-10: var(--text-1);
+  --td-gray-color-11: var(--text-2);
+  --td-gray-color-12: var(--text-3);
+  --td-gray-color-13: var(--text-4);
+  --td-gray-color-14: var(--border-3);
+
+  /* ---- 文字 ---- */
+  --td-text-color-primary: var(--text-1);
+  --td-text-color-secondary: var(--text-2);
+  --td-text-color-placeholder: var(--text-3);
+  --td-text-color-disabled: var(--text-4);
+  --td-text-color-anti: var(--text-on-accent);
+  --td-text-color-brand: var(--accent-400);
+  --td-text-color-link: var(--accent-400);
+
+  /* ---- 背景 / 容器 ---- */
+  --td-bg-color-page: var(--bg-1);
+  --td-bg-color-container: var(--surface-solid-1);
+  --td-bg-color-container-hover: var(--surface-solid-2);
+  --td-bg-color-container-active: #1a2740;
+  --td-bg-color-container-select: var(--surface-solid-1);
+  --td-bg-color-secondarycontainer: var(--surface-solid-2);
+  --td-bg-color-secondarycontainer-hover: #1a2740;
+  --td-bg-color-secondarycontainer-active: #1f2e4d;
+  --td-bg-color-component: var(--surface-solid-2);
+  --td-bg-color-component-hover: #1a2740;
+  --td-bg-color-component-active: #1f2e4d;
+  --td-bg-color-component-disabled: var(--surface-solid-1);
+  --td-bg-color-specialcomponent: var(--surface-solid-2);
+  --td-bg-color-overlay: var(--surface-overlay-solid);
+
+  /* ---- 边框 ---- */
+  --td-border-level-1-color: var(--border-1);
+  --td-border-level-2-color: var(--border-2);
+  --td-component-border: var(--border-2);
+
+  /* ---- 阴影 ---- */
+  --td-shadow-1: var(--shadow-md);
+  --td-shadow-2: var(--shadow-lg);
+  --td-shadow-3: var(--shadow-xl);
+  --td-shadow-inset-top: inset 0 1px 0 rgb(255 255 255 / 4%);
+  --td-shadow-inset-bottom: inset 0 -1px 0 rgb(2 6 12 / 30%);
+
+  /* ---- 遮罩 ---- */
+  --td-mask-active: rgb(4 8 14 / 60%);
+  --td-mask-disabled: rgb(4 8 14 / 45%);
+  --td-bg-color-popper: var(--surface-overlay-solid);
+
+  /* ---- 滚动条 ---- */
+  --td-scrollbar-color: rgb(148 180 255 / 18%);
+  --td-scrollbar-hover-color: rgb(148 180 255 / 28%);
+
+  /* ---- 字体 ---- */
+  --td-font-family: var(--font-sans);
+}
+
+/* ============================================================
+   全局基础
+   ============================================================ */
+:root {
+  color-scheme: dark;
+}
+
+::selection {
+  color: var(--text-on-accent);
+  background: var(--accent-500);
+}
+
+/* 滚动条（webkit） */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgb(148 180 255 / 16%);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(148 180 255 / 26%);
+  background-clip: content-box;
 }

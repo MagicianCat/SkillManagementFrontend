@@ -92,22 +92,22 @@ function maximize() {
   width: 64px;
   height: 64px;
   place-items: center;
-  border: 2px solid #fff;
+  border: 2px solid var(--border-accent);
   border-radius: 50%;
-  color: #fff;
-  background: linear-gradient(135deg, #ff9a3d 0%, #e86600 100%);
-  box-shadow: 0 14px 34px rgb(232 102 0 / 42%);
+  color: var(--text-on-accent);
+  background: linear-gradient(135deg, var(--accent-400) 0%, var(--accent-500) 100%);
+  box-shadow: 0 0 20px rgb(38 198 255 / 35%);
   cursor: pointer;
   transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 .agent-launcher:hover {
   transform: translateY(-2px) scale(1.04);
-  box-shadow: 0 18px 40px rgb(232 102 0 / 50%);
+  box-shadow: 0 0 28px rgb(38 198 255 / 45%);
 }
 .agent-launcher__ring {
   position: absolute;
   inset: -6px;
-  border: 2px solid rgb(232 102 0 / 35%);
+  border: 2px solid rgb(38 198 255 / 35%);
   border-radius: 50%;
   animation: agentPulse 2.4s ease-out infinite;
 }
@@ -132,10 +132,11 @@ function maximize() {
   height: 520px;
   overflow: hidden;
   flex-direction: column;
-  border: 1px solid #ffd9a3;
+  border: 1px solid var(--border-accent);
   border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 22px 60px rgb(216 90 0 / 24%);
+  background: var(--surface-overlay);
+  backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: var(--shadow-xl), var(--inner-highlight);
 }
 .agent-floating > header {
   display: flex;
@@ -144,9 +145,9 @@ function maximize() {
   align-items: center;
   justify-content: space-between;
   padding: 0 14px;
-  border-bottom: 1px solid #ffe6c7;
-  background: linear-gradient(135deg, #ff9a3d 0%, #e86600 100%);
-  color: #fff;
+  border-bottom: 1px solid var(--border-2);
+  background: linear-gradient(135deg, var(--accent-400) 0%, var(--accent-500) 100%);
+  color: var(--text-on-accent);
   font-size: 13px;
 }
 .agent-floating > header strong {
@@ -159,13 +160,13 @@ function maximize() {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 0 3px rgb(255 255 255 / 30%);
+  background: var(--accent-300);
+  box-shadow: 0 0 0 3px rgb(38 198 255 / 30%), 0 0 8px rgb(38 198 255 / 50%);
 }
 .agent-floating header button {
   padding: 5px;
   border: 0;
-  color: #fff;
+  color: var(--text-on-accent);
   background: transparent;
   cursor: pointer;
 }

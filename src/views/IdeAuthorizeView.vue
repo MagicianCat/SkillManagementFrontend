@@ -198,7 +198,7 @@ onMounted(loadAuthorization)
   place-items: center;
   color: var(--color-text);
   background:
-    radial-gradient(circle at 18% 12%, rgb(255 122 0 / 12%), transparent 30%),
+    radial-gradient(circle at 18% 12%, rgb(38 198 255 / 10%), transparent 30%),
     var(--color-background);
 }
 
@@ -220,14 +220,14 @@ onMounted(loadAuthorization)
   margin: 0 auto 24px;
   place-items: center;
   border-radius: 14px;
-  color: #fff;
+  color: var(--text-on-accent);
   background: var(--color-primary);
   font-size: 22px;
   font-weight: 800;
 }
 
 .state-icon--success { background: var(--color-success); }
-.state-icon--expired { background: #b45309; }
+.state-icon--expired { background: var(--warning); }
 
 .loading-title { margin-top: 24px; }
 
@@ -241,7 +241,7 @@ onMounted(loadAuthorization)
 
 h1 {
   margin: 0;
-  color: #1f2937;
+  color: var(--text-1);
   font-size: 26px;
 }
 
@@ -273,15 +273,15 @@ h1 {
   margin: 0 0 18px;
   padding: 12px 14px;
   border-radius: var(--radius-sm);
-  color: #9a3412;
-  background: #fff1e0;
+  color: var(--warning);
+  background: var(--warning-soft);
   font-size: 13px;
   line-height: 1.5;
 }
 
 .security-note {
   margin: 14px 0 0;
-  color: #9a8b79;
+  color: var(--text-3);
   font-size: 11px;
   line-height: 1.5;
 }

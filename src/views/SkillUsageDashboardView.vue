@@ -55,10 +55,10 @@ const memberOptions = computed(() => members.value.map((member) => ({
   value: member.userId,
 })))
 
-// ---- 图表数据派生（泰康橙企业级配色） ----
-const PALETTE = ['#e86600', '#ff7a00', '#ff9a3d', '#c25400', '#ffc28a', '#b34a00', '#11875d', '#94a3b8']
-const axisLabel = { color: '#7a6a58', fontSize: 11 }
-const splitLine = { lineStyle: { color: '#f1e8dc' } }
+// ---- 图表数据派生（Dark Glass 企业级配色） ----
+const PALETTE = ['#26c6ff', '#0fb5ec', '#60a5fa', '#4dd2ff', '#34d399', '#a78bfa', '#fbbf24', '#8b9bb5']
+const axisLabel = { color: '#8b9bb5', fontSize: 11 }
+const splitLine = { lineStyle: { color: 'rgba(160,195,255,0.09)' } }
 
 const activeSkills = computed(() => [...(overview.value?.skills ?? [])].sort((a, b) => b.calls - a.calls).slice(0, 8))
 const lowUseSkills = computed(() => [...(overview.value?.skills ?? [])].sort((a, b) => a.calls - b.calls).slice(0, 4))
@@ -99,7 +99,7 @@ function horizontalBar(labels: string[], values: number[], extra?: Record<string
       type: 'bar' as const,
       data: values,
       barMaxWidth: 14,
-      itemStyle: { color: '#e86600', borderRadius: [0, 6, 6, 0] },
+      itemStyle: { color: '#26c6ff', borderRadius: [0, 6, 6, 0] },
       ...(extra ?? {}),
     }],
   }
@@ -112,16 +112,16 @@ function renderCharts() {
   // 1. 总体使用趋势（双序列折线）
   mountChart(trendRef.value, {
     tooltip: { trigger: 'axis' },
-    legend: { right: 0, top: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, textStyle: { color: '#7a6a58', fontSize: 11 } },
+    legend: { right: 0, top: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, textStyle: { color: '#8b9bb5', fontSize: 11 } },
     grid: { left: 6, right: 6, top: 34, bottom: 4, containLabel: true },
-    xAxis: { type: 'category', boundaryGap: false, data: o.trend.map((i) => i.bucket), axisLine: { lineStyle: { color: '#dfcfb8' } }, axisLabel },
+    xAxis: { type: 'category', boundaryGap: false, data: o.trend.map((i) => i.bucket), axisLine: { lineStyle: { color: 'rgba(160,195,255,0.20)' } }, axisLabel },
     yAxis: [
-      { type: 'value', splitLine, axisLabel, name: '调用', nameTextStyle: { color: '#b5a48e', fontSize: 10 } },
+      { type: 'value', splitLine, axisLabel, name: '调用', nameTextStyle: { color: '#77849a', fontSize: 10 } },
       { type: 'value', splitLine: { show: false }, axisLabel: { show: false } },
     ],
     series: [
-      { name: '调用次数', type: 'line', smooth: true, symbol: 'circle', symbolSize: 5, data: o.trend.map((i) => i.calls), itemStyle: { color: '#e86600' }, lineStyle: { color: '#e86600', width: 2.5 }, areaStyle: { color: 'rgba(255,122,0,.10)' } },
-      { name: '活跃成员', type: 'line', yAxisIndex: 1, smooth: true, symbol: 'none', data: o.trend.map((i) => i.activeUsers), itemStyle: { color: '#94a3b8' }, lineStyle: { color: '#b5a48e', width: 1.6, type: 'dashed' } },
+      { name: '调用次数', type: 'line', smooth: true, symbol: 'circle', symbolSize: 5, data: o.trend.map((i) => i.calls), itemStyle: { color: '#26c6ff' }, lineStyle: { color: '#26c6ff', width: 2.5 }, areaStyle: { color: 'rgba(38,198,255,.12)' } },
+      { name: '活跃成员', type: 'line', yAxisIndex: 1, smooth: true, symbol: 'none', data: o.trend.map((i) => i.activeUsers), itemStyle: { color: '#8b9bb5' }, lineStyle: { color: '#77849a', width: 1.6, type: 'dashed' } },
     ],
   })
 
@@ -129,9 +129,9 @@ function renderCharts() {
   mountChart(timeBandRef.value, {
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: { left: 6, right: 6, top: 18, bottom: 2, containLabel: true },
-    xAxis: { type: 'category', data: o.timeBands.map((i) => i.band), axisLine: { lineStyle: { color: '#dfcfb8' } }, axisLabel: { ...axisLabel, interval: 0, rotate: o.timeBands.length > 6 ? 24 : 0 } },
+    xAxis: { type: 'category', data: o.timeBands.map((i) => i.band), axisLine: { lineStyle: { color: 'rgba(160,195,255,0.20)' } }, axisLabel: { ...axisLabel, interval: 0, rotate: o.timeBands.length > 6 ? 24 : 0 } },
     yAxis: { type: 'value', splitLine, axisLabel },
-    series: [{ type: 'bar', data: o.timeBands.map((i) => i.calls), barMaxWidth: 22, itemStyle: { borderRadius: [6, 6, 0, 0], color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: '#ff9a3d' }, { offset: 1, color: '#e86600' }] } } }],
+    series: [{ type: 'bar', data: o.timeBands.map((i) => i.calls), barMaxWidth: 22, itemStyle: { borderRadius: [6, 6, 0, 0], color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: '#4dd2ff' }, { offset: 1, color: '#0a9bd4' }] } } }],
   })
 
   // 3. 热门 Skill（横向条形）
@@ -141,14 +141,14 @@ function renderCharts() {
   const cats = o.categories
   mountChart(categoryPieRef.value, {
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-    legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, textStyle: { color: '#7a6a58', fontSize: 11 } },
+    legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, textStyle: { color: '#8b9bb5', fontSize: 11 } },
     series: [{
       type: 'pie', radius: ['52%', '72%'], center: ['50%', '44%'],
-      itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+      itemStyle: { borderRadius: 6, borderColor: '#0d1420', borderWidth: 2 },
       label: { show: false },
       data: cats.slice(0, 6).map((i, idx) => ({ name: i.name, value: i.calls, itemStyle: { color: PALETTE[idx % PALETTE.length] } })),
     }],
-    graphic: [{ type: 'text', left: 'center', top: '38%', style: { text: String(cats.reduce((s, i) => s + i.calls, 0)), fill: '#2a2118', fontSize: 20, fontWeight: 700, textAlign: 'center', textVerticalAlign: 'middle' } }],
+    graphic: [{ type: 'text', left: 'center', top: '38%', style: { text: String(cats.reduce((s, i) => s + i.calls, 0)), fill: '#e8eef7', fontSize: 20, fontWeight: 700, textAlign: 'center', textVerticalAlign: 'middle' } }],
   })
 
   // 5. 使用覆盖漏斗
@@ -160,9 +160,9 @@ function renderCharts() {
       label: { show: true, position: 'inside', color: '#fff', formatter: '{b}  {c}', fontSize: 11 },
       itemStyle: { borderRadius: 4 },
       data: [
-        { name: 'Skill 调用', value: summary.calls, itemStyle: { color: '#e86600' } },
-        { name: '活跃成员', value: summary.activeUsers, itemStyle: { color: '#ff9a3d' } },
-        { name: '使用 Skill', value: summary.skills, itemStyle: { color: '#ffc28a' } },
+        { name: 'Skill 调用', value: summary.calls, itemStyle: { color: '#0fb5ec' } },
+        { name: '活跃成员', value: summary.activeUsers, itemStyle: { color: '#4dd2ff' } },
+        { name: '使用 Skill', value: summary.skills, itemStyle: { color: '#80dfff' } },
       ],
     }],
   })
@@ -176,10 +176,10 @@ function renderCharts() {
   const clients = o.clients
   mountChart(clientPieRef.value, {
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-    legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, textStyle: { color: '#7a6a58', fontSize: 11 } },
+    legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, textStyle: { color: '#8b9bb5', fontSize: 11 } },
     series: [{
       type: 'pie', radius: ['52%', '72%'], center: ['50%', '44%'],
-      itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+      itemStyle: { borderRadius: 6, borderColor: '#0d1420', borderWidth: 2 },
       label: { show: false },
       data: clients.slice(0, 5).map((i, idx) => ({ name: i.name, value: i.calls, itemStyle: { color: PALETTE[idx % PALETTE.length] } })),
     }],
@@ -386,56 +386,58 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.usage-page{width:min(100%,1360px);margin:0 auto;color:#172033}
+.usage-page{width:min(100%,1360px);margin:0 auto;color:var(--text-1)}
 .usage-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:14px}
-.usage-heading h1{margin:5px 0 8px;font-size:28px}
-.usage-heading p:not(.eyebrow){margin:0;color:#64748b;font-size:13px}
-.scope-badge{padding:8px 12px;border:1px solid #ffd9a3;border-radius:999px;color:#b34a00;background:#fff6ec;font-size:12px;white-space:nowrap}
-.usage-alert{margin:12px 0;padding:12px 14px;border-radius:9px;color:#9a3412;background:#fff1e0}
-.usage-filters{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding:13px;border:1px solid #eadfce;border-radius:13px;background:#fff}
-.usage-filters label{display:grid;gap:4px;color:#64748b;font-size:11px}
-.usage-filters input{height:32px;padding:0 8px;border:1px solid #d8cbbb;border-radius:6px;color:#334155;background:#fff;font:inherit;font-size:12px}
+.usage-heading h1{margin:5px 0 8px;font-size:28px;color:var(--text-1);letter-spacing:-0.03em}
+.usage-heading p:not(.eyebrow){margin:0;color:var(--text-2);font-size:13px}
+.scope-badge{padding:8px 12px;border:1px solid var(--border-accent);border-radius:999px;color:var(--accent-300);background:var(--accent-soft);font-size:12px;white-space:nowrap}
+.usage-alert{margin:12px 0;padding:12px 14px;border:1px solid rgb(251 191 36 / 30%);border-radius:9px;color:var(--warning);background:var(--warning-soft)}
+.usage-filters{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding:13px;border:1px solid var(--border-1);border-radius:13px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px)}
+.usage-filters label{display:grid;gap:4px;color:var(--text-2);font-size:11px}
+.usage-filters input{height:32px;padding:0 8px;border:1px solid var(--border-2);border-radius:6px;color:var(--text-1);background:var(--surface-1);font:inherit;font-size:12px}
 .usage-filters .t-select{width:170px}
 .usage-filters .t-input{width:170px}
 .preset-group{display:flex;gap:4px}
-.preset-group button{height:32px;padding:0 10px;border:1px solid #eadfce;border-radius:6px;color:#64748b;background:#fff;font:inherit;font-size:12px;cursor:pointer}
-.preset-group button.active{border-color:#e86600;color:#b34a00;background:#fff1e0}
+.preset-group button{height:32px;padding:0 10px;border:1px solid var(--border-2);border-radius:6px;color:var(--text-2);background:var(--surface-1);font:inherit;font-size:12px;cursor:pointer;transition:all .15s ease}
+.preset-group button:hover{border-color:var(--border-3);color:var(--text-1)}
+.preset-group button.active{border-color:var(--border-accent);color:var(--accent-300);background:var(--accent-soft)}
 .summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
-.summary-grid article{display:grid;min-height:92px;gap:8px;padding:14px 16px;border:1px solid #eadfce;border-radius:10px;background:#fff;box-shadow:0 4px 14px rgb(216 90 0 / 4%)}
-.summary-grid span,.summary-grid small{color:#64748b;font-size:12px}
-.summary-grid strong{color:#172033;font-size:26px;letter-spacing:-.04em}
+.summary-grid article{display:grid;min-height:92px;gap:8px;padding:14px 16px;border:1px solid var(--border-1);border-radius:10px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px)}
+.summary-grid span,.summary-grid small{color:var(--text-2);font-size:12px}
+.summary-grid strong{color:var(--text-1);font-size:26px;letter-spacing:-.04em}
 .summary-grid small{font-size:11px}
 .dashboard-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);gap:12px;margin-bottom:12px}
-.usage-card{min-width:0;padding:16px;border:1px solid #eadfce;border-radius:10px;background:#fff;box-shadow:0 4px 18px rgb(216 90 0 / 4%)}
+.usage-card{min-width:0;padding:16px;border:1px solid var(--border-1);border-radius:10px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px)}
 .card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
-.card-heading h2{font-size:15px;margin:0}
-.card-heading p{margin:4px 0 0;color:#94a3b8;font-size:11px}
-.card-heading span{color:#94a3b8;font-size:11px}
+.card-heading h2{font-size:15px;margin:0;color:var(--text-1)}
+.card-heading p{margin:4px 0 0;color:var(--text-3);font-size:11px}
+.card-heading span{color:var(--text-3);font-size:11px}
 .events-card{margin-top:12px}
-.cell-subtitle{display:block;color:#94a3b8;font-size:11px}
-.empty-state{padding:40px 0;color:#94a3b8;font-size:12px;text-align:center}
+.cell-subtitle{display:block;color:var(--text-3);font-size:11px}
+.empty-state{padding:40px 0;color:var(--text-3);font-size:12px;text-align:center}
 .chart-box{width:100%;height:232px}
 .chart-tall{height:264px}
 .insight-grid{grid-template-columns:minmax(0,1.25fr) minmax(280px,.9fr) minmax(250px,.8fr)}
 .dimension-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 .dimension-grid .usage-card{min-height:260px}
-.low-use-note{margin:10px 0 0;padding-top:10px;border-top:1px solid #f6efe5;color:#94a3b8;font-size:11px}
-.low-use-note span{display:inline-block;margin:2px 6px 0 0;padding:2px 8px;border-radius:5px;color:#7a6a58;background:#f6efe5}
-.conversation-mask{position:fixed;inset:0;z-index:20;display:flex;justify-content:flex-end;background:rgb(15 23 42 / 40%)}
-.conversation-drawer{width:min(560px,100%);height:100%;overflow:auto;padding:22px;background:#fff;box-shadow:-12px 0 40px rgb(15 23 42 / 18%)}
-.drawer-close{float:right;border:0;background:transparent;font-size:26px;color:#64748b;cursor:pointer}
-.conversation-drawer h2{margin:6px 0}
+.low-use-note{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--border-1);color:var(--text-3);font-size:11px}
+.low-use-note span{display:inline-block;margin:2px 6px 0 0;padding:2px 8px;border:1px solid var(--border-1);border-radius:5px;color:var(--text-2);background:var(--surface-2)}
+.conversation-mask{position:fixed;inset:0;z-index:20;display:flex;justify-content:flex-end;background:rgb(4 8 14 / 62%);backdrop-filter:blur(4px)}
+.conversation-drawer{width:min(560px,100%);height:100%;overflow:auto;padding:22px;border-left:1px solid var(--border-2);background:var(--surface-overlay);box-shadow:var(--shadow-xl);backdrop-filter:blur(24px) saturate(140%)}
+.drawer-close{float:right;border:0;background:transparent;font-size:26px;color:var(--text-2);cursor:pointer}
+.drawer-close:hover{color:var(--text-1)}
+.conversation-drawer h2{margin:6px 0;color:var(--text-1)}
 .conversation-drawer .eyebrow{margin-top:8px}
-.drawer-meta{margin:2px 0 14px;color:#94a3b8;font-size:12px}
-.drawer-state{padding:40px 0;color:#94a3b8;text-align:center}
-.drawer-state.error{color:#b91c1c}
-.retry-button{margin-left:8px;padding:4px 10px;border:0;border-radius:5px;color:#fff;background:#e86600;cursor:pointer}
+.drawer-meta{margin:2px 0 14px;color:var(--text-3);font-size:12px}
+.drawer-state{padding:40px 0;color:var(--text-3);text-align:center}
+.drawer-state.error{color:var(--error)}
+.retry-button{margin-left:8px;padding:4px 10px;border:1px solid var(--border-accent);border-radius:5px;color:var(--text-on-accent);background:linear-gradient(140deg,var(--accent-400),var(--accent-600));cursor:pointer}
 .messages{display:grid;gap:12px}
-.message{max-width:88%;padding:10px 12px;border-radius:10px;background:#f6efe5;color:#334155}
-.message-user{margin-left:auto;background:#fff1e0}
-.message span{display:block;font-size:11px;color:#94a3b8}
-.message pre{margin:6px 0 0;white-space:pre-wrap;word-break:break-word;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}
-.message small{color:#94a3b8}
+.message{max-width:88%;padding:10px 12px;border:1px solid var(--border-1);border-radius:10px;background:var(--surface-2);color:var(--text-1)}
+.message-user{margin-left:auto;border-color:var(--border-accent);background:var(--accent-soft)}
+.message span{display:block;font-size:11px;color:var(--text-3)}
+.message pre{margin:6px 0 0;white-space:pre-wrap;word-break:break-word;color:var(--text-1);font:12px/1.6 var(--font-mono)}
+.message small{color:var(--text-3)}
 @media(max-width:1100px){.insight-grid{grid-template-columns:1.2fr 1fr}.dimension-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.trend-grid,.insight-grid,.dimension-grid{grid-template-columns:1fr}}
 </style>

@@ -622,7 +622,7 @@ onBeforeUnmount(() => {
           </ul>
         </div>
         <label class="modal-field">
-          审核说明 <em style="color: #dc2626">*</em>
+          审核说明 <em style="color: var(--error)">*</em>
           <textarea
             v-model="submitComment"
             rows="3"
@@ -699,11 +699,11 @@ onBeforeUnmount(() => {
 }
 .draft-header__title h1 {
   margin: 0;
-  color: #0f172a;
+  color: var(--text-1);
   font-size: 20px;
 }
 .readonly-note {
-  color: #b45309;
+  color: var(--warning);
   font-size: 12px;
 }
 .draft-header__actions {
@@ -723,15 +723,17 @@ onBeforeUnmount(() => {
   display: flex;
   min-height: 0;
   flex-direction: column;
-  border: 1px solid #ece1d2;
+  border: 1px solid var(--border-1);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface-1);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--inner-highlight);
 }
 .panel-label {
   margin: 0;
   padding: 10px 12px;
-  border-bottom: 1px solid #f6efe5;
-  color: #94a3b8;
+  border-bottom: 1px solid var(--border-1);
+  color: var(--text-3);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -742,7 +744,7 @@ onBeforeUnmount(() => {
 }
 .file-tree__empty {
   padding: 18px 12px;
-  color: #94a3b8;
+  color: var(--text-3);
   font-size: 11px;
   line-height: 1.7;
 }
@@ -753,7 +755,7 @@ onBeforeUnmount(() => {
   gap: 6px;
   padding: 8px 12px;
   border: 0;
-  color: #475569;
+  color: var(--text-2);
   background: transparent;
   font: inherit;
   font-size: 12px;
@@ -762,8 +764,8 @@ onBeforeUnmount(() => {
 }
 .file-row:hover,
 .file-row.is-selected {
-  color: #e86600;
-  background: #fff1e0;
+  color: var(--accent-300);
+  background: var(--accent-soft);
 }
 .file-row__path {
   overflow: hidden;
@@ -774,8 +776,8 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
   padding: 2px 5px;
   border-radius: 4px;
-  color: #64748b;
-  background: #f6efe5;
+  color: var(--text-2);
+  background: var(--surface-2);
   font-size: 9px;
 }
 .editor-pane__bar {
@@ -783,21 +785,21 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   padding: 9px 14px;
-  border-bottom: 1px solid #f6efe5;
-  color: #64748b;
+  border-bottom: 1px solid var(--border-1);
+  color: var(--text-2);
   font-family: var(--font-mono, monospace);
   font-size: 12px;
 }
 .dirty-dot {
-  color: #d97706;
+  color: var(--warning);
 }
 .editor-textarea {
   flex: 1;
   min-height: 320px;
   padding: 16px;
   border: 0;
-  color: #1e293b;
-  background: #fff;
+  color: var(--text-1);
+  background: transparent;
   font-family: var(--font-mono, monospace);
   font-size: 13px;
   line-height: 1.65;
@@ -814,7 +816,7 @@ onBeforeUnmount(() => {
   padding: 10px 12px 0;
 }
 .meta-field span {
-  color: #64748b;
+  color: var(--text-2);
   font-size: 11px;
   font-weight: 650;
 }
@@ -822,15 +824,17 @@ onBeforeUnmount(() => {
 .meta-field select,
 .meta-field textarea {
   padding: 8px 10px;
-  border: 1px solid #dfcfb8;
+  border: 1px solid var(--border-2);
   border-radius: 6px;
+  color: var(--text-1);
+  background: var(--surface-2);
   font: inherit;
   font-size: 12px;
   outline: none;
 }
 .meta-field input[readonly] {
-  color: #94a3b8;
-  background: #fbf6f0;
+  color: var(--text-3);
+  background: var(--surface-1);
 }
 .meta-actions {
   display: flex;
@@ -839,7 +843,7 @@ onBeforeUnmount(() => {
   padding: 12px;
 }
 .meta-message {
-  color: #15803d;
+  color: var(--success);
   font-size: 11px;
 }
 .btn-primary,
@@ -855,42 +859,42 @@ onBeforeUnmount(() => {
 }
 .btn-primary {
   border: 0;
-  color: #fff;
-  background: #e86600;
+  color: var(--text-on-accent);
+  background: var(--accent-500);
 }
 .btn-primary:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 .btn-secondary {
-  border: 1px solid #dfcfb8;
-  color: #475569;
-  background: #fff;
+  border: 1px solid var(--border-2);
+  color: var(--text-2);
+  background: var(--surface-1);
 }
 .btn-secondary:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 .btn-danger {
-  border: 1px solid #fecaca;
-  color: #b91c1c;
-  background: #fff;
+  border: 1px solid rgb(248 113 113 / 25%);
+  color: var(--error);
+  background: var(--surface-1);
 }
 .btn-danger:hover {
-  background: #fef2f2;
+  background: var(--error-soft);
 }
 .inline-error {
   margin: 0;
-  color: #b91c1c;
+  color: var(--error);
   font-size: 12px;
 }
 .warnings {
   margin: 10px 0;
   padding: 10px 12px;
-  border: 1px solid #fde68a;
+  border: 1px solid rgb(251 191 36 / 25%);
   border-radius: 7px;
-  color: #92400e;
-  background: #fffbeb;
+  color: var(--warning);
+  background: var(--warning-soft);
   font-size: 12px;
 }
 .warnings ul {
@@ -903,22 +907,24 @@ onBeforeUnmount(() => {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgb(15 23 42 / 45%);
+  background: rgb(4 8 14 / 60%);
 }
 .modal {
   width: min(92vw, 460px);
   padding: 24px;
+  border: 1px solid var(--border-1);
   border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 20px 50px rgb(15 23 42 / 18%);
+  background: var(--surface-overlay);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-lg);
 }
 .modal h2 {
   margin: 0;
-  color: #0f172a;
+  color: var(--text-1);
   font-size: 17px;
 }
 .modal-desc {
-  color: #64748b;
+  color: var(--text-2);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -926,14 +932,16 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 7px;
   margin-top: 12px;
-  color: #334155;
+  color: var(--text-1);
   font-size: 12px;
   font-weight: 650;
 }
 .modal-field textarea {
   padding: 8px 10px;
-  border: 1px solid #dfcfb8;
+  border: 1px solid var(--border-2);
   border-radius: 7px;
+  color: var(--text-1);
+  background: var(--surface-2);
   font: inherit;
   font-size: 13px;
 }

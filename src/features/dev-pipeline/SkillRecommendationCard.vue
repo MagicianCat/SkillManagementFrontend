@@ -94,9 +94,9 @@ async function startVideo() {
 .recommendation-card {
   display: grid;
   overflow: hidden;
-  border: 1px solid #e7ebf1;
+  border: 1px solid var(--border-1);
   border-radius: 14px;
-  background: #fbfcfe;
+  background: var(--surface-1);
 }
 
 .recommendation-card__video {
@@ -105,8 +105,8 @@ async function startVideo() {
   place-items: center;
   align-content: center;
   gap: 7px;
-  color: #8290a5;
-  background: linear-gradient(135deg, #eef2f7, #f8fafc);
+  color: var(--text-3);
+  background: linear-gradient(135deg, var(--surface-1), var(--surface-2));
   font-size: 11px;
 }
 
@@ -138,19 +138,19 @@ async function startVideo() {
   cursor: pointer;
 }
 
-.recommendation-card__video-trigger:hover { color: #386fa8; }
+.recommendation-card__video-trigger:hover { color: var(--accent-400); }
 .recommendation-card__video-trigger:focus-visible,
-.recommendation-card__video-retry:focus-visible { outline: 2px solid #2f7dcc; outline-offset: -3px; }
+.recommendation-card__video-retry:focus-visible { outline: 2px solid var(--accent-400); outline-offset: -3px; }
 
 .recommendation-card__video-retry {
   position: absolute;
   inset: 50% auto auto 50%;
   transform: translate(-50%, -50%);
   padding: 7px 10px;
-  border: 1px solid #cbd4e1;
+  border: 1px solid var(--border-2);
   border-radius: 6px;
-  color: #526176;
-  background: rgba(255, 255, 255, .94);
+  color: var(--text-2);
+  background: var(--surface-overlay);
   font-size: 11px;
   cursor: pointer;
 }
@@ -163,9 +163,9 @@ async function startVideo() {
   height: 30px;
   place-items: center;
   padding-left: 2px;
-  border: 1px solid #cbd4e1;
+  border: 1px solid var(--border-2);
   border-radius: 50%;
-  color: #62728a;
+  color: var(--text-2);
   font-size: 11px;
 }
 
@@ -186,14 +186,14 @@ async function startVideo() {
   font-weight: 750;
 }
 
-.recommendation-kind { color: #176b5f; background: #e2f3ef; }
-.recommendation-kind.optional { color: #7b5d1d; background: #fff4d9; }
-.recommendation-category { color: #546783; background: #edf1f6; font-weight: 600; }
+.recommendation-kind { color: var(--success); background: var(--success-soft); }
+.recommendation-kind.optional { color: var(--warning); background: var(--warning-soft); }
+.recommendation-category { color: var(--text-2); background: var(--surface-2); font-weight: 600; }
 
 .recommendation-card__name {
   display: inline-block;
   margin-top: 11px;
-  color: #1b5da8;
+  color: var(--accent-400);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px;
   font-weight: 800;
@@ -201,18 +201,18 @@ async function startVideo() {
 }
 
 .recommendation-card__name:hover { text-decoration: underline; }
-.recommendation-card__name:focus-visible { outline: 2px solid #2f7dcc; outline-offset: 3px; border-radius: 3px; }
-.recommendation-card__tagline { margin: 5px 0 0; color: #526176; font-size: 12px; line-height: 1.6; }
-.recommendation-card__condition, .recommendation-card__reuse { margin: 8px 0 0; color: #8a6c2c; font-size: 11px; line-height: 1.5; }
-.recommendation-card__reuse { color: #78869a; }
+.recommendation-card__name:focus-visible { outline: 2px solid var(--accent-400); outline-offset: 3px; border-radius: 3px; }
+.recommendation-card__tagline { margin: 5px 0 0; color: var(--text-2); font-size: 12px; line-height: 1.6; }
+.recommendation-card__condition, .recommendation-card__reuse { margin: 8px 0 0; color: var(--warning); font-size: 11px; line-height: 1.5; }
+.recommendation-card__reuse { color: var(--text-3); }
 
 .recommendation-card__prompt { margin-top: 12px; }
-.recommendation-card__prompt summary { display: inline-flex; align-items: center; gap: 5px; color: #386fa8; font-size: 11px; font-weight: 750; cursor: pointer; }
+.recommendation-card__prompt summary { display: inline-flex; align-items: center; gap: 5px; color: var(--accent-400); font-size: 11px; font-weight: 750; cursor: pointer; }
 .recommendation-card__prompt summary::before { content: '＋'; font-size: 13px; }
 .recommendation-card__prompt[open] summary::before { content: '−'; }
-.recommendation-card__prompt summary:focus-visible { outline: 2px solid #2f7dcc; outline-offset: 3px; }
+.recommendation-card__prompt summary:focus-visible { outline: 2px solid var(--accent-400); outline-offset: 3px; }
 .recommendation-card__prompt pre { overflow: auto; max-height: 260px; margin: 10px 0 0; padding: 11px; border-radius: 9px; color: #dfe8f4; background: #243149; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
 
-.recommendation-card__artifact { display: grid; gap: 4px; margin-top: 14px; padding-top: 10px; border-top: 1px solid #e7ebf1; color: #8792a3; font-size: 10px; }
-.recommendation-card__artifact code { overflow: hidden; color: #536783; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.recommendation-card__artifact { display: grid; gap: 4px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-1); color: var(--text-3); font-size: 10px; }
+.recommendation-card__artifact code { overflow: hidden; color: var(--text-2); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 </style>

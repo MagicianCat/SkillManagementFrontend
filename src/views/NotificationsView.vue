@@ -319,11 +319,11 @@ onMounted(fetchNotifications)
 }
 .btn-primary {
   border: 0;
-  color: #fff;
-  background: #e86600;
+  color: var(--text-on-accent);
+  background: var(--accent-500);
 }
 .btn-primary:hover:not(:disabled) {
-  background: #c25400;
+  background: var(--accent-400);
 }
 .btn-primary:disabled,
 .btn-secondary:disabled {
@@ -331,12 +331,12 @@ onMounted(fetchNotifications)
   opacity: 0.55;
 }
 .btn-secondary {
-  border: 1px solid #dfcfb8;
-  color: #475569;
-  background: #fff;
+  border: 1px solid var(--border-2);
+  color: var(--text-2);
+  background: var(--surface-1);
 }
 .btn-secondary:hover:not(:disabled) {
-  background: #fbf6f0;
+  background: var(--surface-2);
 }
 .status-tabs {
   display: flex;
@@ -346,7 +346,7 @@ onMounted(fetchNotifications)
   padding: 7px 12px;
   border: 0;
   border-radius: 6px;
-  color: #64748b;
+  color: var(--text-2);
   background: transparent;
   font: inherit;
   font-size: 12px;
@@ -354,14 +354,14 @@ onMounted(fetchNotifications)
 }
 .status-tab:hover,
 .status-tab.is-selected {
-  color: #e86600;
-  background: #fff1e0;
+  color: var(--accent-300);
+  background: var(--accent-soft);
 }
 .select-all {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #64748b;
+  color: var(--text-2);
   font-size: 12px;
   cursor: pointer;
 }
@@ -374,19 +374,21 @@ onMounted(fetchNotifications)
   align-items: center;
   gap: 12px;
   padding: 13px 16px;
-  border: 1px solid #ece1d2;
+  border: 1px solid var(--border-1);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface-1);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--inner-highlight);
 }
 .notification-row.is-unread {
-  border-left: 3px solid #e86600;
-  background: #fff6ec;
+  border-left: 3px solid var(--accent-500);
+  background: var(--accent-softer);
 }
 .notification-row__check {
   width: 15px;
   height: 15px;
   flex: 0 0 15px;
-  accent-color: #e86600;
+  accent-color: var(--accent-500);
   cursor: pointer;
 }
 .notification-row__main {
@@ -402,21 +404,21 @@ onMounted(fetchNotifications)
   cursor: pointer;
 }
 .notification-row__main strong {
-  color: #334155;
+  color: var(--text-1);
   font-size: 13px;
 }
 .is-unread .notification-row__main strong {
-  color: #e86600;
+  color: var(--accent-400);
 }
 .notification-row__main span {
   overflow: hidden;
-  color: #64748b;
+  color: var(--text-2);
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .notification-row__main small {
-  color: #94a3b8;
+  color: var(--text-3);
   font-size: 10px;
 }
 .unread-dot {
@@ -424,6 +426,6 @@ onMounted(fetchNotifications)
   height: 8px;
   flex: 0 0 8px;
   border-radius: 50%;
-  background: #e86600;
+  background: var(--accent-500);
 }
 </style>

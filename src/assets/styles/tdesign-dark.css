@@ -1,0 +1,418 @@
+/* ============================================================
+   TDesign 组件 Dark Glass 覆盖
+   依赖 tokens.css 中的 --td-* 与 glass token
+   ============================================================ */
+
+/* ---------- 通用：弹出层玻璃化 ---------- */
+.t-popup,
+.t-select__dropdown,
+.t-dropdown__menu,
+.t-date-picker__panel,
+.t-time-picker__panel,
+.t-color-picker__panel {
+  border: 1px solid var(--border-2) !important;
+  background: var(--surface-overlay) !important;
+  box-shadow: var(--shadow-xl), var(--inner-highlight) !important;
+  backdrop-filter: blur(20px) saturate(140%);
+}
+
+/* ---------- Button ---------- */
+.t-button {
+  border-radius: 8px;
+  font-weight: 600;
+  transition: border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    filter var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+.t-button--variant-base.t-button--theme-primary,
+.t-button--theme-primary {
+  border-color: var(--border-accent);
+  color: var(--text-on-accent);
+  background: linear-gradient(140deg, var(--accent-400), var(--accent-600));
+  box-shadow: var(--shadow-accent);
+}
+.t-button--variant-base.t-button--theme-primary:not(.t-is-disabled):hover,
+.t-button--theme-primary:not(.t-is-disabled):hover {
+  filter: brightness(1.12);
+  box-shadow: 0 6px 26px rgb(15 181 236 / 35%);
+}
+.t-button--variant-outline,
+.t-button--variant-dashed {
+  border-color: var(--border-2);
+  color: var(--text-1);
+  background: var(--surface-1);
+}
+.t-button--variant-outline:not(.t-is-disabled):hover,
+.t-button--variant-dashed:not(.t-is-disabled):hover {
+  border-color: var(--border-accent);
+  color: var(--accent-300);
+  background: var(--surface-2);
+}
+.t-button--variant-text {
+  color: var(--accent-400);
+}
+.t-button--variant-text:not(.t-is-disabled):hover {
+  color: var(--accent-300);
+  background: var(--accent-softer);
+}
+.t-button.t-is-disabled {
+  border-color: var(--border-1);
+  color: var(--text-4);
+  background: var(--surface-1);
+  box-shadow: none;
+}
+
+/* ---------- Input / Textarea / Select / 表单控件 ---------- */
+.t-input,
+.t-textarea__inner,
+.t-select__wrap,
+.t-input-number,
+.t-date-picker,
+.t-time-picker,
+.t-cascader,
+.t-auto-complete {
+  border-color: var(--border-2) !important;
+  background: var(--surface-1) !important;
+  backdrop-filter: blur(8px);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+.t-input:hover,
+.t-textarea__inner:hover,
+.t-select__wrap:hover {
+  border-color: var(--border-3) !important;
+}
+.t-input.t-is-focused,
+.t-select__wrap.t-is-focused,
+.t-textarea__inner:focus,
+.t-input:focus-within {
+  border-color: var(--border-accent) !important;
+  background: var(--surface-2) !important;
+  box-shadow: 0 0 0 3px rgb(38 198 255 / 10%) !important;
+}
+.t-input input,
+.t-textarea__inner textarea,
+.t-input__inner {
+  color: var(--text-1) !important;
+  background: transparent !important;
+}
+.t-input input::placeholder,
+.t-textarea__inner textarea::placeholder {
+  color: var(--text-3) !important;
+}
+.t-input.t-is-disabled,
+.t-select__wrap.t-is-disabled {
+  border-color: var(--border-1) !important;
+  background: var(--surface-1) !important;
+  opacity: 0.6;
+}
+.t-input.t-is-disabled input {
+  color: var(--text-4) !important;
+}
+/* 输入框前后缀/图标 */
+.t-input__prefix,
+.t-input__suffix,
+.t-input__suffix-clear,
+.t-select .t-fake-arrow,
+.t-select__right-icon {
+  color: var(--text-3) !important;
+}
+
+/* 下拉选项 */
+.t-select-option {
+  color: var(--text-1);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+.t-select-option:hover {
+  background: var(--surface-2) !important;
+}
+.t-select-option.t-is-selected {
+  color: var(--accent-300);
+  background: var(--accent-soft) !important;
+}
+.t-select-option.t-is-disabled {
+  color: var(--text-4);
+}
+.t-select__empty {
+  color: var(--text-3);
+}
+
+/* ---------- Form ---------- */
+.t-form__label {
+  color: var(--text-1);
+}
+.t-form__status,
+.t-input__extra {
+  color: var(--text-3);
+}
+
+/* ---------- Checkbox / Radio / Switch ---------- */
+.t-checkbox__label,
+.t-radio__label {
+  color: var(--text-1);
+}
+.t-checkbox__input,
+.t-radio__input {
+  border-color: var(--border-3);
+  background: var(--surface-1);
+}
+.t-checkbox.t-is-checked .t-checkbox__input,
+.t-radio.t-is-checked .t-radio__input {
+  border-color: var(--accent-500);
+  background: var(--accent-500);
+}
+.t-switch .t-switch__handle {
+  background: var(--text-3);
+}
+.t-switch.t-is-checked {
+  background: var(--accent-500);
+}
+.t-switch:not(.t-is-checked) {
+  background: var(--surface-solid-2);
+}
+
+/* ---------- Tabs ---------- */
+.t-tabs__nav-item {
+  color: var(--text-2);
+  transition: color var(--duration-fast) var(--ease-out);
+}
+.t-tabs__nav-item:hover {
+  color: var(--text-1);
+}
+.t-tabs__nav-item.t-is-active {
+  color: var(--accent-300);
+}
+.t-tabs__bar {
+  background: var(--accent-500);
+  box-shadow: 0 0 8px rgb(38 198 255 / 40%);
+}
+.t-tabs__nav-container::after,
+.t-tabs__nav-wrap::after {
+  background: var(--border-1);
+}
+
+/* ---------- Table ---------- */
+.t-table {
+  border-color: var(--border-1);
+  color: var(--text-1);
+  background: transparent;
+}
+.t-table__header th,
+.t-table thead th {
+  border-color: var(--border-1);
+  color: var(--text-2);
+  background: var(--surface-solid-2);
+  font-weight: 650;
+}
+.t-table td {
+  border-color: var(--border-1);
+  color: var(--text-1);
+  background: transparent;
+}
+.t-table__body tr:hover td {
+  background: var(--surface-2);
+}
+.t-table--striped tbody tr:nth-child(odd) td {
+  background: var(--surface-1);
+}
+.t-table--striped tbody tr:nth-child(odd):hover td {
+  background: var(--surface-2);
+}
+.t-table--bordered,
+.t-table--bordered th,
+.t-table--bordered td {
+  border-color: var(--border-1);
+}
+.t-table__empty {
+  color: var(--text-3);
+}
+.t-table .t-table__row--selected td {
+  background: var(--accent-softer);
+}
+
+/* ---------- Pagination ---------- */
+.t-pagination {
+  color: var(--text-2);
+}
+.t-pagination .t-page-btn {
+  border-color: var(--border-2);
+  color: var(--text-2);
+  background: var(--surface-1);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+.t-pagination .t-page-btn:hover:not(.t-is-disabled) {
+  border-color: var(--border-accent);
+  color: var(--accent-300);
+  background: var(--surface-2);
+}
+.t-pagination .t-page-btn.t-is-current {
+  border-color: var(--border-accent);
+  color: var(--text-on-accent);
+  background: linear-gradient(140deg, var(--accent-400), var(--accent-600));
+}
+.t-pagination .t-page-btn.t-is-disabled {
+  color: var(--text-4);
+  background: var(--surface-1);
+  opacity: 0.5;
+}
+.t-pagination__total,
+.t-pagination__jump {
+  color: var(--text-3);
+}
+
+/* ---------- Dialog ---------- */
+.t-dialog {
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+  background: var(--surface-overlay) !important;
+  box-shadow: var(--shadow-xl), var(--inner-highlight);
+  backdrop-filter: blur(24px) saturate(140%);
+}
+.t-dialog__header {
+  border-bottom: 1px solid var(--border-1);
+  color: var(--text-1);
+}
+.t-dialog__header .t-dialog__header-content,
+.t-dialog__header .t-dialog__close {
+  color: var(--text-1);
+}
+.t-dialog__close:hover {
+  color: var(--text-1);
+  background: var(--surface-2);
+}
+.t-dialog__body {
+  color: var(--text-1);
+}
+.t-dialog__footer {
+  border-top: 1px solid var(--border-1);
+}
+.t-dialog__mask,
+.t-mask,
+.t-dialog__ctx .t-dialog__mask {
+  background: rgb(4 8 14 / 62%);
+  backdrop-filter: blur(4px);
+}
+
+/* ---------- Drawer ---------- */
+.t-drawer {
+  border-left: 1px solid var(--border-2);
+  background: var(--surface-overlay) !important;
+  box-shadow: var(--shadow-xl);
+  backdrop-filter: blur(24px) saturate(140%);
+}
+.t-drawer__header {
+  border-bottom: 1px solid var(--border-1);
+  color: var(--text-1);
+}
+.t-drawer__body {
+  color: var(--text-1);
+}
+.t-drawer__close-btn {
+  color: var(--text-2);
+}
+.t-drawer__close-btn:hover {
+  color: var(--text-1);
+  background: var(--surface-2);
+}
+
+/* ---------- Tooltip ---------- */
+.t-tooltip,
+.t-tooltip .t-popup__content {
+  border: 1px solid var(--border-2);
+  color: var(--text-1);
+  background: var(--surface-overlay-solid) !important;
+  box-shadow: var(--shadow-lg);
+}
+
+/* ---------- Tag ---------- */
+.t-tag {
+  border-color: var(--border-2);
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+.t-tag--theme-primary {
+  border-color: var(--border-accent);
+  color: var(--accent-300);
+  background: var(--accent-soft);
+}
+.t-tag--theme-success {
+  border-color: rgb(52 211 153 / 30%);
+  color: var(--success);
+  background: var(--success-soft);
+}
+.t-tag--theme-warning {
+  border-color: rgb(251 191 36 / 30%);
+  color: var(--warning);
+  background: var(--warning-soft);
+}
+.t-tag--theme-danger,
+.t-tag--theme-error {
+  border-color: rgb(248 113 113 / 30%);
+  color: var(--error);
+  background: var(--error-soft);
+}
+
+/* ---------- Loading ---------- */
+.t-loading {
+  color: var(--accent-400);
+}
+.t-loading__text {
+  color: var(--text-2);
+}
+.t-loading--fullscreen {
+  background: rgb(7 11 18 / 70%);
+  backdrop-filter: blur(4px);
+}
+
+/* ---------- Message / Notification ---------- */
+.t-message,
+.t-notification {
+  border: 1px solid var(--border-2);
+  color: var(--text-1);
+  background: var(--surface-overlay) !important;
+  box-shadow: var(--shadow-lg), var(--inner-highlight);
+  backdrop-filter: blur(20px);
+}
+
+/* ---------- Dropdown menu ---------- */
+.t-dropdown__item {
+  color: var(--text-1);
+}
+.t-dropdown__item:hover {
+  color: var(--accent-300);
+  background: var(--surface-2);
+}
+
+/* ---------- Card（TDesign Card） ---------- */
+.t-card {
+  border-color: var(--border-1);
+  color: var(--text-1);
+  background: var(--surface-1);
+  box-shadow: var(--inner-highlight);
+  backdrop-filter: blur(12px);
+}
+
+/* ---------- Upload / Progress ---------- */
+.t-progress__bar-inner {
+  background: linear-gradient(90deg, var(--accent-500), var(--accent-400));
+}
+.t-progress__bar-outer {
+  background: var(--surface-2);
+}
+
+/* ---------- Skeleton ---------- */
+.t-skeleton__row,
+.t-skeleton__col {
+  background: var(--surface-2);
+}
+
+/* ---------- 遮罩通用 ---------- */
+.t-overlay,
+.t-popup__overlay {
+  background: rgb(4 8 14 / 60%);
+}

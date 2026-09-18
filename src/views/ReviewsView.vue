@@ -569,11 +569,11 @@ onMounted(() => { searchTeams(); fetchReviews() })
 }
 .btn-primary {
   border: 0;
-  color: #fff;
-  background: #e86600;
+  color: var(--text-on-accent);
+  background: var(--accent-500);
 }
 .btn-primary:hover:not(:disabled) {
-  background: #c25400;
+  background: var(--accent-400);
 }
 .btn-primary:disabled,
 .btn-danger:disabled {
@@ -581,20 +581,21 @@ onMounted(() => { searchTeams(); fetchReviews() })
   opacity: 0.55;
 }
 .btn-secondary {
-  border: 1px solid #dfcfb8;
-  color: #475569;
-  background: #fff;
+  border: 1px solid var(--border-2);
+  color: var(--text-2);
+  background: var(--surface-1);
 }
 .btn-secondary:hover:not(:disabled) {
-  background: #fbf6f0;
+  background: var(--surface-2);
 }
 .btn-danger {
   border: 0;
-  color: #fff;
-  background: #dc2626;
+  color: var(--text-on-accent);
+  background: var(--error);
 }
 .btn-danger:hover:not(:disabled) {
-  background: #b91c1c;
+  background: var(--error);
+  filter: brightness(1.18);
 }
 .btn-sm {
   height: 30px;
@@ -609,7 +610,7 @@ onMounted(() => { searchTeams(); fetchReviews() })
   padding: 7px 12px;
   border: 0;
   border-radius: 6px;
-  color: #64748b;
+  color: var(--text-2);
   background: transparent;
   font: inherit;
   font-size: 12px;
@@ -617,8 +618,8 @@ onMounted(() => { searchTeams(); fetchReviews() })
 }
 .status-tab:hover,
 .status-tab.is-selected {
-  color: #e86600;
-  background: #fff1e0;
+  color: var(--accent-300);
+  background: var(--accent-soft);
 }
 .batch-bar {
   display: flex;
@@ -626,10 +627,10 @@ onMounted(() => { searchTeams(); fetchReviews() })
   gap: 10px;
   margin-bottom: 14px;
   padding: 10px 14px;
-  border: 1px solid #ffd9a3;
+  border: 1px solid var(--border-accent);
   border-radius: 10px;
-  color: #b34a00;
-  background: #fff1e0;
+  color: var(--accent-300);
+  background: var(--accent-soft);
   font-size: 12px;
 }
 .select-all-row {
@@ -637,7 +638,7 @@ onMounted(() => { searchTeams(); fetchReviews() })
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
-  color: #64748b;
+  color: var(--text-2);
   font-size: 12px;
   cursor: pointer;
 }
@@ -650,18 +651,20 @@ onMounted(() => { searchTeams(); fetchReviews() })
   align-items: flex-start;
   gap: 12px;
   padding: 16px;
-  border: 1px solid #ece1d2;
+  border: 1px solid var(--border-1);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface-1);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--inner-highlight);
 }
 .review-card.is-selectable {
-  border-left: 3px solid #ffd9a3;
+  border-left: 3px solid var(--border-accent);
 }
 .review-card__check {
   margin-top: 4px;
   width: 15px;
   height: 15px;
-  accent-color: #e86600;
+  accent-color: var(--accent-500);
   cursor: pointer;
 }
 .review-card__main {
@@ -682,7 +685,7 @@ onMounted(() => { searchTeams(); fetchReviews() })
   gap: 8px;
   padding: 0;
   border: 0;
-  color: #1e293b;
+  color: var(--text-1);
   background: transparent;
   font: inherit;
   font-size: 14px;
@@ -690,21 +693,21 @@ onMounted(() => { searchTeams(); fetchReviews() })
   cursor: pointer;
 }
 .review-card__title:hover {
-  color: #e86600;
+  color: var(--accent-400);
 }
 .review-card__title small {
-  color: #64748b;
+  color: var(--text-2);
   font-size: 11px;
   font-weight: 400;
 }
 .review-card__meta {
   margin: 0;
-  color: #94a3b8;
+  color: var(--text-3);
   font-size: 11px;
 }
 .review-card__comment {
   margin: 0;
-  color: #475569;
+  color: var(--text-2);
   font-size: 12px;
   line-height: 1.6;
   display: -webkit-box;
@@ -716,8 +719,8 @@ onMounted(() => { searchTeams(); fetchReviews() })
   margin: 4px 0 0;
   padding: 8px 10px;
   border-radius: 6px;
-  color: #64748b;
-  background: #fbf6f0;
+  color: var(--text-2);
+  background: var(--surface-2);
   font-size: 11px;
   line-height: 1.6;
 }
@@ -732,38 +735,41 @@ onMounted(() => { searchTeams(); fetchReviews() })
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgb(15 23 42 / 45%);
+  background: rgb(4 8 14 / 60%);
 }
 .modal {
   width: min(92vw, 460px);
   padding: 24px;
+  border: 1px solid var(--border-1);
   border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 20px 45px rgb(15 23 42 / 18%);
+  background: var(--surface-overlay);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-lg);
 }
 .modal h2 {
   margin: 0 0 6px;
-  color: #0f172a;
+  color: var(--text-1);
   font-size: 16px;
 }
 .modal-desc {
   margin: 0 0 14px;
-  color: #64748b;
+  color: var(--text-2);
   font-size: 12px;
 }
 .modal-field {
   display: grid;
   gap: 8px;
-  color: #334155;
+  color: var(--text-1);
   font-size: 12px;
   font-weight: 650;
 }
 .modal-field textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #dfcfb8;
+  border: 1px solid var(--border-2);
   border-radius: 7px;
-  color: #0f172a;
+  color: var(--text-1);
+  background: var(--surface-2);
   font: inherit;
   font-size: 13px;
   font-weight: 400;
@@ -771,8 +777,8 @@ onMounted(() => { searchTeams(); fetchReviews() })
   outline: none;
 }
 .modal-field textarea:focus {
-  border-color: #e86600;
-  box-shadow: 0 0 0 3px rgb(232 102 0 / 18%);
+  border-color: var(--accent-500);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 .modal-actions {
   display: flex;
@@ -782,7 +788,7 @@ onMounted(() => { searchTeams(); fetchReviews() })
 }
 .inline-error {
   margin: 12px 0 0;
-  color: #b91c1c;
+  color: var(--error);
   font-size: 12px;
 }
 .batch-failures {
@@ -790,9 +796,10 @@ onMounted(() => { searchTeams(); fetchReviews() })
   margin: 0;
   overflow-y: auto;
   padding: 10px 12px;
+  border: 1px solid rgb(251 191 36 / 25%);
   border-radius: 7px;
-  color: #b45309;
-  background: #fef3c7;
+  color: var(--warning);
+  background: var(--warning-soft);
   font-size: 12px;
   line-height: 1.8;
   list-style: none;

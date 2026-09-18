@@ -57,5 +57,5 @@ async function submit() {
 </template>
 
 <style scoped>
-.batch-form{display:grid;gap:14px}.batch-form p,.batch-result p{margin:0;color:#64748b;font-size:13px;line-height:1.6}.batch-skills{display:flex;flex-wrap:wrap;gap:8px}.batch-skills span{padding:5px 9px;border-radius:999px;color:#b45309;background:#fff1e0;font-size:12px}.batch-result li{margin:8px 0;color:#9a3412;font-size:13px}
+.batch-form{display:grid;gap:14px}.batch-form p,.batch-result p{margin:0;color:var(--text-2);font-size:13px;line-height:1.6}.batch-skills{display:flex;flex-wrap:wrap;gap:8px}.batch-skills span{padding:5px 9px;border-radius:999px;color:var(--accent-300);background:var(--accent-soft);border:1px solid var(--border-accent);font-size:12px}.batch-result li{margin:8px 0;color:var(--warning);font-size:13px}
 </style>

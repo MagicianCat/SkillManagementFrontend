@@ -335,37 +335,37 @@ onMounted(load)
 </template>
 
 <style scoped>
-.feedback-section{margin-top:22px;padding:22px;border:1px solid #ece1d2;border-radius:10px;background:#fff}.feedback-summary{display:flex;justify-content:space-between;align-items:center;color:#64748b;font-size:12px}.feedback-summary strong{color:#0f172a;font-size:20px}.rating-editor,.comment-editor{display:grid;gap:10px;margin:18px 0;padding-bottom:18px;border-bottom:1px solid #ece1d2}.rating-heading,.comment-editor__footer,.comment-list-heading,.feedback-item__head{display:flex;align-items:center;justify-content:space-between;gap:10px}.rating-heading span,.comment-editor__footer span,.comment-list-heading span,.feedback-item__head time{color:#94a3b8;font-size:11px}.stars{display:flex;gap:2px}.star-button{height:32px!important;padding:0 3px!important;color:#dfcfb8!important;font-size:25px!important;line-height:1!important}.star-button.active{color:#f59e0b!important}.comment-editor textarea{min-height:70px;padding:10px;border:1px solid #dfcfb8;border-radius:6px;font:inherit;resize:vertical}.feedback-item{padding:12px 0;border-bottom:1px solid #f6efe5}.feedback-item strong{font-size:13px;color:#334155}.feedback-item p{margin:7px 0 0;color:#475569;font-size:13px;white-space:pre-wrap}.feedback-item__head{justify-content:flex-start}.feedback-item__head time{margin-right:auto}.load-more-comments{display:block;margin:14px auto 0}
-.wiki-related-section{margin-top:22px;padding:22px;border:1px solid #ece1d2;border-radius:10px;background:#fff}.wiki-related-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid #f6efe5;color:#334155;text-decoration:none}.wiki-related-card strong,.wiki-related-card small{display:block}.wiki-related-card small{margin-top:4px;color:#94a3b8;font-size:11px}.wiki-related-card__arrow{color:#e86600;font-size:12px}
-.install-guide{display:grid;gap:8px;margin-top:14px;padding:13px;border:1px solid #f2d8bf;border-radius:8px;background:#fff8f1;color:#334155}.install-guide strong{font-size:13px}.install-guide__target{color:#e86600;font-size:12px}.install-location{display:grid;gap:4px}.install-location span{color:#64748b;font-size:11px}.install-location code{overflow-wrap:anywhere;padding:7px 8px;border-radius:5px;background:#fff;color:#7c3f12;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.install-guide small{color:#94a3b8;font-size:11px;line-height:1.5}
+.feedback-section{margin-top:22px;padding:22px;border:1px solid var(--border-1);border-radius:10px;background:var(--surface-1);backdrop-filter:blur(12px);box-shadow:var(--inner-highlight)}.feedback-summary{display:flex;justify-content:space-between;align-items:center;color:var(--text-2);font-size:12px}.feedback-summary strong{color:var(--text-1);font-size:20px}.rating-editor,.comment-editor{display:grid;gap:10px;margin:18px 0;padding-bottom:18px;border-bottom:1px solid var(--border-1)}.rating-heading,.comment-editor__footer,.comment-list-heading,.feedback-item__head{display:flex;align-items:center;justify-content:space-between;gap:10px}.rating-heading span,.comment-editor__footer span,.comment-list-heading span,.feedback-item__head time{color:var(--text-3);font-size:11px}.stars{display:flex;gap:2px}.star-button{height:32px!important;padding:0 3px!important;color:var(--border-2)!important;font-size:25px!important;line-height:1!important}.star-button.active{color:var(--warning)!important}.comment-editor textarea{min-height:70px;padding:10px;border:1px solid var(--border-2);border-radius:6px;color:var(--text-1);background:var(--surface-2);font:inherit;resize:vertical}.feedback-item{padding:12px 0;border-bottom:1px solid var(--border-1)}.feedback-item strong{font-size:13px;color:var(--text-1)}.feedback-item p{margin:7px 0 0;color:var(--text-2);font-size:13px;white-space:pre-wrap}.feedback-item__head{justify-content:flex-start}.feedback-item__head time{margin-right:auto}.load-more-comments{display:block;margin:14px auto 0}
+.wiki-related-section{margin-top:22px;padding:22px;border:1px solid var(--border-1);border-radius:10px;background:var(--surface-1);backdrop-filter:blur(12px);box-shadow:var(--inner-highlight)}.wiki-related-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--border-1);color:var(--text-1);text-decoration:none}.wiki-related-card strong,.wiki-related-card small{display:block}.wiki-related-card small{margin-top:4px;color:var(--text-3);font-size:11px}.wiki-related-card__arrow{color:var(--accent-400);font-size:12px}
+.install-guide{display:grid;gap:8px;margin-top:14px;padding:13px;border:1px solid var(--border-accent);border-radius:8px;background:var(--accent-softer);color:var(--text-1)}.install-guide strong{font-size:13px}.install-guide__target{color:var(--accent-400);font-size:12px}.install-location{display:grid;gap:4px}.install-location span{color:var(--text-2);font-size:11px}.install-location code{overflow-wrap:anywhere;padding:7px 8px;border-radius:5px;background:var(--surface-2);color:var(--accent-300);font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.install-guide small{color:var(--text-3);font-size:11px;line-height:1.5}
 .detail-header__badges {
   display: flex;
   flex: 0 0 auto;
   gap: 6px;
 }
 .stage-requirement {
-  color: #0e7490;
-  background: #cffafe;
+  color: var(--accent-300);
+  background: var(--accent-soft);
 }
 .stage-design {
-  color: #6d28d9;
-  background: #ede9fe;
+  color: var(--purple);
+  background: var(--purple-soft);
 }
 .stage-frontend_coding,
 .stage-backend_coding {
-  color: #b34a00;
-  background: #ffe6c7;
+  color: var(--accent-300);
+  background: var(--accent-soft);
 }
 .stage-testing {
-  color: #b45309;
-  background: #fef3c7;
+  color: var(--warning);
+  background: var(--warning-soft);
 }
 .stage-released {
-  color: #15803d;
-  background: #dcfce7;
+  color: var(--success);
+  background: var(--success-soft);
 }
 .stage-other {
-  color: #475569;
-  background: #ece1d2;
+  color: var(--text-2);
+  background: var(--surface-2);
 }
 </style>

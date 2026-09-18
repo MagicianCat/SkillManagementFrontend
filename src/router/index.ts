@@ -128,6 +128,18 @@ const router = createRouter({
           meta: { title: '开发全链路最佳实践' },
         },
         {
+          path: 'agent-config',
+          name: 'agent-config',
+          component: () => import('../views/AgentConfigView.vue'),
+          meta: { title: 'Agent 配置中心', permissions: ['skill:browse'] },
+        },
+        {
+          path: 'agent-config/:id',
+          name: 'agent-config-detail',
+          component: () => import('../views/AgentConfigDetailView.vue'),
+          meta: { title: 'Agent 配置详情', permissions: ['skill:browse'] },
+        },
+        {
           path: 'agent',
           name: 'agent',
           component: () => import('../views/AgentView.vue'),
@@ -150,6 +162,12 @@ const router = createRouter({
           name: 'document-agent',
           component: () => import('../views/DocumentAgentView.vue'),
           meta: { title: '文档 Agent' },
+        },
+        {
+          path: 'projects/:projectId/workspace/:runId?',
+          name: 'project-workspace',
+          component: () => import('../views/ProjectWorkspaceView.vue'),
+          meta: { title: '项目工作台' },
         },
         {
           path: '403',

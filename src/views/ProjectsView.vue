@@ -2,63 +2,197 @@
 import { computed, onMounted, ref } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useRouter } from 'vue-router'
-import { getSkills } from '../api/skills.api'
-import { createProject, getProjectWorkflow, listProjectDocuments, listProjectMembers, listProjects, putProjectMember, reviewProjectStage, searchProjectUsers, setProjectStageSkills, startProjectStage, submitProjectStage, type Project, type ProjectDocument, type ProjectMember, type ProjectStage, type ProjectUser, type ProjectWorkflow } from '../api/projects.api'
-import { startWorkflowRun } from '../api/workflow.api'
+import { createProject, listProjectMembers, listProjects, putProjectMember, searchProjectUsers, type Project, type ProjectMember, type ProjectUser } from '../api/projects.api'
 
-const projects=ref<Project[]>([]), selected=ref<Project|null>(null), workflow=ref<ProjectWorkflow|null>(null)
-const members=ref<ProjectMember[]>([]), documents=ref<ProjectDocument[]>([]), busy=ref(false), router=useRouter()
-const newName=ref(''), initialRequest=ref(''), workflowCode=ref('default'), workflowVersion=ref(1), enabledStages=ref(['REQUIREMENT','PRD','ARCHITECTURE','UI_DESIGN'])
-const activeStage=ref<ProjectStage|null>(null), selectedSkillKeys=ref<string[]>([]), skillSearch=ref(''), skillOptions=ref<{skillKey:string;displayName:string;description?:string}[]>([]), userQuery=ref(''), users=ref<ProjectUser[]>([])
-const selectedUser=ref<number|null>(null), reviewComment=ref('')
-const stageNames:Record<string,string>={REQUIREMENT:'需求分析与澄清',PRD:'产品原型与 PRD',ARCHITECTURE:'架构与设计',UI_DESIGN:'UI 设计',CODING:'并行编码',SECURITY:'安全合规',TESTING:'测试验收',RELEASE:'发布交付'}
-const currentDocuments=computed(()=>activeStage.value?.artifacts||[])
-const canManage=computed(()=>['OWNER','MAINTAINER','ADMIN'].includes(selected.value?.role||''))
+const router = useRouter()
+const projects = ref<Project[]>([])
+const selected = ref<Project | null>(null)
+const members = ref<ProjectMember[]>([])
+const busy = ref(false)
+const loading = ref(true)
 
-async function loadProjects(){projects.value=await listProjects();if(!selected.value&&projects.value.length)await choose(projects.value[0])}
-async function choose(project:Project){selected.value=project;activeStage.value=null;await refresh()}
-async function refresh(){if(!selected.value)return;[workflow.value,members.value,documents.value]=await Promise.all([getProjectWorkflow(selected.value.projectKey),listProjectMembers(selected.value.projectKey),listProjectDocuments(selected.value.projectKey)])}
-async function addProject(){if(!newName.value.trim())return;await run(async()=>{const p=await createProject(newName.value.trim(),'由项目进度控制面管理',enabledStages.value);newName.value='';projects.value=await listProjects();await choose(p)},'项目已创建')}
-function openStage(stage:ProjectStage){activeStage.value=stage;selectedSkillKeys.value=stage.skills.map(s=>s.skillKey)}
-function reopen(){const key=activeStage.value?.stageKey;if(key&&workflow.value)openStage(workflow.value.stages.find(s=>s.stageKey===key)!)}
-async function searchStageSkills(){const result=await getSkills({keyword:skillSearch.value.trim()||undefined,page:0,size:30});skillOptions.value=result.items.map(skill=>({skillKey:skill.skillKey,displayName:skill.displayName,description:skill.description}))}
-async function saveSkills(){if(!selected.value||!activeStage.value)return;await run(async()=>{await setProjectStageSkills(selected.value!.projectKey,activeStage.value!.stageKey,selectedSkillKeys.value);await refresh();reopen()},'阶段 Skill 已配置')}
-async function startStage(){if(!selected.value||!activeStage.value)return;await run(async()=>{await startProjectStage(selected.value!.projectKey,activeStage.value!.stageKey);await refresh();reopen()},'阶段已启动，Skill 版本已锁定')}
-async function searchUsers(){users.value=await searchProjectUsers(userQuery.value)}
-async function addMember(){if(!selected.value||!selectedUser.value)return;await run(async()=>{if(!members.value.some(m=>m.userId===selectedUser.value)){await putProjectMember(selected.value!.projectKey,selectedUser.value!)}await refresh()},'项目成员已更新')}
-function openAgent(){if(selected.value&&activeStage.value)void router.push({name:'document-agent',params:{projectKey:selected.value.projectKey,stageKey:activeStage.value.stageKey}})}
-async function openWorkspace(){if(!selected.value||!initialRequest.value.trim())return;await run(async()=>{const workflowRun=await startWorkflowRun(selected.value!.projectKey,{initialRequest:initialRequest.value.trim(),workflowCode:workflowCode.value,workflowVersion:workflowVersion.value});await router.push({name:'project-workspace',params:{projectId:selected.value!.projectKey,runId:String(workflowRun.id)}})},'Agent 工作流已启动')}
-async function submit(document:{documentId:number;revisionId?:number|null}){if(!selected.value||!activeStage.value||!document.revisionId)return;await run(async()=>{await submitProjectStage(selected.value!.projectKey,activeStage.value!.stageKey,document.documentId,document.revisionId!);await refresh();reopen()},'已选择该文档当前草稿作为唯一评审版本')}
-async function review(submissionId:number,decision:'APPROVED'|'REJECTED'){if(!selected.value||!activeStage.value)return;await run(async()=>{await reviewProjectStage(selected.value!.projectKey,activeStage.value!.stageKey,submissionId,decision,reviewComment.value);reviewComment.value='';await refresh();reopen()},decision==='APPROVED'?'已通过':'已退回重做')}
-async function run(fn:()=>Promise<void>,message:string){busy.value=true;try{await fn();MessagePlugin.success(message)}catch(e){MessagePlugin.error((e as any)?.response?.data?.message||String(e))}finally{busy.value=false}}
-onMounted(()=>void loadProjects())
+const newName = ref('')
+const creating = ref(false)
+const userQuery = ref('')
+const users = ref<ProjectUser[]>([])
+const selectedUser = ref<number | null>(null)
+
+const memberCount = computed(() => members.value.length)
+const canManage = computed(() => ['OWNER', 'MAINTAINER', 'ADMIN'].includes(selected.value?.role || ''))
+
+async function loadProjects() {
+  loading.value = true
+  try {
+    projects.value = await listProjects()
+    if (!selected.value && projects.value.length) await choose(projects.value[0])
+  } finally { loading.value = false }
+}
+async function choose(project: Project) {
+  selected.value = project
+  members.value = await listProjectMembers(project.projectKey)
+}
+async function addProject() {
+  const name = newName.value.trim()
+  if (!name || creating.value) return
+  creating.value = true
+  try {
+    const project = await createProject(name, 'Agent 驱动研发项目组')
+    newName.value = ''
+    projects.value = await listProjects()
+    await choose(project)
+    MessagePlugin.success('项目组已创建')
+  } catch (e) { MessagePlugin.error((e as any)?.response?.data?.message || String(e)) } finally { creating.value = false }
+}
+async function searchUsers() { users.value = await searchProjectUsers(userQuery.value.trim()) }
+async function addMember() {
+  if (!selected.value || !selectedUser.value) return
+  busy.value = true
+  try {
+    if (!members.value.some((m) => m.userId === selectedUser.value)) await putProjectMember(selected.value!.projectKey, selectedUser.value!)
+    members.value = await listProjectMembers(selected.value!.projectKey)
+    selectedUser.value = null
+    userQuery.value = ''
+    users.value = []
+    MessagePlugin.success('成员已加入')
+  } catch (e) { MessagePlugin.error((e as any)?.response?.data?.message || String(e)) } finally { busy.value = false }
+}
+/** 进入项目组的 Agent 工作流（无需先填需求，需求在工作台内输入）。 */
+function enterWorkspace(project: Project) { void router.push({ name: 'project-workspace', params: { projectId: project.projectKey } }) }
+
+onMounted(() => void loadProjects())
 </script>
 
 <template>
-  <div class="page-shell flow-page">
-    <header class="hero"><div><span class="eyebrow">PROJECT / PIPELINE & DELIVERY</span><h1>真实项目组</h1><p>以角色、阶段门禁、Agent 产物和多人评审驱动研发进度。</p></div><div><div class="create"><input v-model="newName" placeholder="新项目名称"><button class="primary" :disabled="busy" @click="addProject">+ 发起项目</button></div><div class="stage-options"><label v-for="key in ['REQUIREMENT','PRD','ARCHITECTURE','UI_DESIGN']" :key="key"><input v-model="enabledStages" type="checkbox" :value="key">{{stageNames[key]}}</label></div></div></header>
-    <div class="tabs"><button v-for="p in projects" :key="p.projectKey" :class="{active:selected?.projectKey===p.projectKey}" @click="choose(p)">{{p.name}}</button></div>
-    <template v-if="selected&&workflow">
-      <section class="summary"><div><small>当前项目</small><h2>{{selected.name}}</h2><p>成员权限仅区分 OWNER / MEMBER，研发职责由 Agent Profile 承担。</p><textarea data-testid="initial-request" v-model="initialRequest" rows="3" placeholder="输入本次研发需求（必填）"/><div class="workflow-inputs"><input v-model="workflowCode" placeholder="Workflow code"/><input v-model.number="workflowVersion" type="number" min="1" placeholder="版本"/></div><button data-testid="start-workflow" class="primary workspace-entry" :disabled="!initialRequest.trim()||busy" @click="openWorkspace">启动 Agent 工作流</button></div><div class="progress"><b>{{workflow.progress}}%</b><span>综合交付达成率</span><i><em :style="{width:workflow.progress+'%'}"/></i></div></section>
-      <section class="stage-strip"><button v-for="s in workflow.stages" :key="s.stageKey" :class="['stage-chip',s.status,{future:s.availability==='FUTURE',active:activeStage?.stageKey===s.stageKey}]" @click="openStage(s)"><small>PHASE {{String(s.order).padStart(2,'0')}}</small><b>{{stageNames[s.stageKey]}}</b><span>{{s.availability==='FUTURE'?'后续开放':s.status}} · {{s.progress}}%</span></button></section>
-      <div class="workspace">
-        <section class="members panel"><div class="panel-title"><h3>项目成员</h3><span>{{members.length}} 人</span></div><div v-for="m in members" :key="m.userId" class="member"><b>{{m.displayName}}</b><small>{{m.role==='OWNER'?'OWNER':'MEMBER'}}</small></div>
-          <div v-if="canManage" class="member-add"><input v-model="userQuery" placeholder="搜索跨团队同事" @keyup.enter="searchUsers"><button @click="searchUsers">搜索</button><select v-model="selectedUser"><option :value="null">选择成员</option><option v-for="u in users" :key="u.userId" :value="u.userId">{{u.displayName}} · {{u.teamName||'未分组'}}</option></select><button class="primary" :disabled="!selectedUser" @click="addMember">加入项目</button></div>
-        </section>
-        <section v-if="activeStage" class="stage-work panel"><div class="panel-title"><div><small>PHASE {{activeStage.order}}</small><h3>{{stageNames[activeStage.stageKey]}}</h3></div><b>{{activeStage.status}}</b></div>
-          <div v-if="activeStage.availability==='FUTURE'" class="future-note">该阶段仅作为全流程占位，当前版本不参与进度和门禁。</div>
-          <template v-else><div class="block"><h4>1. Agent 与依赖</h4><p>本阶段 Agent 由 Workflow 配置决定，项目成员可随时干预并最终验收。</p><p>前置阶段：{{activeStage.dependencies.join('、')||'无'}}</p></div>
-          <div class="block"><h4>2. Agent Skill 白名单</h4><p class="hint">从 Skill 市场搜索并多选；启动时锁定最新已发布版本，OpenHands 不可加载白名单外 Skill。</p><div class="inline"><input v-model="skillSearch" placeholder="搜索 Skill 名称或关键词" @keyup.enter="searchStageSkills"><button @click="searchStageSkills">搜索</button><button v-if="canManage" :disabled="activeStage.status!=='NOT_STARTED'" @click="saveSkills">保存配置</button><button v-if="activeStage.status==='NOT_STARTED'" class="primary" @click="startStage">启动阶段</button></div><div v-if="activeStage.status==='NOT_STARTED'" class="skill-picker"><label v-for="skill in skillOptions" :key="skill.skillKey" class="skill-option"><input v-model="selectedSkillKeys" type="checkbox" :value="skill.skillKey"><span><b>{{skill.displayName}}</b><small>{{skill.skillKey}} · {{skill.description}}</small></span></label><p v-if="!skillOptions.length" class="hint">输入关键词后搜索可用 Skill。</p></div><div class="tags"><span v-for="s in activeStage.skills" :key="s.skillKey">{{s.displayName}} {{s.lockedVersion||'待锁定'}}</span></div></div>
-          <div v-if="['IN_PROGRESS','REWORK','IN_REVIEW'].includes(activeStage.status)" class="block"><h4>3. 阶段 Agent 会话</h4><p class="hint">进入独立会话页，与 Agent 多轮澄清、使用本阶段 Skill，并按需生成多个中间文档。</p><button class="primary" @click="openAgent">进入文档 Agent 会话</button><span v-if="activeStage.status==='IN_REVIEW'" class="hint">　评审中仅可查看历史</span></div>
-          <div class="block"><h4>4. 文档产物与门禁</h4><p v-if="currentDocuments.length" class="hint">从阶段产物中选择一份提交；提交时冻结其当前草稿修订作为本轮唯一评审文档。</p><div v-for="d in currentDocuments" :key="d.documentId" class="artifact"><div><b>{{d.title}}</b><small>草稿修订 v{{d.revisionNo||'-'}}</small></div><router-link :to="{name:'project-document',params:{projectKey:selected.projectKey,documentId:d.documentId}}">预览</router-link><button v-if="d.revisionId&&['IN_PROGRESS','REWORK'].includes(activeStage.status)" @click="submit(d)">选择并提交评审</button></div><p v-if="!currentDocuments.length" class="hint">Agent 保存草稿后会显示在这里。</p>
-            <div v-for="s in activeStage.submissions" :key="s.id" class="review"><b>第 {{s.cycleNo}} 轮 · {{s.status}}</b><div v-for="r in s.reviews" :key="r.reviewerId">{{r.reviewerName}}：{{r.decision||'待评审'}} <small>{{r.comment}}</small></div><div v-if="s.status==='PENDING'" class="inline"><input v-model="reviewComment" placeholder="评审意见"><button @click="review(s.id,'APPROVED')">通过</button><button class="danger" @click="review(s.id,'REJECTED')">退回</button></div></div>
-          </div></template>
-        </section><section v-else class="stage-work panel empty">选择上方阶段进入工作台</section>
+  <main class="projects-console">
+    <header class="console-head">
+      <div>
+        <p class="eyebrow">VIRTUAL R&amp;D TEAM</p>
+        <h1>虚拟研发项目组</h1>
+        <p class="sub">由 Agent 团队驱动研发；选择一个项目组进入其工作流，或新建一个项目组。</p>
       </div>
-    </template><div v-else class="empty">当前没有可见项目，项目管理人可在上方发起。</div>
-  </div>
+      <form class="create-box" @submit.prevent="addProject">
+        <input v-model="newName" placeholder="新项目组名称" :disabled="creating" data-testid="new-project-name" />
+        <button type="submit" class="primary" :disabled="creating || !newName.trim()" data-testid="create-project">{{ creating ? '创建中…' : '+ 新建项目组' }}</button>
+      </form>
+    </header>
+
+    <p v-if="!loading && !projects.length" class="empty">当前没有可见项目组，可在上方新建。</p>
+
+    <div v-else class="console-grid">
+      <section class="project-list">
+        <button
+          v-for="project in projects"
+          :key="project.projectKey"
+          type="button"
+          class="project-card"
+          :class="{ active: selected?.projectKey === project.projectKey }"
+          @click="choose(project)"
+        >
+          <span class="status-dot" :class="project.status === 'ACTIVE' ? 'on' : ''" />
+          <span class="card-main">
+            <b>{{ project.name }}</b>
+            <small class="mono">{{ project.projectKey.slice(0, 8) }} · {{ project.status }}</small>
+          </span>
+          <span class="role-tag" v-if="project.role">{{ project.role }}</span>
+        </button>
+      </section>
+
+      <section v-if="selected" class="project-detail panel">
+        <header class="detail-head">
+          <div>
+            <h2>{{ selected.name }}</h2>
+            <p class="muted mono">{{ selected.projectKey }}</p>
+          </div>
+          <span class="pill" :class="selected.status === 'ACTIVE' ? 'tone-success' : 'tone-info'">{{ selected.status }}</span>
+        </header>
+
+        <div class="members-block">
+          <h3>项目成员 <span class="count mono">{{ memberCount }}</span></h3>
+          <ul v-if="members.length" class="member-list">
+            <li v-for="m in members" :key="m.userId">
+              <span class="avatar">{{ m.displayName.slice(0, 1) }}</span>
+              <span class="m-name">{{ m.displayName }}</span>
+              <span class="m-role mono">{{ m.role }}</span>
+            </li>
+          </ul>
+          <p v-else class="muted">暂无成员。</p>
+
+          <div v-if="canManage" class="member-add">
+            <div class="search-row">
+              <input v-model="userQuery" placeholder="搜索同事姓名…" @keyup.enter="searchUsers" />
+              <button type="button" class="ghost" @click="searchUsers">搜索</button>
+            </div>
+            <div v-if="users.length" class="pick-row">
+              <select v-model="selectedUser">
+                <option :value="null" disabled>选择要加入的成员</option>
+                <option v-for="u in users" :key="u.userId" :value="u.userId">{{ u.displayName }}<template v-if="u.teamName"> · {{ u.teamName }}</template></option>
+              </select>
+              <button type="button" class="primary" :disabled="busy || !selectedUser" @click="addMember">加入</button>
+            </div>
+          </div>
+        </div>
+
+        <footer class="detail-foot">
+          <button type="button" class="enter" data-testid="enter-workspace" @click="enterWorkspace(selected)">进入 Agent 工作流 →</button>
+        </footer>
+      </section>
+      <section v-else class="panel placeholder">选择一个项目组查看成员与进入工作流。</section>
+    </div>
+  </main>
 </template>
 
 <style scoped>
-.flow-page{--orange:var(--accent-500);display:grid;gap:16px}.hero,.summary,.panel{background:var(--surface-1);backdrop-filter:blur(12px);border:1px solid var(--border-1);border-radius:16px}.hero{display:flex;justify-content:space-between;align-items:end;padding:24px}.hero h1{font-size:34px;margin:5px 0}.hero p,.summary p{color:var(--text-2);margin:0}.eyebrow{color:var(--orange);font-weight:800;letter-spacing:.08em}.create,.inline{display:flex;gap:8px}.stage-options{display:flex;gap:8px;margin-top:8px;font-size:11px;color:var(--text-2)}.create input,.inline input,.member-add input,.member-add select{border:1px solid var(--border-1);border-radius:8px;padding:9px 11px}.primary{background:var(--orange)!important;color:var(--text-on-accent);border-color:var(--orange)!important}.tabs{display:flex;gap:8px;overflow:auto}.tabs button,.stage-chip,button{border:1px solid var(--border-1);background:var(--surface-1);border-radius:8px;padding:9px 13px;cursor:pointer}.tabs .active{color:var(--orange);border-color:var(--orange)}.summary{padding:20px 24px;display:flex;justify-content:space-between}.summary h2{margin:4px 0}.progress{display:grid;text-align:right;min-width:210px}.progress b{font-size:30px;color:var(--orange)}.progress span{color:var(--text-2)}.progress i{height:8px;background:var(--surface-2);border-radius:8px;overflow:hidden}.progress em{display:block;height:100%;background:var(--success)}.stage-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.stage-chip{display:grid;text-align:left;gap:6px;padding:14px}.stage-chip small{color:var(--orange)}.stage-chip span{font-size:12px;color:var(--text-2)}.stage-chip.COMPLETED{background:var(--success-soft);border-color:var(--success)}.stage-chip.active{outline:2px solid var(--orange)}.stage-chip.future{opacity:.55}.workspace{display:grid;grid-template-columns:330px 1fr;gap:16px}.panel{padding:18px}.panel-title{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-1);padding-bottom:12px}.panel-title h3{margin:3px 0}.member{padding:12px 0;border-bottom:1px solid var(--border-1);display:grid;gap:5px}.member small,.hint,.job{color:var(--text-2)}.member span,.tags span{display:inline-block;background:var(--accent-softer);color:var(--accent-300);border-radius:6px;padding:3px 7px;margin:2px;font-size:12px}.member-add{display:grid;gap:8px;margin-top:16px}.role-grid{display:grid;grid-template-columns:1fr 1fr;font-size:12px;gap:5px}.block{padding:15px 0;border-bottom:1px solid var(--border-1)}.block h4{margin:0 0 9px}.inline input{flex:1}.skill-picker{display:grid;gap:6px;margin-top:10px;max-height:240px;overflow:auto}.skill-option{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--border-1);border-radius:8px;padding:8px}.skill-option span{display:grid;gap:2px}.skill-option small{color:var(--text-2)}.artifact,.review{border:1px solid var(--border-1);border-radius:9px;padding:10px;margin-top:8px}.artifact{display:flex;gap:10px;align-items:center}.artifact div{display:grid;flex:1}.artifact small{color:var(--text-2)}.review{display:grid;gap:7px}.danger{color:var(--error);border-color:var(--error)!important}.future-note,.empty{padding:42px;text-align:center;color:var(--text-2)}@media(max-width:1000px){.workspace{grid-template-columns:1fr}.stage-strip{grid-template-columns:repeat(2,1fr)}}
+.projects-console { max-width: 1120px; margin: 0 auto; padding: 20px 18px 32px; }
+.console-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; flex-wrap: wrap; margin-bottom: 20px; }
+.eyebrow { margin: 0; font-size: 11px; letter-spacing: 0.14em; color: var(--accent-500); font-weight: 700; }
+h1 { margin: 4px 0 6px; font-size: 26px; color: var(--text-1); font-weight: 680; }
+.sub { margin: 0; font-size: 13px; color: var(--text-2); }
+.create-box { display: flex; gap: 8px; }
+.create-box input { width: 220px; padding: 10px 12px; font-size: 13px; color: var(--text-1); background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-sm); }
+.create-box input::placeholder { color: var(--text-4); }
+.primary { padding: 10px 16px; font-size: 13px; color: #fff; background: var(--accent-600); border: 1px solid var(--accent-600); border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; }
+.primary:hover:not(:disabled) { background: var(--accent-500); box-shadow: var(--shadow-accent); }
+.primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.empty { padding: 60px 0; text-align: center; color: var(--text-3); }
+
+.console-grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
+.project-list { display: grid; gap: 8px; }
+.project-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; text-align: left; background: var(--surface-1); border: 1px solid var(--border-1); border-radius: var(--radius-md); cursor: pointer; transition: border-color var(--duration-fast), background var(--duration-fast); }
+.project-card:hover { border-color: var(--border-3); background: var(--surface-2); }
+.project-card.active { border-color: var(--accent-500); box-shadow: 0 0 0 1px var(--border-accent), 0 0 18px var(--accent-glow); }
+.status-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--text-4); }
+.status-dot.on { background: var(--success); box-shadow: 0 0 8px var(--success); }
+.card-main { display: grid; gap: 3px; flex: 1; min-width: 0; }
+.card-main b { font-size: 14px; color: var(--text-1); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-main small { font-size: 11px; color: var(--text-3); }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.role-tag { font-size: 10px; padding: 2px 8px; border-radius: var(--radius-full); background: var(--accent-softer); color: var(--accent-300); border: 1px solid var(--border-accent); }
+
+.panel { padding: 18px 20px; background: var(--surface-1); border: 1px solid var(--border-1); border-radius: var(--radius-md); box-shadow: var(--inner-highlight); }
+.detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--border-1); }
+.detail-head h2 { margin: 0 0 4px; font-size: 18px; color: var(--text-1); font-weight: 650; }
+.muted { color: var(--text-3); font-size: 12px; margin: 0; }
+.pill { font-size: 11px; padding: 3px 10px; border-radius: var(--radius-full); border: 1px solid var(--border-2); color: var(--text-2); }
+.pill.tone-success { color: var(--success); border-color: rgb(52 211 153 / 40%); background: var(--success-soft); }
+.pill.tone-info { color: var(--info); border-color: rgb(96 165 250 / 40%); background: var(--info-soft); }
+
+.members-block { padding: 14px 0; }
+.members-block h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 13px; letter-spacing: 0.05em; color: var(--text-2); font-weight: 600; }
+.count { font-size: 11px; padding: 1px 8px; border-radius: var(--radius-full); background: var(--surface-3); color: var(--text-2); }
+.member-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+.member-list li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--surface-2); border: 1px solid var(--border-1); border-radius: var(--radius-sm); }
+.avatar { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; flex: none; background: var(--accent-softer); border: 1px solid var(--border-accent); color: var(--accent-300); font-size: 12px; font-weight: 600; }
+.m-name { flex: 1; font-size: 13px; color: var(--text-1); }
+.m-role { font-size: 11px; color: var(--text-3); }
+.member-add { display: grid; gap: 8px; padding-top: 12px; border-top: 1px dashed var(--border-1); }
+.search-row, .pick-row { display: flex; gap: 8px; }
+.member-add input, .member-add select { flex: 1; padding: 9px 11px; font-size: 13px; color: var(--text-1); background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-sm); }
+.ghost { padding: 9px 14px; font-size: 13px; color: var(--text-1); background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-sm); cursor: pointer; }
+.ghost:hover { border-color: var(--border-accent); color: var(--accent-300); }
+
+.detail-foot { padding-top: 14px; border-top: 1px solid var(--border-1); }
+.enter { width: 100%; padding: 13px; font-size: 14px; font-weight: 600; color: #fff; background: var(--accent-600); border: none; border-radius: var(--radius-sm); cursor: pointer; }
+.enter:hover { background: var(--accent-500); box-shadow: var(--shadow-accent); }
+.placeholder { display: grid; place-items: center; min-height: 240px; color: var(--text-3); font-size: 13px; }
+@media (max-width: 860px) { .console-grid { grid-template-columns: 1fr; } .console-head { flex-direction: column; align-items: stretch; } .create-box input { flex: 1; width: auto; } }
 </style>

@@ -3,8 +3,8 @@ import { ref } from 'vue'
 import type { InterventionTarget, InterventionType } from '../../types/workflow'
 const props = defineProps<{ running: boolean; canAsk?: boolean; canCorrect?: boolean; disabled?: boolean; target?: InterventionTarget }>()
 const emit = defineEmits<{ submit: [type: InterventionType, content: string, target: InterventionTarget]; action: [type: InterventionType, target: InterventionTarget] }>()
-const content = ref(''); const mode = ref<InterventionType>('ASK'); const targetStageKey = ref(props.target?.targetStageKey || ''); const targetAgentNodeKey = ref(props.target?.targetAgentNodeKey || ''); const targetSessionId = ref(props.target?.targetSessionId || '')
-const targets = (): InterventionTarget => ({ targetStageKey: targetStageKey.value || undefined, targetAgentNodeKey: targetAgentNodeKey.value || undefined, targetSessionId: targetSessionId.value || undefined })
+const content = ref(''); const mode = ref<InterventionType>('ASK'); const stageRunId = ref(props.target?.stageRunId || ''); const agentSessionId = ref(props.target?.agentSessionId || ''); const agentRunId = ref(props.target?.agentRunId || '')
+const targets = (): InterventionTarget => ({ stageRunId: stageRunId.value || undefined, agentSessionId: agentSessionId.value || undefined, agentRunId: agentRunId.value || undefined })
 function submit() { const value = content.value.trim(); if (!value) return; emit('submit', mode.value, value, targets()); content.value = '' }
 </script>
 <template>
@@ -14,9 +14,9 @@ function submit() { const value = content.value.trim(); if (!value) return; emit
     <footer>
       <select v-model="mode" :disabled="props.disabled"><option v-if="props.canAsk !== false" value="ASK">询问 Agent</option><option v-if="props.canCorrect !== false" value="CORRECT">发送纠正</option><option value="PROVIDE_INFO">补充信息</option></select>
       <button type="button" :disabled="props.disabled || !content.trim()" @click="submit">发送</button>
-      <input v-model="targetStageKey" data-testid="intervention-target-stage" placeholder="目标 Stage" />
-      <input v-model="targetAgentNodeKey" placeholder="目标 Agent" />
-      <input v-model="targetSessionId" placeholder="目标 Session" />
+      <input v-model="stageRunId" data-testid="intervention-stage-run-id" placeholder="Stage Run ID" />
+      <input v-model="agentSessionId" placeholder="Agent Session ID" />
+      <input v-model="agentRunId" placeholder="Agent Run ID" />
       <button v-if="props.running" type="button" class="secondary" @click="emit('action', 'PAUSE', targets())">暂停</button>
       <button v-else type="button" class="secondary" @click="emit('action', 'RESUME', targets())">继续</button>
       <button type="button" class="secondary" @click="emit('action', 'RETRY', targets())">重试</button><button type="button" class="danger" @click="emit('action', 'CANCEL', targets())">取消</button>

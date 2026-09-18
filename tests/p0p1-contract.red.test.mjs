@@ -12,10 +12,10 @@ test('P0 route and profile access use stable code and visible permission section
   assert.match(detail, /data-testid="agent-profile-tools"/)
 })
 
-test('P0 project start requires initialRequest and workflow snapshot', async () => {
-  const projects = await read('src/views/ProjectsView.vue')
+test('P0 workspace starts a run with initialRequest and workflow snapshot', async () => {
+  const workspace = await read('src/views/ProjectWorkspaceView.vue')
   const workflow = await read('src/api/workflow.api.ts')
-  assert.match(projects, /initialRequest/)
+  assert.match(workspace, /initialRequest/)
   assert.match(workflow, /initialRequest/)
   assert.match(workflow, /workflowCode/)
   assert.match(workflow, /workflowVersion/)
@@ -30,7 +30,11 @@ test('P0 intervention contract includes info and retry controls', async () => {
 
 test('P1 workspace renders requirement team, revision, issues and human gate', async () => {
   const workspace = await read('src/views/ProjectWorkspaceView.vue')
-  for (const marker of ['Clarifier', 'Writer', 'Reviewer', 'Revision', 'review issues', 'HUMAN_REQUIRED', 'data-testid="final-acceptance"']) assert.match(workspace, new RegExp(marker, 'i'))
+  const acceptance = await read('src/features/workbench/AcceptancePanel.vue')
+  const artifact = await read('src/features/workbench/ArtifactPanel.vue')
+  for (const marker of ['Clarifier', 'Writer', 'Reviewer', 'Revision', 'review issues', 'HUMAN_REQUIRED']) assert.match(workspace, new RegExp(marker, 'i'))
+  assert.match(acceptance, /data-testid="final-acceptance"/)
+  assert.match(artifact, /data-testid="document-revision"/)
 })
 
 test('P1 has a browser acceptance test with stable user journey selectors', async () => {

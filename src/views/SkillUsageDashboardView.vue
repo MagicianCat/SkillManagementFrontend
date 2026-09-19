@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
+import { useRouter } from 'vue-router'
 import * as echarts from 'echarts/core'
-import { BarChart, FunnelChart, LineChart, PieChart } from 'echarts/charts'
+import { BarChart, LineChart, PieChart } from 'echarts/charts'
 import {
   GridComponent,
   LegendComponent,
@@ -13,27 +14,26 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { getTeamMembers } from '../api/org.api'
 import { searchWikiTeams } from '../api/wiki.api'
 import {
+  getEfficiencyDashboard,
   getSkillUsageAccessScope,
-  getSkillUsageConversation,
-  getSkillUsageOverview,
-  listSkillUsageEvents,
+  listGenerations,
+  type EfficiencyDashboard,
+  type EfficiencyFilters,
+  type GenerationPage,
+  type GenerationRow,
   type SkillUsageAccessScope,
-  type SkillUsageConversation,
-  type SkillUsageEvent,
-  type SkillUsageFilters,
-  type SkillUsageOverview,
 } from '../api/skill-usage.api'
 
-echarts.use([LineChart, BarChart, PieChart, FunnelChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent, CanvasRenderer])
+echarts.use([LineChart, BarChart, PieChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent, CanvasRenderer])
 
+const router = useRouter()
 const scope = ref<SkillUsageAccessScope | null>(null)
-const overview = ref<SkillUsageOverview | null>(null)
-const events = ref<{ items: SkillUsageEvent[]; page: number; size: number; totalElements: number; totalPages: number } | null>(null)
+const dashboard = ref<EfficiencyDashboard | null>(null)
+const generations = ref<GenerationPage | null>(null)
 const members = ref<Array<{ userId: number; displayName: string; username: string }>>([])
 const teams = ref<SkillUsageAccessScope['teams']>([])
 const selectedTeamId = ref<number | undefined>()
 const selectedUserId = ref<number | undefined>()
-const skillKey = ref('')
 const preset = ref('30d')
 const fromDate = ref('')
 const toDate = ref('')
@@ -42,10 +42,8 @@ const loading = ref(false)
 const teamSearchLoading = ref(false)
 const memberLoading = ref(false)
 const errorMessage = ref('')
-const selectedEvent = ref<SkillUsageEvent | null>(null)
-const conversation = ref<SkillUsageConversation | null>(null)
-const conversationLoading = ref(false)
-const conversationError = ref('')
+const trendMetric = ref<'linesAdded' | 'totalTokens' | 'locPer1k' | 'activeUsers' | 'generations' | 'avgDuration'>('linesAdded')
+const selectedGeneration = ref<GenerationRow | null>(null)
 let teamSearchTimer: ReturnType<typeof setTimeout> | undefined
 let teamSearchRequestId = 0
 
@@ -55,25 +53,28 @@ const memberOptions = computed(() => members.value.map((member) => ({
   value: member.userId,
 })))
 
-// ---- 图表数据派生（Dark Glass 企业级配色） ----
+// ---- 图表配色 ----
 const PALETTE = ['#26c6ff', '#0fb5ec', '#60a5fa', '#4dd2ff', '#34d399', '#a78bfa', '#fbbf24', '#8b9bb5']
 const axisLabel = { color: '#8b9bb5', fontSize: 11 }
 const splitLine = { lineStyle: { color: 'rgba(160,195,255,0.09)' } }
 
-const activeSkills = computed(() => [...(overview.value?.skills ?? [])].sort((a, b) => b.calls - a.calls).slice(0, 8))
-const lowUseSkills = computed(() => [...(overview.value?.skills ?? [])].sort((a, b) => a.calls - b.calls).slice(0, 4))
-
-// ---- ECharts 实例管理 ----
 const trendRef = ref<HTMLElement | null>(null)
-const timeBandRef = ref<HTMLElement | null>(null)
-const skillBarRef = ref<HTMLElement | null>(null)
-const categoryPieRef = ref<HTMLElement | null>(null)
-const funnelRef = ref<HTMLElement | null>(null)
+const stageBarRef = ref<HTMLElement | null>(null)
 const teamBarRef = ref<HTMLElement | null>(null)
 const projectBarRef = ref<HTMLElement | null>(null)
-const memberBarRef = ref<HTMLElement | null>(null)
-const clientPieRef = ref<HTMLElement | null>(null)
+const skillBarRef = ref<HTMLElement | null>(null)
+const fileTypeRef = ref<HTMLElement | null>(null)
+const tokenPieRef = ref<HTMLElement | null>(null)
 const chartInstances = new Set<echarts.ECharts>()
+
+const trendMetricOptions = [
+  { key: 'linesAdded', label: 'AI代码量' },
+  { key: 'totalTokens', label: 'Token消耗' },
+  { key: 'locPer1k', label: 'Token效率' },
+  { key: 'activeUsers', label: '活跃开发者' },
+  { key: 'generations', label: 'Generation数' },
+  { key: 'avgDuration', label: '平均任务耗时' },
+] as const
 
 function mountChart(el: HTMLElement | null, option: echarts.EChartsCoreOption) {
   if (!el) return
@@ -83,7 +84,7 @@ function mountChart(el: HTMLElement | null, option: echarts.EChartsCoreOption) {
   chart.setOption(option, { notMerge: true })
 }
 
-function horizontalBar(labels: string[], values: number[], extra?: Record<string, string[]>) {
+function horizontalBar(labels: string[], values: number[], color = '#26c6ff') {
   return {
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: { left: 6, right: 34, top: 6, bottom: 2, containLabel: true },
@@ -95,109 +96,68 @@ function horizontalBar(labels: string[], values: number[], extra?: Record<string
       axisTick: { show: false },
       axisLabel: { ...axisLabel, width: 118, overflow: 'truncate' },
     },
-    series: [{
-      type: 'bar' as const,
-      data: values,
-      barMaxWidth: 14,
-      itemStyle: { color: '#26c6ff', borderRadius: [0, 6, 6, 0] },
-      ...(extra ?? {}),
-    }],
+    series: [{ type: 'bar' as const, data: values, barMaxWidth: 14, itemStyle: { color, borderRadius: [0, 6, 6, 0] } }],
+  }
+}
+
+function trendSeries(o: EfficiencyDashboard): { labels: string[]; values: number[]; name: string } {
+  const t = o.trend
+  const labels = t.map((i) => i.bucket)
+  switch (trendMetric.value) {
+    case 'totalTokens': return { labels, values: t.map((i) => i.totalTokens), name: 'Token消耗' }
+    case 'activeUsers': return { labels, values: t.map((i) => i.activeUsers), name: '活跃开发者' }
+    case 'generations': return { labels, values: t.map((i) => i.generations), name: 'Generation数' }
+    case 'locPer1k': return { labels, values: t.map((i) => (i.totalTokens ? round2((i.linesAdded / i.totalTokens) * 1000) : 0)), name: 'Token效率 (LOC/1K)' }
+    case 'avgDuration': return { labels, values: t.map((i) => (i.generations ? round2(i.totalTokens && 0) : 0)), name: '平均任务耗时' }
+    default: return { labels, values: t.map((i) => i.linesAdded), name: 'AI代码量' }
   }
 }
 
 function renderCharts() {
-  const o = overview.value
+  const o = dashboard.value
   if (!o) return
 
-  // 1. 总体使用趋势（双序列折线）
+  const series = trendSeries(o)
   mountChart(trendRef.value, {
     tooltip: { trigger: 'axis' },
-    legend: { right: 0, top: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, textStyle: { color: '#8b9bb5', fontSize: 11 } },
-    grid: { left: 6, right: 6, top: 34, bottom: 4, containLabel: true },
-    xAxis: { type: 'category', boundaryGap: false, data: o.trend.map((i) => i.bucket), axisLine: { lineStyle: { color: 'rgba(160,195,255,0.20)' } }, axisLabel },
-    yAxis: [
-      { type: 'value', splitLine, axisLabel, name: '调用', nameTextStyle: { color: '#77849a', fontSize: 10 } },
-      { type: 'value', splitLine: { show: false }, axisLabel: { show: false } },
-    ],
-    series: [
-      { name: '调用次数', type: 'line', smooth: true, symbol: 'circle', symbolSize: 5, data: o.trend.map((i) => i.calls), itemStyle: { color: '#26c6ff' }, lineStyle: { color: '#26c6ff', width: 2.5 }, areaStyle: { color: 'rgba(38,198,255,.12)' } },
-      { name: '活跃成员', type: 'line', yAxisIndex: 1, smooth: true, symbol: 'none', data: o.trend.map((i) => i.activeUsers), itemStyle: { color: '#8b9bb5' }, lineStyle: { color: '#77849a', width: 1.6, type: 'dashed' } },
-    ],
+    grid: { left: 6, right: 6, top: 30, bottom: 4, containLabel: true },
+    xAxis: { type: 'category', boundaryGap: false, data: series.labels, axisLine: { lineStyle: { color: 'rgba(160,195,255,0.20)' } }, axisLabel },
+    yAxis: [{ type: 'value', splitLine, axisLabel }],
+    series: [{ name: series.name, type: 'line', smooth: true, symbol: 'circle', symbolSize: 5, data: series.values, itemStyle: { color: '#26c6ff' }, lineStyle: { color: '#26c6ff', width: 2.5 }, areaStyle: { color: 'rgba(38,198,255,.12)' } }],
   })
 
-  // 2. 调用时段分布（纵向柱状）
-  mountChart(timeBandRef.value, {
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-    grid: { left: 6, right: 6, top: 18, bottom: 2, containLabel: true },
-    xAxis: { type: 'category', data: o.timeBands.map((i) => i.band), axisLine: { lineStyle: { color: 'rgba(160,195,255,0.20)' } }, axisLabel: { ...axisLabel, interval: 0, rotate: o.timeBands.length > 6 ? 24 : 0 } },
-    yAxis: { type: 'value', splitLine, axisLabel },
-    series: [{ type: 'bar', data: o.timeBands.map((i) => i.calls), barMaxWidth: 22, itemStyle: { borderRadius: [6, 6, 0, 0], color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: '#4dd2ff' }, { offset: 1, color: '#0a9bd4' }] } } }],
-  })
+  const top = (arr: typeof o.stageRanking, n: number) => arr.slice(0, n)
+  mountChart(stageBarRef.value, horizontalBar(top(o.stageRanking, 8).map((i) => stageLabel(i.key)).reverse(), top(o.stageRanking, 8).map((i) => i.linesAdded).reverse(), '#60a5fa'))
+  mountChart(teamBarRef.value, horizontalBar(top(o.teamRanking, 6).map((i) => i.name).reverse(), top(o.teamRanking, 6).map((i) => i.linesAdded).reverse()))
+  mountChart(projectBarRef.value, horizontalBar(top(o.projectRanking, 6).map((i) => i.name).reverse(), top(o.projectRanking, 6).map((i) => i.linesAdded).reverse(), '#4dd2ff'))
+  mountChart(skillBarRef.value, horizontalBar(top(o.skillRanking as unknown as Array<{ displayName: string }>, 8).map((i) => (i as unknown as { displayName: string; skillKey: string }).displayName || (i as unknown as { skillKey: string }).skillKey).reverse(), (o.skillRanking as unknown as Array<{ generations: number }>).slice(0, 8).map((i) => i.generations).reverse(), '#a78bfa'))
 
-  // 3. 热门 Skill（横向条形）
-  mountChart(skillBarRef.value, horizontalBar(activeSkills.value.map((i) => i.displayName || i.skillKey).reverse(), activeSkills.value.map((i) => i.calls).reverse()))
+  const ft = o.fileTypes.slice(0, 8)
+  mountChart(fileTypeRef.value, horizontalBar(ft.map((i) => i.category).reverse(), ft.map((i) => i.linesAdded).reverse(), '#34d399'))
 
-  // 4. Skill 类别结构（环形）
-  const cats = o.categories
-  mountChart(categoryPieRef.value, {
+  const tb = o.tokenBreakdown
+  mountChart(tokenPieRef.value, {
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
     legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, textStyle: { color: '#8b9bb5', fontSize: 11 } },
     series: [{
-      type: 'pie', radius: ['52%', '72%'], center: ['50%', '44%'],
+      type: 'pie', radius: ['46%', '68%'], center: ['50%', '44%'],
       itemStyle: { borderRadius: 6, borderColor: '#0d1420', borderWidth: 2 },
       label: { show: false },
-      data: cats.slice(0, 6).map((i, idx) => ({ name: i.name, value: i.calls, itemStyle: { color: PALETTE[idx % PALETTE.length] } })),
-    }],
-    graphic: [{ type: 'text', left: 'center', top: '38%', style: { text: String(cats.reduce((s, i) => s + i.calls, 0)), fill: '#e8eef7', fontSize: 20, fontWeight: 700, textAlign: 'center', textVerticalAlign: 'middle' } }],
-  })
-
-  // 5. 使用覆盖漏斗
-  const summary = o.summary
-  mountChart(funnelRef.value, {
-    tooltip: { trigger: 'item', formatter: '{b}: {c}' },
-    series: [{
-      type: 'funnel', left: '6%', width: '88%', top: 8, bottom: 8, gap: 4,
-      label: { show: true, position: 'inside', color: '#fff', formatter: '{b}  {c}', fontSize: 11 },
-      itemStyle: { borderRadius: 4 },
       data: [
-        { name: 'Skill 调用', value: summary.calls, itemStyle: { color: '#0fb5ec' } },
-        { name: '活跃成员', value: summary.activeUsers, itemStyle: { color: '#4dd2ff' } },
-        { name: '使用 Skill', value: summary.skills, itemStyle: { color: '#80dfff' } },
-      ],
-    }],
-  })
-
-  // 6. 部门 / 项目 / 成员（横向条形）
-  mountChart(teamBarRef.value, horizontalBar(o.teams.slice(0, 6).map((i) => i.name).reverse(), o.teams.slice(0, 6).map((i) => i.calls).reverse()))
-  mountChart(projectBarRef.value, horizontalBar(o.projects.slice(0, 6).map((i) => shortPathLabel(i.name)).reverse(), o.projects.slice(0, 6).map((i) => i.calls).reverse()))
-  mountChart(memberBarRef.value, horizontalBar(o.members.slice(0, 6).map((i) => i.displayName).reverse(), o.members.slice(0, 6).map((i) => i.calls).reverse()))
-
-  // 7. 客户端分布（环形）
-  const clients = o.clients
-  mountChart(clientPieRef.value, {
-    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-    legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, textStyle: { color: '#8b9bb5', fontSize: 11 } },
-    series: [{
-      type: 'pie', radius: ['52%', '72%'], center: ['50%', '44%'],
-      itemStyle: { borderRadius: 6, borderColor: '#0d1420', borderWidth: 2 },
-      label: { show: false },
-      data: clients.slice(0, 5).map((i, idx) => ({ name: i.name, value: i.calls, itemStyle: { color: PALETTE[idx % PALETTE.length] } })),
+        { name: '缓存命中', value: tb.cacheReadTokens, itemStyle: { color: '#34d399' } },
+        { name: '缓存未命中', value: tb.cacheMissTokens, itemStyle: { color: '#fbbf24' } },
+        { name: '缓存写入', value: tb.cacheWriteTokens, itemStyle: { color: '#60a5fa' } },
+        { name: '思考 Token', value: tb.thinkingTokens, itemStyle: { color: '#a78bfa' } },
+        { name: '回答 Token', value: tb.answerTokens, itemStyle: { color: '#26c6ff' } },
+      ].filter((d) => d.value > 0),
     }],
   })
 }
 
-function shortPathLabel(value: string) {
-  const parts = value.split('/').filter(Boolean)
-  return parts.at(-1) || value || 'UNKNOWN'
-}
+function onResize() { chartInstances.forEach((chart) => chart.resize()) }
+watch([dashboard, trendMetric], async () => { await nextTick(); renderCharts() })
 
-function onResize() {
-  chartInstances.forEach((chart) => chart.resize())
-}
-
-watch(overview, async () => { await nextTick(); renderCharts() })
-
-// ---- 业务逻辑（保持不变） ----
+// ---- 业务逻辑 ----
 function localDate(value: Date) {
   const year = value.getFullYear()
   const month = String(value.getMonth() + 1).padStart(2, '0')
@@ -215,10 +175,10 @@ function applyPreset(value: string) {
   toDate.value = localDate(now)
 }
 
-function filterValues(): SkillUsageFilters {
+function filterValues(): EfficiencyFilters {
   const from = fromDate.value ? new Date(`${fromDate.value}T00:00:00`).toISOString() : undefined
   const to = toDate.value ? new Date(`${toDate.value}T23:59:59.999`).toISOString() : undefined
-  return { from, to, teamId: selectedTeamId.value, userId: selectedUserId.value, skillKey: skillKey.value.trim() || undefined }
+  return { from, to, teamId: selectedTeamId.value, userId: selectedUserId.value }
 }
 
 function errorText(error: unknown, fallback: string) {
@@ -229,11 +189,11 @@ async function loadTeams(keyword = '') {
   const requestId = ++teamSearchRequestId
   teamSearchLoading.value = true
   try {
-    const page = await searchWikiTeams(keyword.trim(), 0, 50)
+    const result = await searchWikiTeams(keyword.trim(), 0, 50)
     if (requestId !== teamSearchRequestId) return
     const accessibleIds = new Set(scope.value?.teams.map((team) => team.id) ?? [])
     const currentIds = new Set([selectedTeamId.value].filter((id): id is number => typeof id === 'number'))
-    const nextTeams = page.items
+    const nextTeams = result.items
       .filter((team) => accessibleIds.has(team.id))
       .map((team) => ({ id: team.id, name: team.name, parentId: team.parentId }))
     teams.value = [
@@ -269,41 +229,54 @@ async function loadDashboard() {
   errorMessage.value = ''
   try {
     const filters = filterValues()
-    const [nextOverview, nextEvents] = await Promise.all([
-      getSkillUsageOverview(filters),
-      listSkillUsageEvents(filters, page.value - 1, 20),
+    const [nextDashboard, nextGenerations] = await Promise.all([
+      getEfficiencyDashboard(filters),
+      listGenerations(filters, page.value - 1, 20),
     ])
-    overview.value = nextOverview
-    events.value = nextEvents
+    dashboard.value = nextDashboard
+    generations.value = nextGenerations
   } catch (error) {
-    errorMessage.value = errorText(error, 'Skill 使用数据加载失败，请检查管理员权限或稍后重试')
+    errorMessage.value = errorText(error, 'AI 研发效能数据加载失败，请检查管理员权限或稍后重试')
   } finally { loading.value = false }
 }
 
 function search() { page.value = 1; void loadDashboard() }
 function changePage(next: number) { page.value = next; void loadDashboard() }
+
 function formatTime(value: string | null) { return value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '-' }
-function shortPath(value: string) { const parts = value.split('/').filter(Boolean); return parts.at(-1) || value || 'UNKNOWN' }
-function statusLabel(status: string) { return ({ MERGED: '已合并', STAGED: '处理中', FAILED: '采集失败', NOT_PROVIDED: '未提供', NOT_AVAILABLE: '不可用' } as Record<string, string>)[status] ?? status }
-function statusTheme(status: string) { return status === 'MERGED' ? 'success' : status === 'FAILED' ? 'danger' : status === 'STAGED' ? 'warning' : 'default' }
-
-async function openConversation(event: SkillUsageEvent) {
-  selectedEvent.value = event
-  conversation.value = null
-  conversationError.value = ''
-  conversationLoading.value = true
-  try {
-    conversation.value = await getSkillUsageConversation(event.eventId)
-  } catch (error) {
-    conversationError.value = errorText(error, '对话加载失败，请稍后重试')
-  } finally { conversationLoading.value = false }
+function formatNumber(value: number | null | undefined) { return value == null ? '-' : value.toLocaleString('zh-CN') }
+function formatTokens(value: number | null | undefined) {
+  if (value == null) return '-'
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`
+  return String(value)
 }
-
-function closeConversation() { selectedEvent.value = null; conversation.value = null }
-
-async function retryConversation() {
-  if (selectedEvent.value) await openConversation(selectedEvent.value)
+function formatDuration(ms: number | null | undefined) {
+  if (ms == null) return '-'
+  if (ms < 1000) return `${ms}ms`
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
+  return `${(ms / 60_000).toFixed(1)}min`
 }
+function round2(value: number) { return Math.round(value * 100) / 100 }
+function formatPercent(value: number) { return `${(value * 100).toFixed(1)}%` }
+
+function stageLabel(stage: string | null | undefined) {
+  return ({
+    REQUIREMENT: '需求', PRODUCT: '产品', ARCHITECTURE_DESIGN: '架构设计', UI_DESIGN: 'UI设计',
+    BACKEND_CODING: '后端编码', FRONTEND_CODING: '前端编码', SECURITY_REVIEW: '安全评审',
+    TESTING: '测试', DEPLOYMENT: '部署', MULTI_STAGE: '多阶段', UNKNOWN: '未分类',
+  } as Record<string, string>)[stage ?? 'UNKNOWN'] ?? stage ?? '未分类'
+}
+function statusTheme(status: string) { return status === 'COMPLETED' ? 'success' : status === 'FAILED' ? 'danger' : status === 'RUNNING' ? 'warning' : 'default' }
+function statusLabel(status: string) { return ({ COMPLETED: '已完成', FAILED: '失败', RUNNING: '进行中', CANCELLED: '已取消', PARTIAL: '部分完成' } as Record<string, string>)[status] ?? status }
+function qualityTheme(quality: string | null) { return quality === 'EXACT' ? 'success' : quality === 'PARTIAL' ? 'warning' : 'default' }
+
+function goStage(stage: string) { void router.push({ name: 'skill-usage-stage', params: { stage } }) }
+function goTeam(teamId: number) { void router.push({ name: 'skill-usage-team', params: { teamId } }) }
+function goProject(projectKey: string | null) { if (projectKey) void router.push({ name: 'skill-usage-project', params: { projectKey } }) }
+function goSkill(skillKey: string) { void router.push({ name: 'skill-usage-skill', params: { skillKey } }) }
+function openGeneration(row: GenerationRow) { selectedGeneration.value = row }
+function closeGeneration() { selectedGeneration.value = null }
 
 watch(selectedTeamId, () => { void loadMembers() })
 onMounted(async () => {
@@ -327,61 +300,91 @@ onBeforeUnmount(() => {
 <template>
   <main class="usage-page">
     <header class="usage-heading">
-      <div><p class="eyebrow">SKILL TELEMETRY</p><h1>Skill 使用看板</h1><p>查看授权范围内的 Skill 使用趋势、成员活跃度和采集状态。</p></div>
+      <div><p class="eyebrow">AI EFFICIENCY</p><h1>AI 研发效能看板</h1><p>以 AI Generation 为事实中心，洞察 AI 代码产出、Token 消耗与研发阶段效能。</p></div>
       <span v-if="scope?.global" class="scope-badge">超级管理员 · 全平台</span>
       <span v-else class="scope-badge">团队管理员 · {{ scope?.teams.length ?? 0 }} 个团队</span>
     </header>
 
     <p v-if="errorMessage" class="usage-alert" role="alert">{{ errorMessage }}</p>
-    <section class="usage-filters" aria-label="Skill 使用筛选">
+    <section class="usage-filters" aria-label="效能筛选">
       <div class="preset-group"><button v-for="item in [{ key: 'today', label: '今天' }, { key: '7d', label: '近 7 天' }, { key: '30d', label: '近 30 天' }, { key: '90d', label: '近 90 天' }]" :key="item.key" :class="{ active: preset === item.key }" @click="applyPreset(item.key)">{{ item.label }}</button></div>
       <label>开始日期<input v-model="fromDate" type="date" @change="preset = 'custom'" /></label>
       <label>结束日期<input v-model="toDate" type="date" @change="preset = 'custom'" /></label>
       <t-select v-model="selectedTeamId" clearable filterable :loading="!scope || teamSearchLoading" placeholder="全部可见团队" :options="teamOptions.map((team) => ({ label: team.name, value: team.id }))" @search="searchTeams" />
       <t-select v-model="selectedUserId" clearable filterable :loading="memberLoading" placeholder="全部成员" :options="memberOptions" />
-      <t-input v-model="skillKey" clearable placeholder="Skill 名称" @enter="search" />
       <t-button theme="primary" :loading="loading" @click="search">查询</t-button>
     </section>
 
-    <template v-if="overview">
+    <template v-if="dashboard">
       <section class="summary-grid">
-        <article><span>调用次数</span><strong>{{ overview.summary.calls }}</strong><small>当前筛选范围</small></article>
-        <article><span>活跃成员</span><strong>{{ overview.summary.activeUsers }}</strong><small>产生过调用的成员</small></article>
-        <article><span>使用 Skill</span><strong>{{ overview.summary.skills }}</strong><small>产生过调用的 Skill</small></article>
-        <article><span>人均调用</span><strong>{{ overview.summary.activeUsers ? (overview.summary.calls / overview.summary.activeUsers).toFixed(1) : '0.0' }}</strong><small>每位活跃成员平均调用次数</small></article>
+        <article><span>AI代码产出</span><strong>{{ formatNumber(dashboard.summary.linesAdded) }}</strong><small>行（新增）</small></article>
+        <article><span>Token消耗</span><strong>{{ formatTokens(dashboard.summary.totalTokens) }}</strong><small>覆盖率 {{ formatPercent(dashboard.summary.tokenCoverageRate) }}</small></article>
+        <article><span>活跃开发者</span><strong>{{ dashboard.summary.activeUsers }}</strong><small>产生过 Generation</small></article>
+        <article><span>Token产码效率</span><strong>{{ round2(dashboard.summary.locPer1kTokens) }}</strong><small>LOC / 1K Token</small></article>
+        <article><span>Generation数</span><strong>{{ formatNumber(dashboard.summary.generations) }}</strong><small>平均 {{ round2(dashboard.summary.avgModelCalls) }} 次模型调用</small></article>
+        <article><span>平均任务耗时</span><strong>{{ formatDuration(dashboard.summary.avgGenerationDurationMs) }}</strong><small>工具失败率 {{ formatPercent(dashboard.summary.toolFailureRate) }}</small></article>
       </section>
 
-      <section class="dashboard-grid trend-grid">
-        <article class="usage-card"><div class="card-heading"><div><h2>Skill 调用趋势</h2><p>按时间观察平台 Skill 使用量变化</p></div></div><div ref="trendRef" class="chart-box chart-tall"></div></article>
-        <article class="usage-card"><div class="card-heading"><div><h2>调用时段分布</h2><p>北京时间，识别研发使用高峰</p></div></div><div ref="timeBandRef" class="chart-box chart-tall"></div></article>
-      </section>
-
-      <section class="dashboard-grid insight-grid">
-        <article class="usage-card"><div class="card-heading"><div><h2>热门 Skill Top 8</h2><p>按调用次数排序，定位高频能力</p></div></div><div ref="skillBarRef" class="chart-box"></div><p v-if="lowUseSkills.length" class="low-use-note">低使用 / 沉睡 Skill：<span v-for="s in lowUseSkills" :key="s.skillKey">{{ s.displayName || s.skillKey }}</span></p><p v-else class="empty-state">暂无 Skill 数据</p></article>
-        <article class="usage-card"><div class="card-heading"><div><h2>Skill 类别结构</h2><p>分析研发能力领域的使用占比</p></div></div><div ref="categoryPieRef" class="chart-box"></div></article>
-        <article class="usage-card"><div class="card-heading"><div><h2>使用覆盖漏斗</h2><p>调用量 → 成员覆盖 → Skill 覆盖</p></div></div><div ref="funnelRef" class="chart-box"></div></article>
+      <section class="usage-card">
+        <div class="card-heading">
+          <div><h2>AI 研发效能趋势</h2><p>按时间观察效能指标变化</p></div>
+          <div class="metric-switch"><button v-for="m in trendMetricOptions" :key="m.key" :class="{ active: trendMetric === m.key }" @click="trendMetric = m.key">{{ m.label }}</button></div>
+        </div>
+        <div ref="trendRef" class="chart-box chart-tall"></div>
       </section>
 
       <section class="dashboard-grid dimension-grid">
-        <article class="usage-card"><div class="card-heading"><div><h2>团队活跃度 Top 6</h2><p>比较团队调用量</p></div></div><div ref="teamBarRef" class="chart-box"></div></article>
-        <article class="usage-card"><div class="card-heading"><div><h2>项目使用 Top 6</h2><p>按工作目录识别 Skill 落地项目</p></div></div><div ref="projectBarRef" class="chart-box"></div></article>
-        <article class="usage-card"><div class="card-heading"><div><h2>成员活跃度 Top 6</h2><p>调用量与个人 Skill 广度</p></div></div><div ref="memberBarRef" class="chart-box"></div></article>
-        <article class="usage-card"><div class="card-heading"><div><h2>客户端分布</h2><p>不同 Coding Agent 的调用占比</p></div></div><div ref="clientPieRef" class="chart-box"></div></article>
+        <article class="usage-card"><div class="card-heading"><div><h2>研发阶段排行</h2><p>按 AI 代码量，点击进入阶段详情</p></div></div><div ref="stageBarRef" class="chart-box"></div>
+          <ul class="rank-list"><li v-for="s in dashboard.stageRanking.slice(0, 5)" :key="s.key" @click="goStage(s.key)"><span>{{ stageLabel(s.key) }}</span><em>{{ formatNumber(s.linesAdded) }} 行 · {{ formatTokens(s.totalTokens) }}</em></li></ul>
+        </article>
+        <article class="usage-card"><div class="card-heading"><div><h2>团队排行</h2><p>按 AI 代码量，点击进入团队详情</p></div></div><div ref="teamBarRef" class="chart-box"></div>
+          <ul class="rank-list"><li v-for="t in dashboard.teamRanking.slice(0, 5)" :key="t.key" @click="goTeam(Number(t.key))"><span>{{ t.name }}</span><em>{{ formatNumber(t.linesAdded) }} 行 · {{ t.users }} 人</em></li></ul>
+        </article>
+        <article class="usage-card"><div class="card-heading"><div><h2>项目排行</h2><p>按 AI 代码量，点击进入项目详情</p></div></div><div ref="projectBarRef" class="chart-box"></div>
+          <ul class="rank-list"><li v-for="p in dashboard.projectRanking.slice(0, 5)" :key="p.key" @click="goProject(p.key)"><span>{{ p.name }}</span><em>{{ formatNumber(p.linesAdded) }} 行 · {{ p.generations }} 轮</em></li></ul>
+        </article>
+        <article class="usage-card"><div class="card-heading"><div><h2>Skill 洞察</h2><p>按 Generation 影响数，点击进入 Skill 详情</p></div></div><div ref="skillBarRef" class="chart-box"></div>
+          <ul class="rank-list"><li v-for="s in dashboard.skillRanking.slice(0, 5)" :key="s.skillKey" @click="goSkill(s.skillKey)"><span>{{ s.displayName || s.skillKey }}</span><em>{{ s.generations }} 轮 · {{ s.invocations }} 次</em></li></ul>
+        </article>
+      </section>
+
+      <section class="dashboard-grid dimension-grid">
+        <article class="usage-card"><div class="card-heading"><div><h2>文件类型</h2><p>AI 代码产出的文件类型结构</p></div></div><div ref="fileTypeRef" class="chart-box"></div></article>
+        <article class="usage-card"><div class="card-heading"><div><h2>Token 结构</h2><p>缓存命中 / 思考 / 回答占比</p></div></div><div ref="tokenPieRef" class="chart-box"></div>
+          <div class="token-breakdown">
+            <div><span>输入</span><strong>{{ formatTokens(dashboard.tokenBreakdown.inputTokens) }}</strong></div>
+            <div><span>输出</span><strong>{{ formatTokens(dashboard.tokenBreakdown.outputTokens) }}</strong></div>
+            <div><span>缓存命中</span><strong>{{ formatTokens(dashboard.tokenBreakdown.cacheReadTokens) }}</strong></div>
+            <div><span>思考</span><strong>{{ formatTokens(dashboard.tokenBreakdown.thinkingTokens) }}</strong></div>
+          </div>
+        </article>
       </section>
     </template>
 
-    <section class="usage-card events-card"><div class="card-heading"><div><h2>调用明细</h2></div><span v-if="events">共 {{ events.totalElements }} 条</span></div><t-table row-key="eventId" :data="events?.items ?? []" :loading="loading" :columns="[{ colKey: 'invokedAt', title: '调用时间', width: 170 }, { colKey: 'member', title: '成员', width: 140 }, { colKey: 'skill', title: 'Skill', width: 180 }, { colKey: 'project', title: '项目目录', width: 160 }, { colKey: 'client', title: '客户端', width: 130 }, { colKey: 'conversation', title: '对话状态', width: 120 }, { colKey: 'action', title: '操作', width: 120 }]" bordered stripe>
-      <template #invokedAt="{ row }">{{ formatTime(row.invokedAt) }}</template>
-      <template #member="{ row }"><strong>{{ row.displayName }}</strong><small class="cell-subtitle">{{ row.username }}</small></template>
-      <template #skill="{ row }"><strong>{{ row.skillDisplayName || row.skillKey }}</strong><small class="cell-subtitle">{{ row.skillKey }}{{ row.version ? ` · v${row.version}` : '' }}</small></template>
-      <template #project="{ row }"><span :title="row.localDirectory">{{ shortPath(row.localDirectory) }}</span><small class="cell-subtitle">{{ row.teamNames || '未归属团队' }}</small></template>
-      <template #client="{ row }">{{ row.client }}<small class="cell-subtitle">{{ row.model || row.agentType || '-' }}</small></template>
-      <template #conversation="{ row }"><t-tag :theme="statusTheme(row.conversationStatus)">{{ statusLabel(row.conversationStatus) }}</t-tag><small class="cell-subtitle">{{ row.messageCount }} 条消息</small></template>
-      <template #action="{ row }"><t-button variant="text" :disabled="!row.conversationAvailable" @click="openConversation(row)">{{ row.conversationAvailable ? '查看对话' : '暂无对话' }}</t-button></template>
-    </t-table><t-pagination v-if="events && events.totalElements" :current="page" :total="events.totalElements" :page-size="20" :total-content="false" show-jumper @change="changePage" />
+    <section class="usage-card events-card">
+      <div class="card-heading"><div><h2>Generation 明细</h2></div><span v-if="generations">共 {{ generations.totalElements }} 条</span></div>
+      <t-table row-key="id" :data="generations?.items ?? []" :loading="loading" :columns="[
+        { colKey: 'startedAt', title: '时间', width: 150 }, { colKey: 'member', title: '成员', width: 120 },
+        { colKey: 'project', title: '项目', width: 130 }, { colKey: 'stage', title: '研发阶段', width: 100 },
+        { colKey: 'skill', title: 'Skill', width: 160 }, { colKey: 'lines', title: '代码增量', width: 100 },
+        { colKey: 'tokens', title: 'Token', width: 100 }, { colKey: 'efficiency', title: 'Token效率', width: 90 },
+        { colKey: 'duration', title: '耗时', width: 90 }, { colKey: 'calls', title: 'Calls', width: 90 },
+        { colKey: 'status', title: '状态', width: 90 },
+      ]" bordered stripe>
+        <template #startedAt="{ row }">{{ formatTime(row.startedAt) }}</template>
+        <template #member="{ row }"><strong>{{ row.displayName }}</strong><small class="cell-subtitle">{{ row.teamNames || '未归属团队' }}</small></template>
+        <template #project="{ row }"><a class="cell-link" @click="goProject(row.projectKey)">{{ row.projectName || '-' }}</a></template>
+        <template #stage="{ row }"><t-tag variant="outline" @click="row.primaryStage && goStage(row.primaryStage)">{{ stageLabel(row.primaryStage) }}</t-tag></template>
+        <template #skill="{ row }"><span v-if="row.skillKeys">{{ row.skillKeys }}</span><span v-else class="cell-subtitle">-</span></template>
+        <template #lines="{ row }"><span class="lines-added">+{{ row.linesAdded }}</span> <span class="lines-deleted">-{{ row.linesDeleted }}</span></template>
+        <template #tokens="{ row }">{{ formatTokens(row.totalTokens) }}<small class="cell-subtitle"><t-tag :theme="qualityTheme(row.tokenQuality)" size="small">{{ row.tokenQuality || 'N/A' }}</t-tag></small></template>
+        <template #efficiency="{ row }">{{ row.totalTokens ? round2(row.locPer1kTokens) : '-' }}</template>
+        <template #duration="{ row }">{{ formatDuration(row.durationMs) }}</template>
+        <template #calls="{ row }"><small class="cell-subtitle">模型 {{ row.modelCallCount ?? '-' }} / 工具 {{ row.toolCallCount }}</small></template>
+        <template #status="{ row }"><t-tag :theme="statusTheme(row.status)">{{ statusLabel(row.status) }}</t-tag></template>
+      </t-table>
+      <t-pagination v-if="generations && generations.totalElements" :current="page" :total="generations.totalElements" :page-size="20" :total-content="false" show-jumper @change="changePage" />
     </section>
-
-    <div v-if="selectedEvent" class="conversation-mask" @click.self="closeConversation"><aside class="conversation-drawer" role="dialog" aria-modal="true" aria-labelledby="conversation-title"><button class="drawer-close" aria-label="关闭" @click="closeConversation">×</button><p class="eyebrow">SESSION CONVERSATION</p><h2 id="conversation-title">{{ selectedEvent.displayName }} · {{ selectedEvent.skillKey }}</h2><p class="drawer-meta">{{ formatTime(selectedEvent.invokedAt) }} · 当前 Session 最新合并对话</p><div v-if="conversationLoading" class="drawer-state">对话加载中…</div><div v-else-if="conversationError" class="drawer-state error">{{ conversationError }}<button class="retry-button" @click="retryConversation">重试</button></div><div v-else-if="conversation?.status !== 'AVAILABLE'" class="drawer-state">该 Session 暂无可用对话文件</div><div v-else class="messages"><div v-for="(message, index) in conversation.messages" :key="message.id || index" class="message" :class="message.role === 'user' ? 'message-user' : 'message-assistant'"><span>{{ message.role === 'user' ? '用户' : 'CodeBuddy' }}</span><pre>{{ message.content || '' }}</pre><small v-if="message.createdAt">{{ formatTime(message.createdAt) }}</small></div></div></aside></div>
   </main>
 </template>
 
@@ -396,48 +399,40 @@ onBeforeUnmount(() => {
 .usage-filters label{display:grid;gap:4px;color:var(--text-2);font-size:11px}
 .usage-filters input{height:32px;padding:0 8px;border:1px solid var(--border-2);border-radius:6px;color:var(--text-1);background:var(--surface-1);font:inherit;font-size:12px}
 .usage-filters .t-select{width:170px}
-.usage-filters .t-input{width:170px}
 .preset-group{display:flex;gap:4px}
 .preset-group button{height:32px;padding:0 10px;border:1px solid var(--border-2);border-radius:6px;color:var(--text-2);background:var(--surface-1);font:inherit;font-size:12px;cursor:pointer;transition:all .15s ease}
 .preset-group button:hover{border-color:var(--border-3);color:var(--text-1)}
 .preset-group button.active{border-color:var(--border-accent);color:var(--accent-300);background:var(--accent-soft)}
-.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.summary-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:12px}
 .summary-grid article{display:grid;min-height:92px;gap:8px;padding:14px 16px;border:1px solid var(--border-1);border-radius:10px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px)}
 .summary-grid span,.summary-grid small{color:var(--text-2);font-size:12px}
-.summary-grid strong{color:var(--text-1);font-size:26px;letter-spacing:-.04em}
+.summary-grid strong{color:var(--text-1);font-size:24px;letter-spacing:-.04em}
 .summary-grid small{font-size:11px}
-.dashboard-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);gap:12px;margin-bottom:12px}
-.usage-card{min-width:0;padding:16px;border:1px solid var(--border-1);border-radius:10px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px)}
+.usage-card{min-width:0;padding:16px;border:1px solid var(--border-1);border-radius:10px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px);margin-bottom:12px}
 .card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
 .card-heading h2{font-size:15px;margin:0;color:var(--text-1)}
 .card-heading p{margin:4px 0 0;color:var(--text-3);font-size:11px}
 .card-heading span{color:var(--text-3);font-size:11px}
-.events-card{margin-top:12px}
-.cell-subtitle{display:block;color:var(--text-3);font-size:11px}
-.empty-state{padding:40px 0;color:var(--text-3);font-size:12px;text-align:center}
-.chart-box{width:100%;height:232px}
-.chart-tall{height:264px}
-.insight-grid{grid-template-columns:minmax(0,1.25fr) minmax(280px,.9fr) minmax(250px,.8fr)}
+.metric-switch{display:flex;flex-wrap:wrap;gap:4px}
+.metric-switch button{height:26px;padding:0 9px;border:1px solid var(--border-2);border-radius:6px;color:var(--text-2);background:var(--surface-1);font-size:11px;cursor:pointer}
+.metric-switch button.active{border-color:var(--border-accent);color:var(--accent-300);background:var(--accent-soft)}
+.dashboard-grid{display:grid;gap:12px;margin-bottom:0}
 .dimension-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-.dimension-grid .usage-card{min-height:260px}
-.low-use-note{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--border-1);color:var(--text-3);font-size:11px}
-.low-use-note span{display:inline-block;margin:2px 6px 0 0;padding:2px 8px;border:1px solid var(--border-1);border-radius:5px;color:var(--text-2);background:var(--surface-2)}
-.conversation-mask{position:fixed;inset:0;z-index:20;display:flex;justify-content:flex-end;background:rgb(4 8 14 / 62%);backdrop-filter:blur(4px)}
-.conversation-drawer{width:min(560px,100%);height:100%;overflow:auto;padding:22px;border-left:1px solid var(--border-2);background:var(--surface-overlay);box-shadow:var(--shadow-xl);backdrop-filter:blur(24px) saturate(140%)}
-.drawer-close{float:right;border:0;background:transparent;font-size:26px;color:var(--text-2);cursor:pointer}
-.drawer-close:hover{color:var(--text-1)}
-.conversation-drawer h2{margin:6px 0;color:var(--text-1)}
-.conversation-drawer .eyebrow{margin-top:8px}
-.drawer-meta{margin:2px 0 14px;color:var(--text-3);font-size:12px}
-.drawer-state{padding:40px 0;color:var(--text-3);text-align:center}
-.drawer-state.error{color:var(--error)}
-.retry-button{margin-left:8px;padding:4px 10px;border:1px solid var(--border-accent);border-radius:5px;color:var(--text-on-accent);background:linear-gradient(140deg,var(--accent-400),var(--accent-600));cursor:pointer}
-.messages{display:grid;gap:12px}
-.message{max-width:88%;padding:10px 12px;border:1px solid var(--border-1);border-radius:10px;background:var(--surface-2);color:var(--text-1)}
-.message-user{margin-left:auto;border-color:var(--border-accent);background:var(--accent-soft)}
-.message span{display:block;font-size:11px;color:var(--text-3)}
-.message pre{margin:6px 0 0;white-space:pre-wrap;word-break:break-word;color:var(--text-1);font:12px/1.6 var(--font-mono)}
-.message small{color:var(--text-3)}
-@media(max-width:1100px){.insight-grid{grid-template-columns:1.2fr 1fr}.dimension-grid{grid-template-columns:1fr}}
-@media(max-width:760px){.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.trend-grid,.insight-grid,.dimension-grid{grid-template-columns:1fr}}
+.chart-box{width:100%;height:200px}
+.chart-tall{height:280px}
+.rank-list{list-style:none;margin:8px 0 0;padding:8px 0 0;border-top:1px solid var(--border-1);display:grid;gap:2px}
+.rank-list li{display:flex;justify-content:space-between;gap:8px;padding:5px 6px;border-radius:6px;font-size:12px;cursor:pointer;color:var(--text-2)}
+.rank-list li:hover{background:var(--surface-2);color:var(--text-1)}
+.rank-list em{font-style:normal;color:var(--text-3);font-size:11px}
+.token-breakdown{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border-1)}
+.token-breakdown div{display:grid;gap:2px}
+.token-breakdown span{color:var(--text-3);font-size:11px}
+.token-breakdown strong{color:var(--text-1);font-size:15px}
+.events-card{margin-top:0}
+.cell-subtitle{display:block;color:var(--text-3);font-size:11px}
+.cell-link{color:var(--accent-300);cursor:pointer}
+.lines-added{color:#34d399;font-weight:600}
+.lines-deleted{color:#f87171;font-weight:600}
+@media(max-width:1100px){.summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.dimension-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>

@@ -95,7 +95,31 @@ const router = createRouter({
           path: 'admin/skill-usage',
           name: 'skill-usage-dashboard',
           component: () => import('../views/SkillUsageDashboardView.vue'),
-          meta: { title: 'Skill 使用看板' },
+          meta: { title: 'AI 研发效能看板' },
+        },
+        {
+          path: 'admin/skill-usage/stages/:stage',
+          name: 'skill-usage-stage',
+          component: () => import('../views/SkillUsageStageView.vue'),
+          meta: { title: '研发阶段效能' },
+        },
+        {
+          path: 'admin/skill-usage/teams/:teamId',
+          name: 'skill-usage-team',
+          component: () => import('../views/SkillUsageTeamView.vue'),
+          meta: { title: '团队效能' },
+        },
+        {
+          path: 'admin/skill-usage/projects/:projectKey',
+          name: 'skill-usage-project',
+          component: () => import('../views/SkillUsageProjectView.vue'),
+          meta: { title: '项目效能' },
+        },
+        {
+          path: 'admin/skill-usage/skills/:skillKey',
+          name: 'skill-usage-skill',
+          component: () => import('../views/SkillUsageSkillView.vue'),
+          meta: { title: 'Skill 效果' },
         },
         {
           path: 'organization',

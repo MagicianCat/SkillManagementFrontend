@@ -170,6 +170,12 @@ const router = createRouter({
           meta: { title: '项目工作台' },
         },
         {
+          path: 'projects/:projectKey/setup',
+          name: 'project-agent-setup',
+          component: () => import('../views/ProjectAgentSetupView.vue'),
+          meta: { title: '项目 Agent 配置' },
+        },
+        {
           path: '403',
           name: 'forbidden',
           component: () => import('../views/ForbiddenView.vue'),

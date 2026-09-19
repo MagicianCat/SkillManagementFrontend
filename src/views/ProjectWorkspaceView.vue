@@ -39,7 +39,7 @@ async function start() {
   if (!request || !projectKey.value || starting.value) return
   starting.value = true
   try {
-    const run = await startWorkflowRun(projectKey.value, { initialRequest: request, workflowCode: 'requirement-mvp', workflowVersion: 1 })
+    const run = await startWorkflowRun(projectKey.value, { initialRequest: request, contextSnapshotJson: {} })
     initialRequest.value = ''
     await router.push({ name: 'project-workspace', params: { projectId: projectKey.value, runId: String(run.id) } })
     await workspace.load(String(run.id))

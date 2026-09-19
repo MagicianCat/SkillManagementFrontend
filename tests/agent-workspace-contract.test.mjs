@@ -17,21 +17,14 @@ test('final acceptance uses explicit decision contract', async () => {
   assert.doesNotMatch(source, /accepted = true/)
 })
 
-test('project entry opens workspace where the run is started with an initial request', async () => {
+test('project entry opens setup where the run is started after configuration', async () => {
   const projects = await readFile(new URL('../src/views/ProjectsView.vue', import.meta.url), 'utf8')
-  const workspace = await readFile(new URL('../src/views/ProjectWorkspaceView.vue', import.meta.url), 'utf8')
-  assert.match(projects, /name: 'project-workspace'/)
-  assert.match(projects, /projectId: project\.projectKey/)
-  assert.match(workspace, /startWorkflowRun\(projectKey\.value,/)
-  assert.match(workspace, /data-testid="initial-request"/)
-  assert.match(workspace, /data-testid="start-workflow"/)
-})
-
-test('one run per project: workspace auto-resumes the project current run when no runId in URL', async () => {
-  const workspace = await readFile(new URL('../src/views/ProjectWorkspaceView.vue', import.meta.url), 'utf8')
-  const api = await readFile(new URL('../src/api/workflow.api.ts', import.meta.url), 'utf8')
-  assert.match(api, /projects\/.*\/workflow-runs\/current/)
-  assert.match(workspace, /getCurrentWorkflowRun\(projectKey\.value\)/)
+  const setup = await readFile(new URL('../src/views/ProjectAgentSetupView.vue', import.meta.url), 'utf8')
+  assert.match(projects, /project-agent-setup/)
+  assert.match(projects, /projectKey: project\.projectKey/)
+  assert.match(setup, /startWorkflowRun\(projectKey,/)
+  assert.match(setup, /initialRequest/)
+  assert.match(setup, /contextSnapshotJson/)
 })
 
 test('profile view derives latest version from descending versions', async () => {

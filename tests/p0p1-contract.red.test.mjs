@@ -17,8 +17,7 @@ test('P0 workspace starts a run with initialRequest and workflow snapshot', asyn
   const workflow = await read('src/api/workflow.api.ts')
   assert.match(workspace, /initialRequest/)
   assert.match(workflow, /initialRequest/)
-  assert.match(workflow, /workflowCode/)
-  assert.match(workflow, /workflowVersion/)
+  assert.match(workflow, /contextSnapshotJson/)
 })
 
 test('P0 intervention contract includes info and retry controls', async () => {
@@ -43,4 +42,36 @@ test('P1 has a browser acceptance test with stable user journey selectors', asyn
   assert.match(e2e, /agent-team/)
   assert.match(e2e, /document-revision/)
   assert.match(e2e, /final-acceptance/)
+})
+
+test('Agent Version save uses full skill bindings, never legacy skillIds', async () => {
+  const api = await read('src/api/agent-config.api.ts')
+  const request = api.slice(api.indexOf('export function buildAgentProfileVersionRequest'), api.indexOf('export async function saveAgentProfileVersion'))
+  assert.match(request, /skillId: skill\.skillId/)
+  assert.match(request, /versionPolicy: skill\.versionPolicy/)
+  assert.match(request, /fixedSkillVersionId: skill\.fixedSkillVersionId/)
+  assert.match(request, /required: skill\.required/)
+  assert.match(request, /sortOrder: skill\.sortOrder/)
+  assert.match(request, /outputSchemaJson: stringifyJson\(version\.outputSchemaJson\)/)
+  assert.match(request, /runtimeConfigJson: stringifyJson\(version\.runtimeConfigJson\)/)
+  assert.doesNotMatch(request, /skillIds/)
+})
+
+test('Agent detail preserves skill ids and gates editing to owned user agents', async () => {
+  const detail = await read('src/views/AgentConfigDetailView.vue')
+  assert.match(detail, /skillId: skill\.id/)
+  assert.match(detail, /skillId: option\.skillId/)
+  assert.match(detail, /sourceType === 'SYSTEM'/)
+  assert.match(detail, /ownerUserId/)
+})
+
+test('Agent draft save updates DRAFT in place and creates a new version from published', async () => {
+  const api = await read('src/api/agent-config.api.ts')
+  const detail = await read('src/views/AgentConfigDetailView.vue')
+  assert.match(api, /http\.put<AgentProfileVersion>\(`\$\{profilesPath\}\/\$\{encodedCode\}\/versions\/\$\{version\.versionNo\}`/)
+  assert.match(api, /version\.status === 'DRAFT'/)
+  assert.match(api, /http\.post<AgentProfileVersion>\(`\$\{profilesPath\}\/\$\{encodedCode\}\/versions`/)
+  assert.match(detail, /createsNewVersion\.value = version\.status !== 'DRAFT'/)
+  assert.match(detail, /createNewVersion: createsNewVersion\.value/)
+  assert.match(detail, /name: 'agent-config-detail'/)
 })

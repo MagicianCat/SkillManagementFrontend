@@ -56,8 +56,8 @@ async function addMember() {
     MessagePlugin.success('成员已加入')
   } catch (e) { MessagePlugin.error((e as any)?.response?.data?.message || String(e)) } finally { busy.value = false }
 }
-/** 进入项目组的 Agent 工作流（无需先填需求，需求在工作台内输入）。 */
-function enterWorkspace(project: Project) { void router.push({ name: 'project-workspace', params: { projectId: project.projectKey } }) }
+/** 先完成 Agent 配置，再创建 Workflow Run。 */
+function enterWorkspace(project: Project) { void router.push({ name: 'project-agent-setup', params: { projectKey: project.projectKey } }) }
 
 onMounted(() => void loadProjects())
 </script>

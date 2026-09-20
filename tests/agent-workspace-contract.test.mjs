@@ -17,11 +17,15 @@ test('final acceptance uses explicit decision contract', async () => {
   assert.doesNotMatch(source, /accepted = true/)
 })
 
-test('project entry opens setup where the run is started after configuration', async () => {
+test('project entry resolves an existing run before opening setup', async () => {
   const projects = await readFile(new URL('../src/views/ProjectsView.vue', import.meta.url), 'utf8')
   const setup = await readFile(new URL('../src/views/ProjectAgentSetupView.vue', import.meta.url), 'utf8')
+  assert.match(projects, /getCurrentWorkflowRun/)
+  assert.match(projects, /project-workspace/)
   assert.match(projects, /project-agent-setup/)
   assert.match(projects, /projectKey: project\.projectKey/)
+  assert.match(setup, /getCurrentWorkflowRun/)
+  assert.match(setup, /router\.replace/)
   assert.match(setup, /startWorkflowRun\(projectKey,/)
   assert.match(setup, /initialRequest/)
   assert.match(setup, /getProjectAgentContexts/)

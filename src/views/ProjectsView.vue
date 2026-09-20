@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useRouter } from 'vue-router'
 import { createProject, listProjectMembers, listProjects, putProjectMember, searchProjectUsers, type Project, type ProjectMember, type ProjectUser } from '../api/projects.api'
+import { getCurrentWorkflowRun } from '../api/workflow.api'
 
 const router = useRouter()
 const projects = ref<Project[]>([])
@@ -10,6 +11,7 @@ const selected = ref<Project | null>(null)
 const members = ref<ProjectMember[]>([])
 const busy = ref(false)
 const loading = ref(true)
+const enteringProjectKey = ref('')
 
 const newName = ref('')
 const creating = ref(false)
@@ -56,8 +58,24 @@ async function addMember() {
     MessagePlugin.success('成员已加入')
   } catch (e) { MessagePlugin.error((e as any)?.response?.data?.message || String(e)) } finally { busy.value = false }
 }
-/** 先完成 Agent 配置，再创建 Workflow Run。 */
-function enterWorkspace(project: Project) { void router.push({ name: 'project-agent-setup', params: { projectKey: project.projectKey } }) }
+async function enterWorkspace(project: Project) {
+  if (enteringProjectKey.value) return
+  enteringProjectKey.value = project.projectKey
+  try {
+    const run = await getCurrentWorkflowRun(project.projectKey)
+    await router.push({ name: 'project-workspace', params: { projectId: project.projectKey, runId: String(run.id) } })
+  } catch (error) {
+    const status = (error as any)?.response?.status
+    const code = (error as any)?.response?.data?.code
+    if (status === 404 || code === 'WORKFLOW_RUN_NOT_FOUND') {
+      await router.push({ name: 'project-agent-setup', params: { projectKey: project.projectKey } })
+    } else {
+      MessagePlugin.error((error as any)?.response?.data?.message || '工作流状态查询失败，请稍后重试')
+    }
+  } finally {
+    enteringProjectKey.value = ''
+  }
+}
 
 onMounted(() => void loadProjects())
 </script>
@@ -133,7 +151,7 @@ onMounted(() => void loadProjects())
         </div>
 
         <footer class="detail-foot">
-          <button type="button" class="enter" data-testid="enter-workspace" @click="enterWorkspace(selected)">进入 Agent 工作流 →</button>
+          <button type="button" class="enter" data-testid="enter-workspace" :disabled="Boolean(enteringProjectKey)" @click="enterWorkspace(selected)">{{ enteringProjectKey === selected.projectKey ? '正在进入…' : '进入 Agent 工作流 →' }}</button>
         </footer>
       </section>
       <section v-else class="panel placeholder">选择一个项目组查看成员与进入工作流。</section>

@@ -332,12 +332,24 @@ onBeforeUnmount(() => {
 
     <template v-if="dashboard">
       <section class="summary-grid">
-        <article class="metric-card metric-card--success"><header><span>AI代码产出</span><i class="metric-dot"></i></header><strong>{{ formatNumber(dashboard.summary.linesAdded) }}</strong><small>行（新增）</small></article>
-        <article class="metric-card metric-card--primary"><header><span>Token消耗</span><em class="metric-chip">Total</em></header><strong>{{ formatTokens(dashboard.summary.totalTokens) }}</strong><small>覆盖率 {{ formatPercent(dashboard.summary.tokenCoverageRate) }}</small></article>
-        <article class="metric-card metric-card--info"><header><span>活跃开发者</span><i class="metric-dot"></i></header><strong>{{ dashboard.summary.activeUsers }}</strong><small>产生过 Generation</small></article>
-        <article class="metric-card metric-card--success"><header><span>Token产码效率</span><em class="metric-chip">LOC</em></header><strong>{{ round2(dashboard.summary.locPer1kTokens) }}</strong><small>LOC / 1K Token</small></article>
-        <article class="metric-card metric-card--purple"><header><span>Generation数</span><em class="metric-chip">Calls</em></header><strong>{{ formatNumber(dashboard.summary.generations) }}</strong><small>平均 {{ round2(dashboard.summary.avgModelCalls) }} 次模型调用</small></article>
-        <article class="metric-card metric-card--warning"><header><span>平均任务耗时</span><i class="metric-dot"></i></header><strong>{{ formatDuration(dashboard.summary.avgGenerationDurationMs) }}</strong><small>工具失败率 {{ formatPercent(dashboard.summary.toolFailureRate) }}</small></article>
+        <t-tooltip content="筛选范围内，AI 通过 Write/Edit 写入的代码行数（只统计新增行，不含删除）。" placement="top" theme="light">
+          <article class="metric-card metric-card--success"><header><span>AI代码产出</span><i class="metric-dot"></i></header><strong>{{ formatNumber(dashboard.summary.linesAdded) }}</strong><small>行（新增）</small></article>
+        </t-tooltip>
+        <t-tooltip content="这些 Generation 累计消耗的大模型 Token 总数（输入+输出）。覆盖率=拿到精确 Token 数据的轮数占比，越高越可信。" placement="top" theme="light">
+          <article class="metric-card metric-card--primary"><header><span>Token消耗</span><em class="metric-chip">Total</em></header><strong>{{ formatTokens(dashboard.summary.totalTokens) }}</strong><small>覆盖率 {{ formatPercent(dashboard.summary.tokenCoverageRate) }}</small></article>
+        </t-tooltip>
+        <t-tooltip content="在筛选范围内，至少产生过一轮 Generation 的去重开发者人数。" placement="top" theme="light">
+          <article class="metric-card metric-card--info"><header><span>活跃开发者</span><i class="metric-dot"></i></header><strong>{{ dashboard.summary.activeUsers }}</strong><small>产生过 Generation</small></article>
+        </t-tooltip>
+        <t-tooltip content="每消耗 1000 个 Token 平均产出多少行新增代码。= 总新增行数 ÷ 总 Token × 1000（先求和再相除，不是逐轮平均），越高说明单位 Token 产码越多。" placement="top" theme="light">
+          <article class="metric-card metric-card--success"><header><span>Token产码效率</span><em class="metric-chip">LOC</em></header><strong>{{ round2(dashboard.summary.locPer1kTokens) }}</strong><small>LOC / 1K Token</small></article>
+        </t-tooltip>
+        <t-tooltip content="一次 Generation = 一轮完整的 AI 任务（从发起 prompt 到结束）。这里是筛选范围内的总轮数；下方为平均每轮调用模型的次数。" placement="top" theme="light">
+          <article class="metric-card metric-card--purple"><header><span>Generation数</span><em class="metric-chip">Calls</em></header><strong>{{ formatNumber(dashboard.summary.generations) }}</strong><small>平均 {{ round2(dashboard.summary.avgModelCalls) }} 次模型调用</small></article>
+        </t-tooltip>
+        <t-tooltip content="平均每轮 Generation 从发起到结束的耗时；下方为该范围内失败工具调用占总工具调用的比例。" placement="top" theme="light">
+          <article class="metric-card metric-card--warning"><header><span>平均任务耗时</span><i class="metric-dot"></i></header><strong>{{ formatDuration(dashboard.summary.avgGenerationDurationMs) }}</strong><small>工具失败率 {{ formatPercent(dashboard.summary.toolFailureRate) }}</small></article>
+        </t-tooltip>
       </section>
 
       <section class="usage-card">
@@ -432,7 +444,7 @@ onBeforeUnmount(() => {
 
 /* ---------- 指标卡：突出大数字 ---------- */
 .summary-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:14px}
-.metric-card{position:relative;display:grid;align-content:start;gap:7px;min-height:112px;padding:16px 18px 14px;border:1px solid var(--border-1);border-radius:12px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px);overflow:hidden;transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+.metric-card{position:relative;display:grid;align-content:start;gap:7px;min-height:112px;padding:16px 18px 14px;border:1px solid var(--border-1);border-radius:12px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px);overflow:hidden;transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease;cursor:help}
 .metric-card::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:99px;background:var(--metric,var(--accent-500));opacity:.85}
 .metric-card:hover{border-color:var(--border-3);box-shadow:var(--shadow-md);transform:translateY(-2px)}
 .metric-card header{display:flex;align-items:center;justify-content:space-between;gap:8px}

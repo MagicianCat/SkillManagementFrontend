@@ -24,7 +24,9 @@ test('project entry opens setup where the run is started after configuration', a
   assert.match(projects, /projectKey: project\.projectKey/)
   assert.match(setup, /startWorkflowRun\(projectKey,/)
   assert.match(setup, /initialRequest/)
-  assert.match(setup, /contextSnapshotJson/)
+  assert.match(setup, /getProjectAgentContexts/)
+  assert.match(setup, /saveProjectAgentContexts/)
+  assert.match(setup, /contextTab/)
 })
 
 test('profile view derives latest version from descending versions', async () => {

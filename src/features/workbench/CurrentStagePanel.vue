@@ -49,7 +49,7 @@ async function render() {
     return {
       id: agent.key,
       position: positions[agent.key] ?? { x: 0, y: 0 },
-      data: { label: agent.name || agent.key, status: agent.status, tone: toneOf(agent.status), current },
+      data: { label: agent.displayName || agent.name || agent.key, status: agent.status, tone: toneOf(agent.status), current },
       class: ['agent-node', `tone-${toneOf(agent.status)}`, current ? 'is-current' : ''].filter(Boolean).join(' '),
     }
   })
@@ -86,7 +86,7 @@ const statusText: Record<string, string> = { COMPLETED: '已完成', RUNNING: '�
   <section class="stage-panel panel" data-testid="agent-team">
     <header class="panel-head">
       <div class="head-lead">
-        <h3>{{ stage?.name || '当前阶段' }}</h3>
+        <h3>{{ stage?.displayName || stage?.name || '当前阶段' }}</h3>
         <span v-if="reviewCycle" class="cycle mono">Review Cycle {{ reviewCycle.current }}/{{ reviewCycle.max }}</span>
       </div>
       <span class="status-pill" :class="`tone-${toneOf(stage?.status || 'PENDING')}`">{{ statusText[stage?.status || ''] || stage?.status || '待执行' }}</span>

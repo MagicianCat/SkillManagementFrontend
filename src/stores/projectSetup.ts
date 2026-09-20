@@ -10,7 +10,8 @@ export const useProjectSetupStore = defineStore('projectSetup', () => {
   async function copyFrom(projectKey: string, sourceProjectKey: string) { configuration.value = await copyProjectConfiguration(projectKey, sourceProjectKey) }
   async function replaceNode(projectKey: string, stageKey: string, nodeKey: string, versionId: string | number) { configuration.value = await updateProjectAgentNode(projectKey, stageKey, nodeKey, versionId) }
   async function validate(projectKey: string) { validation.value = await validateProjectAgentConfiguration(projectKey); return validation.value }
+  function clearValidation() { validation.value = null }
   async function confirm(projectKey: string) { configuration.value = await confirmProjectAgentConfiguration(projectKey); return configuration.value }
   async function loadReusable(projectKey: string) { reusableProjects.value = await listReusableProjects(projectKey) }
-  return { configuration, reusableProjects, selectedNodeKey, loading, error, validation, load, usePreset, copyFrom, replaceNode, validate, confirm, loadReusable }
+  return { configuration, reusableProjects, selectedNodeKey, loading, error, validation, load, usePreset, copyFrom, replaceNode, validate, clearValidation, confirm, loadReusable }
 })

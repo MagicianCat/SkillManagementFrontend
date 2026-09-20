@@ -8,41 +8,39 @@ const COMPLETED = ['COMPLETED']
 
 export const useProjectWorkspaceStore = defineStore('projectWorkspace', () => {
   const workflowRun = ref<WorkflowRun | null>(null); const stagesById = ref<Record<string, WorkflowStage>>({}); const selectedStageId = ref<string | null>(null); const loading = ref(false); const error = ref('')
+  let refreshPromise: Promise<void> | null = null; let refreshQueued = false; let refreshTimer: ReturnType<typeof setTimeout> | undefined; let pollTimer: ReturnType<typeof setInterval> | undefined; let autoRefreshRunId = ''; let visibilityHandler: (() => void) | undefined
+  const activeStatuses = [...ACTIVE, 'WAITING_HUMAN']
   const stages = computed(() => Object.values(stagesById.value))
-  async function load(runId: string) { loading.value = true; error.value = ''; try { workflowRun.value = await getWorkflowRun(runId); const data = workflowRun.value.stages ?? []; stagesById.value = Object.fromEntries(data.map((stage) => [stage.id, stage])); if (!selectedStageId.value || !stagesById.value[selectedStageId.value]) selectedStageId.value = (data.find((stage) => ACTIVE.includes(stage.status)) ?? data[0])?.id ?? null } catch (cause) { error.value = cause instanceof Error ? cause.message : '工作台加载失败' } finally { loading.value = false } }
+  function applySnapshot(run: WorkflowRun) { workflowRun.value = run; const data = run.stages ?? []; stagesById.value = Object.fromEntries(data.map((stage) => [stage.id, stage])); if (!selectedStageId.value || !stagesById.value[selectedStageId.value]) selectedStageId.value = (data.find((stage) => ACTIVE.includes(stage.status)) ?? data[0])?.id ?? null; if (autoRefreshRunId && !activeStatuses.includes(run.status)) stopAutoRefresh() }
+  async function load(runId: string) { loading.value = true; error.value = ''; try { applySnapshot(await getWorkflowRun(runId)) } catch (cause) { error.value = cause instanceof Error ? cause.message : '工作台加载失败' } finally { loading.value = false } }
+  async function refresh() {
+    const runId = workflowRun.value?.id
+    if (runId == null) return
+    if (refreshPromise) { refreshQueued = true; return refreshPromise }
+    refreshPromise = getWorkflowRun(String(runId)).then(applySnapshot).catch(() => undefined).finally(() => { refreshPromise = null; if (refreshQueued) { refreshQueued = false; void refresh() } })
+    return refreshPromise
+  }
+  function scheduleRefresh(delay = 300) { if (refreshTimer) clearTimeout(refreshTimer); refreshTimer = setTimeout(() => { refreshTimer = undefined; void refresh() }, delay) }
+  function stopAutoRefresh() { if (refreshTimer) clearTimeout(refreshTimer); if (pollTimer) clearInterval(pollTimer); if (visibilityHandler && typeof document !== 'undefined') document.removeEventListener('visibilitychange', visibilityHandler); refreshTimer = undefined; pollTimer = undefined; visibilityHandler = undefined; autoRefreshRunId = '' }
+  function startAutoRefresh(runId: string) {
+    stopAutoRefresh(); autoRefreshRunId = runId
+    const tick = () => { if (autoRefreshRunId !== runId || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return; if (workflowRun.value && activeStatuses.includes(workflowRun.value.status)) void refresh() }
+    pollTimer = setInterval(tick, 2000)
+    if (typeof document !== 'undefined') { visibilityHandler = tick; document.addEventListener('visibilitychange', tick); scheduleRefresh(0) }
+  }
   function applyEvent(event: { type: string; data: Record<string, unknown> }) {
     if (event.type === 'workflow.snapshot') {
       const snapshot = event.data.workflowRun as WorkflowRun | undefined
-      if (snapshot) { workflowRun.value = snapshot; const snapshotStages = snapshot.stages ?? []; stagesById.value = Object.fromEntries(snapshotStages.map((stage) => [stage.id, stage])) }
+      if (snapshot) applySnapshot(snapshot)
       return
     }
     if (event.type === 'workflow.status.changed' && workflowRun.value) workflowRun.value = { ...workflowRun.value, ...(event.data as Partial<WorkflowRun>) }
-    // 产物创建：SSE 实时事件只带 id，缺少名称/revision_no，静默重取一次以拿到完整产物（含可链接的 documentId）。
-    if (event.type === 'artifact.revision.created') {
-      void refreshArtifacts()
-      return
-    }
+    // SSE 事件先于后端状态落库，延迟重取完整快照，避免只更新时间线而遗漏 Agent/Stage 状态。
+    if (['workflow.status.changed', 'stage.status.changed', 'agent.status.changed', 'agent.protocol.retry.requested', 'artifact.revision.created'].includes(event.type) || event.type.startsWith('human.question.')) { scheduleRefresh(); return }
     const stageId = String(event.data.stageId ?? '')
     if (stageId && stagesById.value[stageId]) stagesById.value[stageId] = { ...stagesById.value[stageId], ...(event.data as Partial<WorkflowStage>) }
   }
 
-  /** 静默重取（不重置选中阶段、不显示全局 loading），用于产物实时刷新。
-   *  用 getWorkflowRun：后端没有独立的 stages 端点，RunView.stages 即含完整 artifacts。 */
-  let refreshing = false
-  async function refreshArtifacts() {
-    const runId = workflowRun.value?.id
-    if (runId == null || refreshing) return
-    refreshing = true
-    try {
-      const run = await getWorkflowRun(String(runId))
-      workflowRun.value = run
-      const data = run.stages ?? []
-      for (const stage of data) {
-        const prior = stagesById.value[stage.id]
-        stagesById.value[stage.id] = prior ? { ...prior, ...stage } : stage
-      }
-    } catch { /* 保留现有数据，下一次事件或手动刷新会再试 */ } finally { refreshing = false }
-  }
 
   /** 当前阶段：优先选中阶段，否则第一个活动阶段，否则第一个阶段。 */
   const currentStage = computed(() => {
@@ -56,8 +54,8 @@ export const useProjectWorkspaceStore = defineStore('projectWorkspace', () => {
   /** 当前阶段的 Review Cycle（loopCount+1 / maxLoopCount）。 */
   const reviewCycle = computed(() => {
     const stage = currentStage.value
-    if (!stage || stage.maxLoopCount == null) return null
-    return { current: (stage.loopCount ?? 0) + 1, max: stage.maxLoopCount }
+    if (!stage) return null
+    return { current: (stage.loopCount ?? 0) + 1, max: stage.maxLoopCount ?? 0 }
   })
   /** 当前阶段最新 Revision。 */
   const latestRevision = computed(() => {
@@ -73,5 +71,5 @@ export const useProjectWorkspaceStore = defineStore('projectWorkspace', () => {
 
   function select(stageId: string) { selectedStageId.value = stageId }
 
-  return { workflowRun, stagesById, stages, selectedStageId, loading, error, load, applyEvent, currentStage, requirementStage, reviewCycle, latestRevision, pendingIssues, completedStageCount, activeAgentCount, running, select }
+  return { workflowRun, stagesById, stages, selectedStageId, loading, error, load, refresh, startAutoRefresh, stopAutoRefresh, applyEvent, currentStage, requirementStage, reviewCycle, latestRevision, pendingIssues, completedStageCount, activeAgentCount, running, select }
 })

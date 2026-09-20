@@ -44,6 +44,16 @@ test('P1 has a browser acceptance test with stable user journey selectors', asyn
   assert.match(e2e, /final-acceptance/)
 })
 
+test('human question has a dedicated answer contract and resumes through its own endpoint', async () => {
+  const panel = await read('src/features/workbench/InterventionPanel.vue')
+  const workspace = await read('src/views/ProjectWorkspaceView.vue')
+  const api = await read('src/api/workflow.api.ts')
+  assert.match(panel, /data-testid="human-answer-card"/)
+  assert.match(panel, /data-testid="submit-human-answer"/)
+  assert.match(workspace, /@answer="answerQuestion"/)
+  assert.match(api, /human-questions\/\$\{encodeURIComponent\(String\(questionId\)\)\}:answer/)
+})
+
 test('Agent Version save uses full skill bindings, never legacy skillIds', async () => {
   const api = await read('src/api/agent-config.api.ts')
   const request = api.slice(api.indexOf('export function buildAgentProfileVersionRequest'), api.indexOf('export async function saveAgentProfileVersion'))

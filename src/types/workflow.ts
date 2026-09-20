@@ -1,11 +1,12 @@
-export type WorkflowRunStatus = 'CREATED' | 'RUNNING' | 'WAITING_DESIGN_ACCEPTANCE' | 'WAITING_FINAL_ACCEPTANCE' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | string
+export type WorkflowRunStatus = 'CREATED' | 'RUNNING' | 'WAITING_HUMAN' | 'WAITING_DESIGN_ACCEPTANCE' | 'WAITING_FINAL_ACCEPTANCE' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | string
 export type StageStatus = 'PENDING' | 'READY' | 'PROVISIONING' | 'RUNNING' | 'PAUSED' | 'HUMAN_REQUIRED' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'STALE' | string
 export type InterventionType = 'ASK' | 'CORRECT' | 'PROVIDE_INFO' | 'PAUSE' | 'RESUME' | 'CANCEL' | 'RETRY'
-export interface InterventionTarget { stageRunId?: string; agentSessionId?: string; agentRunId?: string }
-export interface WorkflowNode { id: string; key: string; name: string; status: StageStatus; currentAgent?: string | null; loopCount?: number; maxLoopCount?: number; startedAt?: string | null; finishedAt?: string | null; attention?: boolean }
+export interface InterventionTarget { stageRunId?: string; agentSessionId?: string; agentRunId?: string; failed?: boolean }
+export interface WorkflowNode { id: string; key: string; name: string; displayName?: string | null; status: StageStatus; currentAgent?: string | null; loopCount?: number; maxLoopCount?: number; startedAt?: string | null; finishedAt?: string | null; attention?: boolean }
 export interface WorkflowEdge { id?: string; from: string; to: string | null; edgeType?: string; dependencyType?: string; incrementsLoop?: boolean; conditionValue?: string | null; condition?: Record<string, unknown> }
 export interface WorkflowStage extends WorkflowNode { agents?: WorkflowAgentNode[]; edges?: WorkflowEdge[]; artifacts?: WorkflowArtifact[] }
-export interface WorkflowAgentNode { id: string; key: string; name: string; status: string; nodeType?: string; profileCode?: string; agentRunId?: string | number | null; executionNo?: number | null }
+export interface WorkflowAgentNode { id: string; key: string; name: string; displayName?: string | null; status: string; nodeType?: string; profileCode?: string; agentRunId?: string | number | null; executionNo?: number | null }
 export interface WorkflowArtifact { id: string; name: string; revision?: number; revisionId?: string | number; status?: string; reviewIssues?: string[] }
-export interface WorkflowRun { id: string | number; projectId: string | number; status: WorkflowRunStatus; startedAt?: string | null; completedAt?: string | null; workflowVersionId?: string | number; stages?: WorkflowStage[] }
+export interface WorkflowHumanQuestion { id: string | number; workflowRunId: string | number; stageRunId: string | number; agentSessionId: string | number; agentRunId: string | number; agentNodeKey: string; question: string; choices: string[]; answer?: string | null; status: 'PENDING' | 'ANSWER_SUBMITTED' | 'ANSWERED' | 'CANCELLED'; askedAt: string; answeredAt?: string | null; lastError?: string | null }
+export interface WorkflowRun { id: string | number; projectId: string | number; status: WorkflowRunStatus; startedAt?: string | null; completedAt?: string | null; workflowVersionId?: string | number; stages?: WorkflowStage[]; humanQuestions?: WorkflowHumanQuestion[] }
 export interface WorkflowEvent { id?: string; sequence?: number; type: string; data: Record<string, unknown>; createdAt?: string }

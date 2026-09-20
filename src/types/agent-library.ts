@@ -17,6 +17,7 @@ export interface ProjectAgentNodeDraft {
   systemPrompt?: string; modelCode?: string; temperature?: number | null
   maxIterationPerRun?: number; timeoutSeconds?: number
   outputSchemaJson?: Record<string, unknown> | string; runtimeConfigJson?: Record<string, unknown> | string
+  workflowProtocolPrompt?: string; workflowOutputSchemaJson?: Record<string, unknown> | string
   skills?: AgentSkillBinding[]; tools?: AgentToolPermission[]
   modified?: boolean
 }

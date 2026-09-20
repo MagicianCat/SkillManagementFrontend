@@ -19,7 +19,7 @@ export const useRuntimeEventStore = defineStore('runtimeEvent', () => {
     source.onopen = () => { connected.value = true; reconnecting.value = false }
     source.onmessage = (message) => dispatch(message.data, message.lastEventId)
     // Named SSE events are normalized into the same store stream as default messages.
-    for (const eventType of ['workflow.snapshot', 'workflow.status.changed', 'stage.status.changed', 'agent.status.changed', 'agent.message.delta', 'agent.paused', 'agent.resumed', 'artifact.revision.created', 'tool.started', 'tool.completed', 'tool.failed', 'human.intervention.created', 'workflow.completed', 'workflow.failed']) {
+    for (const eventType of ['workflow.snapshot', 'workflow.status.changed', 'stage.status.changed', 'agent.status.changed', 'agent.protocol.retry.requested', 'agent.message.delta', 'agent.paused', 'agent.resumed', 'artifact.revision.created', 'tool.started', 'tool.completed', 'tool.failed', 'human.intervention.created', 'human.question.created', 'human.question.answer_submitted', 'human.question.answered', 'human.question.answer_failed', 'human.question.cancelled', 'workflow.completed', 'workflow.failed']) {
       source.addEventListener(eventType, (event) => { const message = event as MessageEvent; dispatch(message.data, message.lastEventId) })
     }
     source.onerror = () => { connected.value = false; source?.close(); reconnecting.value = true; retryTimer = setTimeout(() => connect(runId), 1500) }

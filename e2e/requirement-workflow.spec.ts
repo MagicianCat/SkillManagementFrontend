@@ -22,6 +22,7 @@ test('projects setup validates agent team then starts requirement workflow', asy
   await page.route('**/api/v1/projects/demo/agent-configuration/nodes/**', async (route) => route.fulfill({ status: 404, json: { code: 'AGENT_NODE_NOT_FOUND' } }))
   await page.route('**/api/v1/agent-team-presets', async (route) => route.fulfill({ json: [{ code: 'standard-design-team', name: '标准设计团队', versionId: 10, versionNo: 1, isDefault: true }] }))
   await page.route('**/api/v1/agent-profiles', async (route) => route.fulfill({ json: profiles }))
+  await page.route('**/api/v1/skills**', async (route) => route.fulfill({ json: { items: [{ id: 201, skillKey: 'brainstorming', displayName: 'Brainstorming', latestPublishedVersion: '1.0.0', scopeType: 'PLATFORM', developmentStage: 'REQUIREMENT' }], page: 0, size: 20, totalElements: 1, totalPages: 1 } }))
   await page.route('**/api/v1/projects/demo/agent-configuration:validate', async (route) => route.fulfill({ json: { valid: true, issues: [], checks: [{ label: 'Required Node 已配置', passed: true }, { label: 'Agent Version 已发布', passed: true }] } }))
   await page.route('**/api/v1/projects/demo/agent-configuration:confirm', async (route) => { setupState = { ...setupState, status: 'READY' }; await route.fulfill({ json: setupState }) })
   await page.route('**/api/v1/projects/demo/workflow-runs', async (route) => { runBody = route.request().postDataJSON(); await route.fulfill({ json: { id: 'run-1', projectId: 'demo', status: 'WAITING_DESIGN_ACCEPTANCE', stages } }) })

@@ -37,11 +37,11 @@ interface DisplayNode { id: string; key: string; label: string; sub: string; sta
 function buildDisplayNodes(): DisplayNode[] {
   return pipelineStageNodes.map((pn) => {
     const stage = stageForNode(pn.id) ?? null
-    const loop = stage && stage.maxLoopCount != null ? { current: (stage.loopCount ?? 0) + 1, max: stage.maxLoopCount } : null
+    const loop = stage ? { current: (stage.loopCount ?? 0) + 1, max: stage.maxLoopCount ?? 0 } : null
     return {
       id: stage ? String(stage.id) : `pipe-${pn.id}`,
       key: pn.id,
-      label: stage?.name || pn.name,
+      label: stage?.displayName || stage?.name || pn.name,
       sub: pn.sub ?? '',
       status: stage ? String(stage.status) : 'PENDING',
       stage,

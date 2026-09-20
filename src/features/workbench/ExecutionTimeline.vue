@@ -10,6 +10,7 @@ const MAP: Record<string, { label: string; tone: StatusTone }> = {
   'workflow.status.changed': { label: '工作流状态变更', tone: 'info' },
   'stage.status.changed': { label: '阶段状态变更', tone: 'info' },
   'agent.status.changed': { label: 'Agent 状态变更', tone: 'info' },
+  'agent.protocol.retry.requested': { label: '输出协议自动纠正', tone: 'warning' },
   'agent.message.delta': { label: 'Agent 输出', tone: 'neutral' },
   'agent.paused': { label: 'Agent 已暂停', tone: 'purple' },
   'agent.resumed': { label: 'Agent 已继续', tone: 'purple' },
@@ -26,7 +27,9 @@ const items = computed<TimelineItem[]>(() =>
   [...props.events].slice(-60).reverse().map((event, index) => {
     const meta = MAP[event.type] ?? { label: event.type, tone: 'neutral' as StatusTone }
     const data = event.data
-    const detail = String(data.message ?? data.stageName ?? data.agentName ?? data.summary ?? data.revision ?? '')
+    const detail = event.type === 'agent.protocol.retry.requested'
+      ? `第 ${String(data.attempt ?? '?')} / ${String(data.maxAttempts ?? 3)} 次自动纠正`
+      : String(data.message ?? data.stageName ?? data.agentName ?? data.summary ?? data.revision ?? '')
     return { key: event.id || `${event.type}-${index}`, type: event.type, label: meta.label, detail, time: event.createdAt || '', tone: meta.tone }
   }),
 )

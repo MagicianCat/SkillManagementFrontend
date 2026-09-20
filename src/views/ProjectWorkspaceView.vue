@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { designAcceptWorkflowRun, getCurrentWorkflowRun, sendIntervention, startWorkflowRun } from '../api/workflow.api'
+import { answerWorkflowHumanQuestion, designAcceptWorkflowRun, getCurrentWorkflowRun, sendIntervention, startWorkflowRun } from '../api/workflow.api'
 import WorkbenchHeader from '../features/workbench/WorkbenchHeader.vue'
 import WorkflowDagPanel from '../features/workbench/WorkflowDagPanel.vue'
 import CurrentStagePanel from '../features/workbench/CurrentStagePanel.vue'
@@ -29,6 +29,7 @@ const runtime = useRuntimeEventStore()
 const runId = computed(() => String(route.params.runId || ''))
 const projectKey = computed(() => String(route.params.projectId || ''))
 const accepting = ref(false)
+const answeringQuestion = ref(false)
 const acceptanceRef = ref<InstanceType<typeof AcceptancePanel> | null>(null)
 const artifactRef = ref<InstanceType<typeof ArtifactPanel> | null>(null)
 const timelineRef = ref<InstanceType<typeof ExecutionTimeline> | null>(null)
@@ -46,7 +47,7 @@ async function start() {
     initialRequest.value = ''
     await router.push({ name: 'project-workspace', params: { projectId: projectKey.value, runId: String(run.id) } })
     await workspace.load(String(run.id))
-    if (workspace.workflowRun) runtime.connect(String(workspace.workflowRun.id))
+    if (workspace.workflowRun) { const activeRunId = String(workspace.workflowRun.id); runtime.connect(activeRunId); workspace.startAutoRefresh(activeRunId) }
   } finally { starting.value = false }
 }
 
@@ -75,10 +76,16 @@ onMounted(async () => {
     resolvingRun.value = false
   }
   await workspace.load(id)
-  if (workspace.workflowRun) runtime.connect(String(workspace.workflowRun.id))
+  if (workspace.workflowRun) { const activeRunId = String(workspace.workflowRun.id); runtime.connect(activeRunId); workspace.startAutoRefresh(activeRunId) }
+})
+watch(runId, async (next, previous) => {
+  if (!next || next === previous || String(workspace.workflowRun?.id ?? '') === next) return
+  await workspace.load(next)
+  runtime.connect(next)
+  workspace.startAutoRefresh(next)
 })
 watch(() => runtime.events.length, () => { const event = runtime.events.at(-1); if (event) workspace.applyEvent(event) })
-onBeforeUnmount(() => runtime.close())
+onBeforeUnmount(() => { workspace.stopAutoRefresh(); runtime.close() })
 
 const lastEventAt = computed(() => runtime.events.at(-1)?.createdAt ?? '')
 
@@ -91,13 +98,28 @@ const timelineLive = computed(() => timelineRef.value?.live ?? runtime.events.le
 /** 干预目标自动取当前阶段与其当前 Agent，无需手填。 */
 const interventionTarget = computed<InterventionTarget>(() => {
   const stage = workspace.currentStage
-  const agent = stage?.agents?.find((a) => a.name === stage.currentAgent) ?? stage?.agents?.find((a) => a.agentRunId != null)
-  return { stageRunId: stage?.id ? String(stage.id) : undefined, agentRunId: agent?.agentRunId != null ? String(agent.agentRunId) : undefined }
+  const failed = [...(stage?.agents ?? [])].filter((a) => a.status === 'FAILED' && a.agentRunId != null).sort((a, b) => Number(a.agentRunId) - Number(b.agentRunId)).at(-1)
+  const active = stage?.agents?.find((a) => a.name === stage.currentAgent && a.agentRunId != null) ?? stage?.agents?.find((a) => ['QUEUED', 'STARTING', 'RUNNING', 'WAITING_HUMAN', 'PAUSED'].includes(a.status) && a.agentRunId != null)
+  const agent = failed ?? active
+  return { stageRunId: stage?.id ? String(stage.id) : undefined, agentRunId: agent?.agentRunId != null ? String(agent.agentRunId) : undefined, failed: agent?.status === 'FAILED' }
 })
 
 async function intervention(type: InterventionType, content?: string, target?: InterventionTarget) {
-  await sendIntervention(String(workspace.workflowRun?.id || runId.value), type, content, target)
-  await workspace.load(String(workspace.workflowRun?.id || runId.value))
+  try {
+    await sendIntervention(String(workspace.workflowRun?.id || runId.value), type, content, target)
+    await workspace.load(String(workspace.workflowRun?.id || runId.value))
+  } catch (cause) {
+    workspace.error = (cause as any)?.response?.data?.message || (cause instanceof Error ? cause.message : '人员介入操作失败')
+  }
+}
+async function answerQuestion(questionId: string | number, answer: string) {
+  if (answeringQuestion.value) return
+  answeringQuestion.value = true
+  try {
+    const id = String(workspace.workflowRun?.id || runId.value)
+    await answerWorkflowHumanQuestion(id, questionId, answer)
+    await workspace.load(id)
+  } finally { answeringQuestion.value = false }
 }
 async function acceptance(decision: 'ACCEPT' | 'REWORK', comment: string) {
   if (!workspace.workflowRun || accepting.value) return
@@ -144,11 +166,17 @@ function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ beh
       <!-- 当前阶段（含 Agent 顺序+回环） ‖ 人员介入 并排。 -->
       <div class="stage-row">
         <CurrentStagePanel :stage="workspace.currentStage" :review-cycle="workspace.reviewCycle" :latest-revision="workspace.latestRevision?.revision ?? null" />
-        <InterventionPanel v-if="!runReadonly" :running="workspace.running" :target="interventionTarget" @submit="intervention" @action="(type, target) => intervention(type, undefined, target)" />
-        <div v-else class="panel readonly-side">
-          <h3>人员介入</h3>
-          <p class="muted">本次工作流已结束，仅可查看历史产物与轨迹。</p>
-        </div>
+        <InterventionPanel
+          :running="workspace.running"
+          :readonly="runReadonly"
+          :target="interventionTarget"
+          :retryable="Boolean(interventionTarget.failed)"
+          :questions="workspace.workflowRun?.humanQuestions || []"
+          :disabled="answeringQuestion"
+          @submit="intervention"
+          @action="(type, target) => intervention(type, undefined, target)"
+          @answer="answerQuestion"
+        />
       </div>
 
       <!-- 文档产物：默认折叠，需要时展开。 -->

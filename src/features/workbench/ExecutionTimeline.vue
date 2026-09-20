@@ -30,11 +30,15 @@ const items = computed<TimelineItem[]>(() =>
     return { key: event.id || `${event.type}-${index}`, type: event.type, label: meta.label, detail, time: event.createdAt || '', tone: meta.tone }
   }),
 )
+
+/** 折叠条头部摘要：记录条数。 */
+const summary = computed(() => `${items.value.length} 条记录`)
+const live = computed(() => items.value.length > 0)
+defineExpose({ summary, live, count: computed(() => items.value.length) })
 </script>
 
 <template>
-  <section class="timeline panel" data-testid="timeline">
-    <header class="panel-head"><h3>Agent 执行轨迹</h3><span class="live-tag" :class="{ on: events.length }">实时</span></header>
+  <section class="timeline-inner" data-testid="timeline">
     <ol v-if="items.length" class="track">
       <li v-for="item in items" :key="item.key" class="entry">
         <span class="dot" :class="`tone-${item.tone}`" />
@@ -49,12 +53,8 @@ const items = computed<TimelineItem[]>(() =>
 </template>
 
 <style scoped>
-.panel { display: flex; flex-direction: column; padding: 14px 16px; border: 1px solid var(--border-1); border-radius: var(--radius-md); background: var(--surface-1); box-shadow: var(--inner-highlight); min-height: 0; }
-.panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.panel-head h3 { font-size: 13px; letter-spacing: 0.06em; color: var(--text-2); font-weight: 600; }
-.live-tag { font-size: 10px; padding: 2px 8px; border-radius: var(--radius-full); border: 1px solid var(--border-2); color: var(--text-4); }
-.live-tag.on { color: var(--success); border-color: rgb(52 211 153 / 40%); background: var(--success-soft); }
-.track { list-style: none; margin: 0; padding: 0 0 0 6px; overflow-y: auto; flex: 1; }
+.timeline-inner { display: flex; flex-direction: column; min-height: 0; }
+.track { list-style: none; margin: 0; padding: 0 0 0 6px; overflow-y: auto; max-height: 360px; }
 .entry { position: relative; display: flex; gap: 12px; padding: 0 0 14px 16px; }
 .entry::before { content: ''; position: absolute; left: 3px; top: 12px; bottom: -2px; width: 1px; background: var(--border-1); }
 .entry:last-child::before { display: none; }

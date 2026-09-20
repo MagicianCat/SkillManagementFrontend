@@ -9,6 +9,7 @@ import ExecutionTimeline from '../features/workbench/ExecutionTimeline.vue'
 import ArtifactPanel from '../features/workbench/ArtifactPanel.vue'
 import InterventionPanel from '../features/workbench/InterventionPanel.vue'
 import AcceptancePanel from '../features/workbench/AcceptancePanel.vue'
+import CollapsiblePanel from '../features/workbench/CollapsiblePanel.vue'
 import StatsBar from '../features/workbench/StatsBar.vue'
 import { useProjectWorkspaceStore } from '../stores/projectWorkspace'
 import { useRuntimeEventStore } from '../stores/runtimeEvent'
@@ -29,6 +30,8 @@ const runId = computed(() => String(route.params.runId || ''))
 const projectKey = computed(() => String(route.params.projectId || ''))
 const accepting = ref(false)
 const acceptanceRef = ref<InstanceType<typeof AcceptancePanel> | null>(null)
+const artifactRef = ref<InstanceType<typeof ArtifactPanel> | null>(null)
+const timelineRef = ref<InstanceType<typeof ExecutionTimeline> | null>(null)
 
 const initialRequest = ref('')
 const starting = ref(false)
@@ -78,6 +81,12 @@ watch(() => runtime.events.length, () => { const event = runtime.events.at(-1); 
 onBeforeUnmount(() => runtime.close())
 
 const lastEventAt = computed(() => runtime.events.at(-1)?.createdAt ?? '')
+
+// 折叠条头部摘要：取自面板组件 expose 的实时派生值，缺省降级为通用文案。
+const artifactSummary = computed(() => artifactRef.value?.summary ?? '')
+const artifactBadge = computed(() => artifactRef.value?.badge ?? '')
+const timelineSummary = computed(() => timelineRef.value?.summary ?? '')
+const timelineLive = computed(() => timelineRef.value?.live ?? runtime.events.length > 0)
 
 /** 干预目标自动取当前阶段与其当前 Agent，无需手填。 */
 const interventionTarget = computed<InterventionTarget>(() => {
@@ -129,16 +138,28 @@ function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ beh
     <template v-else>
       <p v-if="runReadonly" class="readonly-banner" data-testid="run-readonly">{{ readonlyText }}</p>
 
-      <div class="flow-row">
-        <WorkflowDagPanel :stages="workspace.stages" :selected-id="workspace.selectedStageId" :current-id="workspace.currentStage?.id ?? null" @select="workspace.select" />
+      <!-- 研发流程：通栏一排，阶段间贝塞尔连线清晰呈现分支/汇聚。 -->
+      <WorkflowDagPanel :stages="workspace.stages" :selected-id="workspace.selectedStageId" :current-id="workspace.currentStage?.id ?? null" @select="workspace.select" />
+
+      <!-- 当前阶段（含 Agent 顺序+回环） ‖ 人员介入 并排。 -->
+      <div class="stage-row">
         <CurrentStagePanel :stage="workspace.currentStage" :review-cycle="workspace.reviewCycle" :latest-revision="workspace.latestRevision?.revision ?? null" />
+        <InterventionPanel v-if="!runReadonly" :running="workspace.running" :target="interventionTarget" @submit="intervention" @action="(type, target) => intervention(type, undefined, target)" />
+        <div v-else class="panel readonly-side">
+          <h3>人员介入</h3>
+          <p class="muted">本次工作流已结束，仅可查看历史产物与轨迹。</p>
+        </div>
       </div>
 
-      <div class="columns" :class="{ readonly: runReadonly }">
-        <ExecutionTimeline :events="runtime.events" />
-        <ArtifactPanel :stage="workspace.currentStage" :project-key="String(route.params.projectId || '')" />
-        <InterventionPanel v-if="!runReadonly" :running="workspace.running" :target="interventionTarget" @submit="intervention" @action="(type, target) => intervention(type, undefined, target)" />
-      </div>
+      <!-- 文档产物：默认折叠，需要时展开。 -->
+      <CollapsiblePanel title="文档产物 / 文档修订" :badge="artifactBadge" :summary="artifactSummary">
+        <ArtifactPanel ref="artifactRef" :stage="workspace.currentStage" :project-key="String(route.params.projectId || '')" />
+      </CollapsiblePanel>
+
+      <!-- Agent 执行轨迹：默认折叠，需要时展开。 -->
+      <CollapsiblePanel title="Agent 执行轨迹" :badge="timelineLive ? '实时' : ''" :badge-on="timelineLive" :summary="timelineSummary">
+        <ExecutionTimeline ref="timelineRef" :events="runtime.events" />
+      </CollapsiblePanel>
 
       <AcceptancePanel v-if="waitingAcceptance" ref="acceptanceRef" :accepting="accepting" @decide="acceptance" />
 
@@ -167,12 +188,11 @@ function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ beh
 .muted { color: var(--text-3); }
 .error-banner { margin: 0; padding: 10px 14px; border: 1px solid rgb(248 113 113 / 40%); border-radius: var(--radius-sm); background: var(--error-soft); color: var(--error); font-size: 13px; }
 .readonly-banner { margin: 0; padding: 10px 14px; border: 1px solid rgb(96 165 250 / 40%); border-radius: var(--radius-sm); background: var(--info-soft); color: var(--info); font-size: 13px; }
-.flow-row { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; align-items: stretch; }
-.flow-row > * { min-width: 0; }
-@media (max-width: 1100px) { .flow-row { grid-template-columns: 1fr; } }
-.columns { display: grid; grid-template-columns: 300px 1fr 340px; gap: 14px; align-items: stretch; }
-.columns.readonly { grid-template-columns: 300px 1fr; }
-.columns > * { min-height: 320px; max-height: 460px; }
-@media (max-width: 1100px) { .columns, .columns.readonly { grid-template-columns: 1fr 1fr; } .columns > *:last-child { grid-column: 1 / -1; } }
-@media (max-width: 720px) { .columns { grid-template-columns: 1fr; } .columns > * { max-height: none; } }
+/* 当前阶段 ‖ 人员介入 并排：阶段卡更宽，介入栏固定。 */
+.stage-row { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; align-items: stretch; }
+.stage-row > * { min-width: 0; }
+.readonly-side { padding: 14px 16px; display: grid; align-content: start; gap: 8px; }
+.readonly-side h3 { margin: 0; font-size: 13px; letter-spacing: 0.06em; color: var(--text-2); font-weight: 600; }
+.readonly-side .muted { margin: 0; font-size: 12px; }
+@media (max-width: 1100px) { .stage-row { grid-template-columns: 1fr; } }
 </style>

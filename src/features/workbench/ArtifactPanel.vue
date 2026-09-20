@@ -27,18 +27,25 @@ const docHref = computed(() => {
   if (!Number.isFinite(id)) return ''
   return router.resolve({ name: 'project-document', params: { projectKey: props.projectKey, documentId: id } }).href
 })
+
+/** 折叠条头部摘要：产物数量 + 最新 Revision。 */
+const summary = computed(() => {
+  const count = sorted.value.length
+  if (!count) return '暂无产物'
+  const latest = sorted.value[0]?.revision ?? sorted.value[0]?.revisionId
+  return latest != null ? `最新 Revision ${latest}` : `${count} 个产物`
+})
+const badge = computed(() => (sorted.value.length ? `${sorted.value.length} 个版本产物` : ''))
+defineExpose({ summary, badge, count: computed(() => sorted.value.length) })
 </script>
 
 <template>
-  <section class="artifact panel">
-    <header class="panel-head">
-      <h3>文档修订 / 产物</h3>
-      <nav class="tabs">
-        <button type="button" :class="{ on: tab === 'preview' }" @click="tab = 'preview'">预览</button>
-        <button type="button" :class="{ on: tab === 'diff' }" @click="tab = 'diff'">Diff</button>
-        <button type="button" :class="{ on: tab === 'issues' }" @click="tab = 'issues'">评审意见<span v-if="issues.length" class="badge">{{ issues.length }}</span></button>
-      </nav>
-    </header>
+  <section class="artifact panel-inner">
+    <nav class="tabs">
+      <button type="button" :class="{ on: tab === 'preview' }" @click="tab = 'preview'">预览</button>
+      <button type="button" :class="{ on: tab === 'diff' }" @click="tab = 'diff'">Diff</button>
+      <button type="button" :class="{ on: tab === 'issues' }" @click="tab = 'issues'">评审意见<span v-if="issues.length" class="badge">{{ issues.length }}</span></button>
+    </nav>
 
     <div v-if="sorted.length" class="revisions" data-testid="document-revision">
       <button v-for="artifact in sorted" :key="artifact.id" type="button" class="rev-chip mono" :class="{ on: artifact.id === current?.id }" @click="selectedId = artifact.id">
@@ -75,10 +82,8 @@ const docHref = computed(() => {
 </template>
 
 <style scoped>
-.panel { display: flex; flex-direction: column; padding: 14px 16px; border: 1px solid var(--border-1); border-radius: var(--radius-md); background: var(--surface-1); box-shadow: var(--inner-highlight); min-height: 0; }
-.panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; flex-wrap: wrap; }
-.panel-head h3 { font-size: 13px; letter-spacing: 0.06em; color: var(--text-2); font-weight: 600; }
-.tabs { display: flex; gap: 4px; }
+.panel-inner { display: flex; flex-direction: column; min-height: 0; }
+.tabs { display: flex; gap: 4px; margin-bottom: 10px; }
 .tabs button { padding: 5px 12px; font-size: 12px; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--text-3); cursor: pointer; }
 .tabs button.on { color: var(--accent-300); background: var(--accent-softer); border-color: var(--border-accent); }
 .badge { margin-left: 5px; padding: 0 5px; border-radius: var(--radius-full); background: var(--error-soft); color: var(--error); font-size: 10px; }

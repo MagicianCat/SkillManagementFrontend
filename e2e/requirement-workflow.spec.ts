@@ -39,6 +39,8 @@ test('projects setup validates agent team then starts requirement workflow', asy
   await expect.poll(() => runBody).toEqual({ initialRequest: '实现需求分析 Agent 工作流' })
   await page.waitForURL('**/projects/demo/workspace/run-1')
   await expect(page.getByTestId('agent-team')).toContainText('Clarifier')
+  // 产物与执行轨迹默认折叠，展开后才能看到具体 Revision。
+  await page.getByRole('button', { name: /文档产物/ }).click()
   await expect(page.getByTestId('document-revision')).toContainText('Revision 1')
   await expect(page.getByTestId('final-acceptance')).toBeVisible()
 })

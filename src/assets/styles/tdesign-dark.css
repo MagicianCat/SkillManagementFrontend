@@ -294,7 +294,7 @@
 .t-dialog__mask,
 .t-mask,
 .t-dialog__ctx .t-dialog__mask {
-  background: rgb(4 8 14 / 62%);
+  background: var(--td-mask-active);
   backdrop-filter: blur(4px);
 }
 
@@ -365,7 +365,7 @@
   color: var(--text-2);
 }
 .t-loading--fullscreen {
-  background: rgb(7 11 18 / 70%);
+  background: var(--td-mask-active);
   backdrop-filter: blur(4px);
 }
 
@@ -414,5 +414,5 @@
 /* ---------- 遮罩通用 ---------- */
 .t-overlay,
 .t-popup__overlay {
-  background: rgb(4 8 14 / 60%);
+  background: var(--td-mask-active);
 }

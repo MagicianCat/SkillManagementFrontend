@@ -735,7 +735,7 @@ onMounted(() => { searchTeams(); fetchReviews() })
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgb(4 8 14 / 60%);
+  background: var(--mask-bg);
 }
 .modal {
   width: min(92vw, 460px);

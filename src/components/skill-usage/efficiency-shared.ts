@@ -10,15 +10,15 @@ import {
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { EfficiencyFilters } from '../api/skill-usage.api'
+import { chartTheme, onThemeChange } from '../../utils/theme'
 
 echarts.use([LineChart, BarChart, PieChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent, CanvasRenderer])
 
-export const PALETTE = ['#26c6ff', '#0fb5ec', '#60a5fa', '#4dd2ff', '#34d399', '#a78bfa', '#fbbf24', '#8b9bb5']
-export const axisLabel = { color: '#8b9bb5', fontSize: 11 }
-export const splitLine = { lineStyle: { color: 'rgba(160,195,255,0.09)' } }
+function colors() { return chartTheme() }
 
 export function useEfficiencyCharts() {
   const chartInstances = new Set<echarts.ECharts>()
+  const builders = new Map<HTMLElement, () => echarts.EChartsCoreOption>()
 
   function mount(el: HTMLElement | null, option: echarts.EChartsCoreOption) {
     if (!el) return
@@ -28,7 +28,17 @@ export function useEfficiencyCharts() {
     chart.setOption(option, { notMerge: true })
   }
 
-  function horizontalBar(labels: string[], values: number[], color = '#26c6ff') {
+  /** 挂载并注册 option-builder，主题切换时用新配色自动重渲 */
+  function mountReactive(el: HTMLElement | null, build: () => echarts.EChartsCoreOption) {
+    if (!el) return
+    builders.set(el, build)
+    mount(el, build())
+  }
+
+  function horizontalBar(labels: string[], values: number[], color?: string) {
+    const c = colors()
+    const axisLabel = { color: c.axisLabel, fontSize: 11 }
+    const splitLine = { lineStyle: { color: c.splitLine } }
     return {
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
       grid: { left: 6, right: 34, top: 6, bottom: 2, containLabel: true },
@@ -40,37 +50,56 @@ export function useEfficiencyCharts() {
         axisTick: { show: false },
         axisLabel: { ...axisLabel, width: 118, overflow: 'truncate' },
       },
-      series: [{ type: 'bar' as const, data: values, barMaxWidth: 14, itemStyle: { color, borderRadius: [0, 6, 6, 0] } }],
+      series: [{ type: 'bar' as const, data: values, barMaxWidth: 14, itemStyle: { color: color ?? c.primary, borderRadius: [0, 6, 6, 0] } }],
     }
   }
 
   function trendLine(labels: string[], values: number[], name: string) {
+    const c = colors()
+    const axisLabel = { color: c.axisLabel, fontSize: 11 }
+    const splitLine = { lineStyle: { color: c.splitLine } }
     return {
       tooltip: { trigger: 'axis' },
       grid: { left: 6, right: 6, top: 30, bottom: 4, containLabel: true },
-      xAxis: { type: 'category', boundaryGap: false, data: labels, axisLine: { lineStyle: { color: 'rgba(160,195,255,0.20)' } }, axisLabel },
+      xAxis: { type: 'category', boundaryGap: false, data: labels, axisLine: { lineStyle: { color: c.axisLine } }, axisLabel },
       yAxis: [{ type: 'value', splitLine, axisLabel }],
-      series: [{ name, type: 'line', smooth: true, symbol: 'circle', symbolSize: 5, data: values, itemStyle: { color: '#26c6ff' }, lineStyle: { color: '#26c6ff', width: 2.5 }, areaStyle: { color: 'rgba(38,198,255,.12)' } }],
+      series: [{ name, type: 'line', smooth: true, symbol: 'circle', symbolSize: 5, data: values, itemStyle: { color: c.primary }, lineStyle: { color: c.primary, width: 2.5 }, areaStyle: { color: c.primaryArea } }],
     }
   }
 
   function donut(data: Array<{ name: string; value: number }>) {
+    const c = colors()
     return {
       tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-      legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, textStyle: { color: '#8b9bb5', fontSize: 11 } },
+      legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, textStyle: { color: c.axisLabel, fontSize: 11 } },
       series: [{
         type: 'pie', radius: ['46%', '68%'], center: ['50%', '42%'],
-        itemStyle: { borderRadius: 6, borderColor: '#0d1420', borderWidth: 2 },
+        itemStyle: { borderRadius: 6, borderColor: c.donutBorder, borderWidth: 2 },
         label: { show: false },
-        data: data.filter((d) => d.value > 0).map((d, idx) => ({ ...d, itemStyle: { color: PALETTE[idx % PALETTE.length] } })),
+        data: data.filter((d) => d.value > 0).map((d, idx) => ({ ...d, itemStyle: { color: c.palette[idx % c.palette.length] } })),
       }],
     }
   }
 
-  function resize() { chartInstances.forEach((chart) => chart.resize()) }
-  function dispose() { chartInstances.forEach((chart) => chart.dispose()); chartInstances.clear() }
+  /** 主题切换时重跑所有 builder，用新配色重渲 */
+  function refreshTheme() {
+    builders.forEach((build, el) => {
+      const chart = echarts.getInstanceByDom(el)
+      if (chart) chart.setOption(build(), { notMerge: true })
+    })
+  }
 
-  return { mount, horizontalBar, trendLine, donut, resize, dispose }
+  function resize() { chartInstances.forEach((chart) => chart.resize()) }
+  function dispose() {
+    unsubscribeTheme()
+    chartInstances.forEach((chart) => chart.dispose())
+    chartInstances.clear()
+    builders.clear()
+  }
+
+  const unsubscribeTheme = onThemeChange(() => refreshTheme())
+
+  return { mount, mountReactive, horizontalBar, trendLine, donut, resize, dispose, refreshTheme }
 }
 
 export function useEfficiencyPage() {

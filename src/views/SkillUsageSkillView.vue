@@ -36,15 +36,15 @@ const fileTypeRef = ref<HTMLElement | null>(null)
 function render() {
   const d = detail.value
   if (!d) return
-  charts.mount(trendRef.value, charts.trendLine(d.trend.map((i) => i.bucket), d.trend.map((i) => i.generations), 'Generation数'))
+  charts.mountReactive(trendRef.value, () => charts.trendLine(d.trend.map((i) => i.bucket), d.trend.map((i) => i.generations), 'Generation数'))
   const tm = d.teamRanking.slice(0, 8)
-  charts.mount(teamRef.value, charts.horizontalBar(tm.map((i) => i.name).reverse(), tm.map((i) => i.generations).reverse()))
+  charts.mountReactive(teamRef.value, () => charts.horizontalBar(tm.map((i) => i.name).reverse(), tm.map((i) => i.generations).reverse()))
   const pj = d.projectRanking.slice(0, 8)
-  charts.mount(projectRef.value, charts.horizontalBar(pj.map((i) => i.name).reverse(), pj.map((i) => i.generations).reverse(), '#60a5fa'))
+  charts.mountReactive(projectRef.value, () => charts.horizontalBar(pj.map((i) => i.name).reverse(), pj.map((i) => i.generations).reverse(), '#60a5fa'))
   const sd = d.stageDistribution.slice(0, 8)
-  charts.mount(stageRef.value, charts.donut(sd.map((i) => ({ name: stageLabel(i.key), value: i.generations }))))
+  charts.mountReactive(stageRef.value, () => charts.donut(sd.map((i) => ({ name: stageLabel(i.key), value: i.generations }))))
   const ft = d.fileTypes.slice(0, 8)
-  charts.mount(fileTypeRef.value, charts.horizontalBar(ft.map((i) => i.category).reverse(), ft.map((i) => i.linesAdded).reverse(), '#34d399'))
+  charts.mountReactive(fileTypeRef.value, () => charts.horizontalBar(ft.map((i) => i.category).reverse(), ft.map((i) => i.linesAdded).reverse(), '#34d399'))
 }
 
 async function load() {

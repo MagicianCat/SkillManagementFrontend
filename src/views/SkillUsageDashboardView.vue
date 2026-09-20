@@ -299,30 +299,45 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="usage-page">
-    <header class="usage-heading">
-      <div><p class="eyebrow">AI EFFICIENCY</p><h1>AI 研发效能看板</h1><p>以 AI Generation 为事实中心，洞察 AI 代码产出、Token 消耗与研发阶段效能。</p></div>
-      <span v-if="scope?.global" class="scope-badge">超级管理员 · 全平台</span>
-      <span v-else class="scope-badge">团队管理员 · {{ scope?.teams.length ?? 0 }} 个团队</span>
+    <header class="usage-heading usage-card">
+      <div class="usage-heading__top">
+        <p class="eyebrow">AI EFFICIENCY</p>
+        <span v-if="scope?.global" class="scope-badge">超级管理员 · 全平台</span>
+        <span v-else class="scope-badge">团队管理员 · {{ scope?.teams.length ?? 0 }} 个团队</span>
+      </div>
+      <div class="usage-heading__main">
+        <div class="usage-heading__title">
+          <h1>AI 研发效能看板</h1>
+          <p>以 AI Generation 为事实中心，洞察 AI 代码产出、Token 消耗与研发阶段效能。</p>
+        </div>
+        <div class="usage-filters" aria-label="效能筛选">
+          <div class="filter-row">
+            <div class="preset-group"><button v-for="item in [{ key: 'today', label: '今天' }, { key: '7d', label: '近 7 天' }, { key: '30d', label: '近 30 天' }, { key: '90d', label: '近 90 天' }]" :key="item.key" :class="{ active: preset === item.key }" @click="applyPreset(item.key)">{{ item.label }}</button></div>
+            <div class="date-range">
+              <input v-model="fromDate" type="date" aria-label="开始日期" @change="preset = 'custom'" />
+              <span class="date-sep">~</span>
+              <input v-model="toDate" type="date" aria-label="结束日期" @change="preset = 'custom'" />
+            </div>
+          </div>
+          <div class="filter-row">
+            <t-select v-model="selectedTeamId" clearable filterable :loading="!scope || teamSearchLoading" placeholder="全部可见团队" :options="teamOptions.map((team) => ({ label: team.name, value: team.id }))" @search="searchTeams" />
+            <t-select v-model="selectedUserId" clearable filterable :loading="memberLoading" placeholder="全部成员" :options="memberOptions" />
+            <t-button theme="primary" :loading="loading" @click="search">查询</t-button>
+          </div>
+        </div>
+      </div>
     </header>
 
     <p v-if="errorMessage" class="usage-alert" role="alert">{{ errorMessage }}</p>
-    <section class="usage-filters" aria-label="效能筛选">
-      <div class="preset-group"><button v-for="item in [{ key: 'today', label: '今天' }, { key: '7d', label: '近 7 天' }, { key: '30d', label: '近 30 天' }, { key: '90d', label: '近 90 天' }]" :key="item.key" :class="{ active: preset === item.key }" @click="applyPreset(item.key)">{{ item.label }}</button></div>
-      <label>开始日期<input v-model="fromDate" type="date" @change="preset = 'custom'" /></label>
-      <label>结束日期<input v-model="toDate" type="date" @change="preset = 'custom'" /></label>
-      <t-select v-model="selectedTeamId" clearable filterable :loading="!scope || teamSearchLoading" placeholder="全部可见团队" :options="teamOptions.map((team) => ({ label: team.name, value: team.id }))" @search="searchTeams" />
-      <t-select v-model="selectedUserId" clearable filterable :loading="memberLoading" placeholder="全部成员" :options="memberOptions" />
-      <t-button theme="primary" :loading="loading" @click="search">查询</t-button>
-    </section>
 
     <template v-if="dashboard">
       <section class="summary-grid">
-        <article><span>AI代码产出</span><strong>{{ formatNumber(dashboard.summary.linesAdded) }}</strong><small>行（新增）</small></article>
-        <article><span>Token消耗</span><strong>{{ formatTokens(dashboard.summary.totalTokens) }}</strong><small>覆盖率 {{ formatPercent(dashboard.summary.tokenCoverageRate) }}</small></article>
-        <article><span>活跃开发者</span><strong>{{ dashboard.summary.activeUsers }}</strong><small>产生过 Generation</small></article>
-        <article><span>Token产码效率</span><strong>{{ round2(dashboard.summary.locPer1kTokens) }}</strong><small>LOC / 1K Token</small></article>
-        <article><span>Generation数</span><strong>{{ formatNumber(dashboard.summary.generations) }}</strong><small>平均 {{ round2(dashboard.summary.avgModelCalls) }} 次模型调用</small></article>
-        <article><span>平均任务耗时</span><strong>{{ formatDuration(dashboard.summary.avgGenerationDurationMs) }}</strong><small>工具失败率 {{ formatPercent(dashboard.summary.toolFailureRate) }}</small></article>
+        <article class="metric-card metric-card--success"><header><span>AI代码产出</span><i class="metric-dot"></i></header><strong>{{ formatNumber(dashboard.summary.linesAdded) }}</strong><small>行（新增）</small></article>
+        <article class="metric-card metric-card--primary"><header><span>Token消耗</span><em class="metric-chip">Total</em></header><strong>{{ formatTokens(dashboard.summary.totalTokens) }}</strong><small>覆盖率 {{ formatPercent(dashboard.summary.tokenCoverageRate) }}</small></article>
+        <article class="metric-card metric-card--info"><header><span>活跃开发者</span><i class="metric-dot"></i></header><strong>{{ dashboard.summary.activeUsers }}</strong><small>产生过 Generation</small></article>
+        <article class="metric-card metric-card--success"><header><span>Token产码效率</span><em class="metric-chip">LOC</em></header><strong>{{ round2(dashboard.summary.locPer1kTokens) }}</strong><small>LOC / 1K Token</small></article>
+        <article class="metric-card metric-card--purple"><header><span>Generation数</span><em class="metric-chip">Calls</em></header><strong>{{ formatNumber(dashboard.summary.generations) }}</strong><small>平均 {{ round2(dashboard.summary.avgModelCalls) }} 次模型调用</small></article>
+        <article class="metric-card metric-card--warning"><header><span>平均任务耗时</span><i class="metric-dot"></i></header><strong>{{ formatDuration(dashboard.summary.avgGenerationDurationMs) }}</strong><small>工具失败率 {{ formatPercent(dashboard.summary.toolFailureRate) }}</small></article>
       </section>
 
       <section class="usage-card">
@@ -390,36 +405,64 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .usage-page{width:min(100%,1360px);margin:0 auto;color:var(--text-1)}
-.usage-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:14px}
-.usage-heading h1{margin:5px 0 8px;font-size:28px;color:var(--text-1);letter-spacing:-0.03em}
-.usage-heading p:not(.eyebrow){margin:0;color:var(--text-2);font-size:13px}
-.scope-badge{padding:8px 12px;border:1px solid var(--border-accent);border-radius:999px;color:var(--accent-300);background:var(--accent-soft);font-size:12px;white-space:nowrap}
-.usage-alert{margin:12px 0;padding:12px 14px;border:1px solid rgb(251 191 36 / 30%);border-radius:9px;color:var(--warning);background:var(--warning-soft)}
-.usage-filters{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding:13px;border:1px solid var(--border-1);border-radius:13px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px)}
-.usage-filters label{display:grid;gap:4px;color:var(--text-2);font-size:11px}
-.usage-filters input{height:32px;padding:0 8px;border:1px solid var(--border-2);border-radius:6px;color:var(--text-1);background:var(--surface-1);font:inherit;font-size:12px}
-.usage-filters .t-select{width:170px}
-.preset-group{display:flex;gap:4px}
-.preset-group button{height:32px;padding:0 10px;border:1px solid var(--border-2);border-radius:6px;color:var(--text-2);background:var(--surface-1);font:inherit;font-size:12px;cursor:pointer;transition:all .15s ease}
-.preset-group button:hover{border-color:var(--border-3);color:var(--text-1)}
-.preset-group button.active{border-color:var(--border-accent);color:var(--accent-300);background:var(--accent-soft)}
-.summary-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:12px}
-.summary-grid article{display:grid;min-height:92px;gap:8px;padding:14px 16px;border:1px solid var(--border-1);border-radius:10px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px)}
-.summary-grid span,.summary-grid small{color:var(--text-2);font-size:12px}
-.summary-grid strong{color:var(--text-1);font-size:24px;letter-spacing:-.04em}
-.summary-grid small{font-size:11px}
-.usage-card{min-width:0;padding:16px;border:1px solid var(--border-1);border-radius:10px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px);margin-bottom:12px}
+
+/* ---------- 头部卡片：标题 + 筛选（右上） ---------- */
+.usage-heading{display:block;margin-bottom:14px}
+.usage-heading__top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--border-1)}
+.usage-heading .eyebrow{display:flex;align-items:center;gap:7px;margin:0;font-size:12px;font-weight:600;letter-spacing:.1em;color:var(--accent-400)}
+.usage-heading .eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent-500)}
+.usage-heading__main{display:flex;align-items:flex-start;justify-content:space-between;gap:28px;flex-wrap:wrap}
+.usage-heading__title h1{margin:0 0 6px;font-size:27px;font-weight:700;color:var(--text-1);letter-spacing:-0.02em}
+.usage-heading__title p{margin:0;color:var(--text-2);font-size:13px;max-width:520px;line-height:1.6}
+.scope-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border-accent);border-radius:999px;color:var(--accent-300);background:var(--accent-soft);font-size:12px;white-space:nowrap}
+
+.usage-alert{margin:0 0 14px;padding:12px 14px;border:1px solid rgb(251 191 36 / 30%);border-radius:9px;color:var(--warning);background:var(--warning-soft)}
+
+/* ---------- 筛选组（头部右侧） ---------- */
+.usage-filters{display:flex;flex-direction:column;gap:10px;min-width:300px}
+.filter-row{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.preset-group{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--border-1);border-radius:999px;background:var(--surface-2)}
+.preset-group button{height:28px;padding:0 13px;border:0;border-radius:999px;color:var(--text-2);background:transparent;font:inherit;font-size:12px;cursor:pointer;transition:all .15s ease;white-space:nowrap}
+.preset-group button:hover{color:var(--text-1)}
+.preset-group button.active{color:var(--accent-300);background:var(--surface-1);box-shadow:0 1px 4px rgb(0 0 0 / 8%),inset 0 0 0 1px var(--border-accent);font-weight:600}
+.date-range{display:inline-flex;align-items:center;gap:5px;padding:0 10px;height:34px;border:1px solid var(--border-1);border-radius:8px;background:var(--surface-2)}
+.date-range input{height:100%;padding:0;border:0;color:var(--text-1);background:transparent;font:inherit;font-size:12px;outline:none;width:118px}
+.date-sep{color:var(--text-3);font-size:12px}
+.usage-filters .t-select{width:172px}
+
+/* ---------- 指标卡：突出大数字 ---------- */
+.summary-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.metric-card{position:relative;display:grid;align-content:start;gap:7px;min-height:112px;padding:16px 18px 14px;border:1px solid var(--border-1);border-radius:12px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px);overflow:hidden;transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+.metric-card::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:99px;background:var(--metric,var(--accent-500));opacity:.85}
+.metric-card:hover{border-color:var(--border-3);box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.metric-card header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.metric-card header span{color:var(--text-2);font-size:12px}
+.metric-card strong{color:var(--text-1);font-size:31px;font-weight:750;letter-spacing:-0.03em;line-height:1;font-variant-numeric:tabular-nums}
+.metric-card small{color:var(--text-3);font-size:11px}
+.metric-dot{width:8px;height:8px;border-radius:50%;background:var(--metric,var(--accent-500))}
+.metric-chip{padding:2px 8px;border-radius:999px;color:var(--metric,var(--accent-400));background:color-mix(in srgb,var(--metric,var(--accent-500)) 14%,transparent);font-size:10px;font-style:normal;font-weight:600;letter-spacing:.02em}
+.metric-card--primary{--metric:var(--accent-500)}
+.metric-card--info{--metric:#60a5fa}
+.metric-card--success{--metric:var(--success)}
+.metric-card--purple{--metric:var(--purple)}
+.metric-card--warning{--metric:var(--badge-accent)}
+
+.usage-card{min-width:0;padding:16px 18px;border:1px solid var(--border-1);border-radius:12px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px);margin-bottom:14px}
 .card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
 .card-heading h2{font-size:15px;margin:0;color:var(--text-1)}
 .card-heading p{margin:4px 0 0;color:var(--text-3);font-size:11px}
 .card-heading span{color:var(--text-3);font-size:11px}
-.metric-switch{display:flex;flex-wrap:wrap;gap:4px}
-.metric-switch button{height:26px;padding:0 9px;border:1px solid var(--border-2);border-radius:6px;color:var(--text-2);background:var(--surface-1);font-size:11px;cursor:pointer}
-.metric-switch button.active{border-color:var(--border-accent);color:var(--accent-300);background:var(--accent-soft)}
-.dashboard-grid{display:grid;gap:12px;margin-bottom:0}
+
+/* 趋势指标分段控件 */
+.metric-switch{display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;border:1px solid var(--border-1);border-radius:999px;background:var(--surface-2)}
+.metric-switch button{height:26px;padding:0 12px;border:0;border-radius:999px;color:var(--text-2);background:transparent;font-size:11.5px;cursor:pointer;transition:all .15s ease;white-space:nowrap}
+.metric-switch button:hover{color:var(--text-1)}
+.metric-switch button.active{color:var(--accent-300);background:var(--surface-1);box-shadow:0 1px 4px rgb(0 0 0 / 8%),inset 0 0 0 1px var(--border-accent);font-weight:600}
+
+.dashboard-grid{display:grid;gap:14px;margin-bottom:0}
 .dimension-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 .chart-box{width:100%;height:200px}
-.chart-tall{height:280px}
+.chart-tall{height:300px}
 .rank-list{list-style:none;margin:8px 0 0;padding:8px 0 0;border-top:1px solid var(--border-1);display:grid;gap:2px}
 .rank-list li{display:flex;justify-content:space-between;gap:8px;padding:5px 6px;border-radius:6px;font-size:12px;cursor:pointer;color:var(--text-2)}
 .rank-list li:hover{background:var(--surface-2);color:var(--text-1)}
@@ -431,8 +474,8 @@ onBeforeUnmount(() => {
 .events-card{margin-top:0}
 .cell-subtitle{display:block;color:var(--text-3);font-size:11px}
 .cell-link{color:var(--accent-300);cursor:pointer}
-.lines-added{color:#34d399;font-weight:600}
-.lines-deleted{color:#f87171;font-weight:600}
-@media(max-width:1100px){.summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.dimension-grid{grid-template-columns:1fr}}
-@media(max-width:760px){.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.lines-added{color:var(--success);font-weight:600}
+.lines-deleted{color:var(--error);font-weight:600}
+@media(max-width:1100px){.summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.dimension-grid{grid-template-columns:1fr}.usage-heading__main{flex-direction:column}.usage-filters{min-width:0;width:100%}.filter-row{justify-content:flex-start}}
+@media(max-width:760px){.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.usage-heading__title h1{font-size:23px}}
 </style>

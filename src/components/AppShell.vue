@@ -12,6 +12,7 @@ import type { NotificationView } from '../types/notification'
 import { notificationContent } from '../types/notification'
 import { useNotificationStore } from '../stores/notifications'
 import AgentFloatingWindow from '../features/agent/AgentFloatingWindow.vue'
+import ThemeSwitcher from './ThemeSwitcher.vue'
 import { getSkillUsageAccessScope } from '../api/skill-usage.api'
 
 const authStore = useAuthStore()
@@ -349,6 +350,7 @@ async function signOut() {
     <div class="workspace-main">
       <header class="workspace-header">
         <div class="header-actions">
+          <ThemeSwitcher />
           <button aria-label="帮助">?</button>
           <div class="notification-wrap" ref="notificationWrap">
             <button

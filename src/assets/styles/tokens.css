@@ -16,7 +16,6 @@
   --surface-solid-2: #151f30; /* 不透明 elevated */
   --surface-overlay: rgb(16 24 38 / 82%); /* dialog / popover 玻璃底 */
   --surface-overlay-solid: #131c2c;
-
   /* ===== 边框（低透明度亮边） ===== */
   --border-1: rgb(160 195 255 / 9%);
   --border-2: rgb(160 195 255 / 14%);
@@ -57,6 +56,17 @@
   --info-soft: rgb(96 165 250 / 12%);
   --purple: #a78bfa;
   --purple-soft: rgb(167 139 250 / 12%);
+
+  /* 徽标点缀色（KPI / 角标暖橙） */
+  --badge-accent: #fbbf24;
+
+  /* 页面环境光晕（body radial-gradient） */
+  --ambient-1: rgb(15 181 236 / 6%);
+  --ambient-2: rgb(56 199 255 / 5%);
+
+  /* 顶栏 / 遮罩（随主题变化） */
+  --header-bg: rgb(10 15 24 / 70%);
+  --mask-bg: rgb(4 8 14 / 62%);
 
   /* ===== 阴影 ===== */
   --shadow-sm: 0 1px 2px rgb(2 6 12 / 30%);
@@ -240,4 +250,176 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgb(148 180 255 / 26%);
   background-clip: content-box;
+}
+
+/* ============================================================
+   Light Theme — 企业蓝白（白卡 + 浅蓝描边 + 柔和投影，无玻璃模糊）
+   通过 <html data-theme="light"> 激活；dark 为默认 :root
+   ============================================================ */
+:root[data-theme='light'] {
+  /* ===== 背景 ===== */
+  --bg-0: #e8eefb;
+  --bg-1: #f2f6fd;
+  --bg-2: #ffffff;
+
+  /* ===== Surface：白卡，靠边框 + 投影分层（不用透明度模糊） ===== */
+  --surface-1: #ffffff;
+  --surface-2: #f4f7fd;
+  --surface-3: #eaf0fb;
+  --surface-solid-1: #ffffff;
+  --surface-solid-2: #f4f7fd;
+  --surface-overlay: rgb(255 255 255 / 92%);
+  --surface-overlay-solid: #ffffff;
+
+  /* ===== 边框：浅蓝 ===== */
+  --border-1: #e3eaf6;
+  --border-2: #d3def0;
+  --border-3: #bccbe8;
+  --border-accent: rgb(37 99 235 / 45%);
+
+  /* ===== 文字 ===== */
+  --text-1: #1f2d3d;
+  --text-2: #55677e;
+  --text-3: #8b9bb0;
+  --text-4: #b6c2d1;
+  --text-on-accent: #ffffff;
+
+  /* ===== Accent：企业蓝 ===== */
+  --accent-50: #eff6ff;
+  --accent-100: #dbeafe;
+  --accent-200: #bfdbfe;
+  --accent-300: #3b82f6;
+  --accent-400: #2563eb; /* hover 高亮 */
+  --accent-500: #2563eb; /* 主 accent */
+  --accent-600: #1d4ed8;
+  --accent-700: #1e40af;
+  --accent-800: #1e3a8a;
+  --accent-900: #1e3a8a;
+
+  --accent-soft: rgb(37 99 235 / 10%);
+  --accent-softer: rgb(37 99 235 / 6%);
+  --accent-glow: rgb(37 99 235 / 18%);
+
+  /* ===== 语义色（白底下加深保证对比度） ===== */
+  --success: #16a34a;
+  --success-soft: rgb(22 163 74 / 10%);
+  --warning: #d97706;
+  --warning-soft: rgb(217 119 6 / 10%);
+  --error: #dc2626;
+  --error-soft: rgb(220 38 38 / 10%);
+  --info: #2563eb;
+  --info-soft: rgb(37 99 235 / 10%);
+  --purple: #7c3aed;
+  --purple-soft: rgb(124 58 237 / 10%);
+
+  /* 徽标点缀橙（KPI 数字 / 角标） */
+  --badge-accent: #f59e0b;
+
+  /* ===== 阴影：柔和蓝调 ===== */
+  --shadow-sm: 0 1px 2px rgb(30 64 175 / 6%);
+  --shadow-md: 0 4px 16px rgb(30 64 175 / 8%);
+  --shadow-lg: 0 12px 32px rgb(30 64 175 / 12%);
+  --shadow-xl: 0 24px 64px rgb(30 64 175 / 16%);
+  --shadow-accent: 0 4px 20px rgb(37 99 235 / 18%);
+  --inner-highlight: inset 0 1px 0 rgb(255 255 255 / 60%);
+
+  /* 环境光晕 */
+  --ambient-1: rgb(59 130 246 / 9%);
+  --ambient-2: rgb(147 197 253 / 10%);
+
+  /* 顶栏 / 遮罩 */
+  --header-bg: rgb(255 255 255 / 82%);
+  --mask-bg: rgb(148 163 184 / 32%);
+
+  color-scheme: light;
+}
+
+/* ---- TDesign Light 覆盖 ---- */
+:root[data-theme='light'] {
+  --td-brand-color: var(--accent-500);
+  --td-brand-color-hover: var(--accent-400);
+  --td-brand-color-focus: var(--accent-500);
+  --td-brand-color-active: var(--accent-600);
+  --td-brand-color-light: var(--accent-soft);
+  --td-brand-color-light-hover: var(--accent-softer);
+  --td-brand-color-disabled: var(--accent-200);
+  --td-brand-color-1: var(--accent-softer);
+  --td-brand-color-2: var(--accent-soft);
+  --td-brand-color-3: rgb(37 99 235 / 18%);
+  --td-brand-color-4: var(--accent-300);
+  --td-brand-color-5: var(--accent-400);
+  --td-brand-color-6: var(--accent-500);
+  --td-brand-color-7: var(--accent-600);
+  --td-brand-color-8: var(--accent-700);
+  --td-brand-color-9: var(--accent-800);
+  --td-brand-color-10: var(--accent-900);
+
+  --td-error-color: var(--error);
+  --td-error-color-hover: #ef4444;
+  --td-error-color-active: #b91c1c;
+  --td-error-color-light: var(--error-soft);
+  --td-warning-color: var(--warning);
+  --td-warning-color-hover: #f59e0b;
+  --td-warning-color-active: #b45309;
+  --td-warning-color-light: var(--warning-soft);
+  --td-success-color: var(--success);
+  --td-success-color-hover: #22c55e;
+  --td-success-color-active: #15803d;
+  --td-success-color-light: var(--success-soft);
+
+  /* 灰阶正向（亮色下恢复浅→深） */
+  --td-gray-color-1: #f2f6fd;
+  --td-gray-color-2: #eaf0fb;
+  --td-gray-color-3: #e3eaf6;
+  --td-gray-color-4: #d3def0;
+  --td-gray-color-5: #bccbe8;
+  --td-gray-color-6: #a7bcd8;
+  --td-gray-color-7: #8b9bb0;
+  --td-gray-color-8: #6b7c93;
+  --td-gray-color-9: #55677e;
+  --td-gray-color-10: #3d4f66;
+  --td-gray-color-11: #55677e;
+  --td-gray-color-12: #3d4f66;
+  --td-gray-color-13: #1f2d3d;
+  --td-gray-color-14: #1f2d3d;
+
+  --td-text-color-primary: var(--text-1);
+  --td-text-color-secondary: var(--text-2);
+  --td-text-color-placeholder: var(--text-3);
+  --td-text-color-disabled: var(--text-4);
+  --td-text-color-anti: var(--text-on-accent);
+  --td-text-color-brand: var(--accent-500);
+  --td-text-color-link: var(--accent-500);
+
+  --td-bg-color-page: var(--bg-1);
+  --td-bg-color-container: #ffffff;
+  --td-bg-color-container-hover: var(--surface-2);
+  --td-bg-color-container-active: var(--surface-3);
+  --td-bg-color-container-select: #ffffff;
+  --td-bg-color-secondarycontainer: var(--surface-2);
+  --td-bg-color-secondarycontainer-hover: var(--surface-3);
+  --td-bg-color-secondarycontainer-active: var(--border-1);
+  --td-bg-color-component: var(--surface-2);
+  --td-bg-color-component-hover: var(--surface-3);
+  --td-bg-color-component-active: var(--border-1);
+  --td-bg-color-component-disabled: var(--surface-2);
+  --td-bg-color-specialcomponent: #ffffff;
+  --td-bg-color-overlay: #ffffff;
+
+  --td-border-level-1-color: var(--border-1);
+  --td-border-level-2-color: var(--border-2);
+  --td-component-border: var(--border-2);
+
+  --td-shadow-1: var(--shadow-md);
+  --td-shadow-2: var(--shadow-lg);
+  --td-shadow-3: var(--shadow-xl);
+  --td-shadow-inset-top: inset 0 1px 0 rgb(255 255 255 / 60%);
+  --td-shadow-inset-bottom: inset 0 -1px 0 rgb(30 64 175 / 6%);
+
+  --td-mask-active: rgb(30 64 175 / 28%);
+  --td-mask-disabled: rgb(30 64 175 / 18%);
+  --td-bg-color-popper: #ffffff;
+
+  --td-scrollbar-color: rgb(100 116 139 / 24%);
+  --td-scrollbar-hover-color: rgb(100 116 139 / 38%);
 }

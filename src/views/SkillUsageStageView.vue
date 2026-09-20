@@ -37,15 +37,15 @@ const fileTypeRef = ref<HTMLElement | null>(null)
 function render() {
   const d = detail.value
   if (!d) return
-  charts.mount(trendRef.value, charts.trendLine(d.trend.map((i) => i.bucket), d.trend.map((i) => i.linesAdded), 'AI代码量'))
+  charts.mountReactive(trendRef.value, () => charts.trendLine(d.trend.map((i) => i.bucket), d.trend.map((i) => i.linesAdded), 'AI代码量'))
   const tm = d.teamRanking.slice(0, 8)
-  charts.mount(teamRef.value, charts.horizontalBar(tm.map((i) => i.name).reverse(), tm.map((i) => i.linesAdded).reverse()))
+  charts.mountReactive(teamRef.value, () => charts.horizontalBar(tm.map((i) => i.name).reverse(), tm.map((i) => i.linesAdded).reverse()))
   const pj = d.projectRanking.slice(0, 8)
-  charts.mount(projectRef.value, charts.horizontalBar(pj.map((i) => i.name).reverse(), pj.map((i) => i.linesAdded).reverse(), '#60a5fa'))
+  charts.mountReactive(projectRef.value, () => charts.horizontalBar(pj.map((i) => i.name).reverse(), pj.map((i) => i.linesAdded).reverse(), '#60a5fa'))
   const sk = d.skillRanking.slice(0, 8)
-  charts.mount(skillRef.value, charts.horizontalBar(sk.map((i) => i.displayName || i.skillKey).reverse(), sk.map((i) => i.generations).reverse(), '#a78bfa'))
+  charts.mountReactive(skillRef.value, () => charts.horizontalBar(sk.map((i) => i.displayName || i.skillKey).reverse(), sk.map((i) => i.generations).reverse(), '#a78bfa'))
   const ft = d.fileTypes.slice(0, 8)
-  charts.mount(fileTypeRef.value, charts.horizontalBar(ft.map((i) => i.category).reverse(), ft.map((i) => i.linesAdded).reverse(), '#34d399'))
+  charts.mountReactive(fileTypeRef.value, () => charts.horizontalBar(ft.map((i) => i.category).reverse(), ft.map((i) => i.linesAdded).reverse(), '#34d399'))
 }
 
 async function load() {

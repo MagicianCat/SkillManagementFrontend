@@ -20,8 +20,8 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(1200px 600px at 12% -10%, rgb(15 181 236 / 6%), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgb(96 165 250 / 5%), transparent 55%),
+    radial-gradient(1200px 600px at 12% -10%, var(--ambient-1, rgb(15 181 236 / 6%)), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, var(--ambient-2, rgb(96 165 250 / 5%)), transparent 55%),
     var(--bg-1);
   background-attachment: fixed;
 }
@@ -239,7 +239,7 @@ a {
   gap: 16px;
   padding: 0 24px;
   border-bottom: 1px solid var(--border-1);
-  background: rgb(10 15 24 / 70%);
+  background: var(--header-bg);
   backdrop-filter: blur(14px);
 }
 .header-actions {
@@ -812,7 +812,8 @@ a {
   flex-direction: column;
   justify-content: center;
   padding: clamp(40px, 9vw, 132px);
-  color: var(--text-1);
+  /* 品牌 hero 固定深色，文字色不随主题（亮色模式下 hero 仍是深色） */
+  color: #e8eef7;
   background:
     radial-gradient(700px 500px at 20% 0%, rgb(38 198 255 / 16%), transparent 60%),
     radial-gradient(600px 600px at 90% 100%, rgb(96 165 250 / 12%), transparent 55%),
@@ -825,16 +826,16 @@ a {
   height: 48px;
   margin-bottom: 64px;
   place-items: center;
-  border: 1px solid var(--border-accent);
+  border: 1px solid rgb(56 199 255 / 40%);
   border-radius: 12px;
-  background: var(--accent-soft);
+  background: rgb(38 198 255 / 12%);
   box-shadow: 0 0 20px rgb(38 198 255 / 18%);
   font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.08em;
 }
 .login-intro .eyebrow {
-  color: var(--accent-300);
+  color: #4dd2ff;
 }
 .login-intro h1 {
   font-size: clamp(34px, 4vw, 58px);
@@ -844,7 +845,7 @@ a {
 .login-intro__copy {
   max-width: 470px;
   margin-top: 28px;
-  color: var(--text-2);
+  color: rgb(226 236 248 / 82%);
   font-size: 16px;
   line-height: 1.75;
 }
@@ -852,11 +853,11 @@ a {
   width: 64px;
   height: 1px;
   margin-top: 72px;
-  background: linear-gradient(90deg, var(--accent-400), transparent);
+  background: linear-gradient(90deg, #26c6ff, transparent);
 }
 .login-intro__meta {
   margin-top: 16px;
-  color: var(--text-3);
+  color: rgb(174 186 205 / 70%);
   font-size: 13px;
 }
 .login-panel {
@@ -1012,7 +1013,7 @@ a {
 .loading-dot {
   width: 12px;
   height: 12px;
-  border: 2px solid rgb(4 18 31 / 30%);
+  border: 2px solid rgb(255 255 255 / 30%);
   border-top-color: var(--text-on-accent);
   border-radius: 50%;
   animation: spin 700ms linear infinite;
@@ -1038,7 +1039,7 @@ a {
   min-height: 72px;
   padding: 0 max(24px, calc((100vw - var(--content-max-width)) / 2));
   border-bottom: 1px solid var(--border-1);
-  background: rgb(10 15 24 / 85%);
+  background: var(--header-bg);
   backdrop-filter: blur(14px);
 }
 .brand {

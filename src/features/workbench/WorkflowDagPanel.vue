@@ -16,7 +16,7 @@ const TONE: Record<string, StatusTone> = {
   COMPLETED: 'success',
   RUNNING: 'warning', PROVISIONING: 'warning', READY: 'info', PENDING: 'info',
   FAILED: 'error', CANCELLED: 'error', STALE: 'error',
-  HUMAN_REQUIRED: 'purple', PAUSED: 'purple',
+  HUMAN_REQUIRED: 'purple', WAITING_ACCEPTANCE: 'purple', WAITING_DESIGN_ACCEPTANCE: 'purple', PAUSED: 'purple',
 }
 const toneOf = (status: string) => TONE[status] ?? 'neutral'
 
@@ -70,7 +70,7 @@ async function render() {
     return {
       id: node.id,
       position: positions[node.id] ?? { x: 0, y: 0 },
-      data: { label: node.label, sub: node.sub, status: node.status, tone, current, selected, loop: node.loop, attention: node.stage?.attention || node.status === 'HUMAN_REQUIRED', virtual: !node.stage },
+      data: { label: node.label, sub: node.sub, status: node.status, tone, current, selected, loop: node.loop, attention: node.stage?.attention || node.status === 'HUMAN_REQUIRED', virtual: !node.stage, stageId: node.stage?.id ?? null },
       class: ['dag-node', `tone-${tone}`, current ? 'is-current' : '', selected ? 'is-selected' : '', !node.stage ? 'is-virtual' : ''].filter(Boolean).join(' '),
     }
   })
@@ -106,7 +106,7 @@ function onNodeClick(event: { node: { id: string } }) {
       <VueFlow :nodes="nodes" :edges="edges" :nodes-draggable="false" :nodes-connectable="false" :elements-selectable="false" :zoom-on-scroll="false" :pan-on-drag="false" :prevent-scrolling="true" fit-view-on-init @node-click="onNodeClick">
         <Background :gap="20" pattern-color="rgba(148,180,255,0.05)" />
         <template #node-default="{ data }">
-          <div class="stage-node" :class="[`tone-${data.tone}`, { current: data.current, selected: data.selected, attention: data.attention, virtual: data.virtual }]">
+          <div class="stage-node" :class="[`tone-${data.tone}`, { current: data.current, selected: data.selected, attention: data.attention, virtual: data.virtual }]" :data-stage-id="data.stageId || undefined" @click.stop="data.stageId != null && emit('select', String(data.stageId))">
             <!-- 连线锚点：右出左进，贝塞尔边严格从右缘中点到左缘中点 -->
             <Handle id="in" type="target" :position="Position.Left" class="h-dag" />
             <Handle id="out" type="source" :position="Position.Right" class="h-dag" />

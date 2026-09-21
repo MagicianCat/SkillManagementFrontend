@@ -15,7 +15,7 @@ const TONE: Record<string, StatusTone> = {
   RUNNING: 'warning', STARTING: 'warning', QUEUED: 'warning',
   PENDING: 'info', READY: 'info',
   FAILED: 'error', CANCELLED: 'error',
-  WAITING_HUMAN: 'purple', PAUSED: 'purple', HUMAN_REQUIRED: 'purple',
+  WAITING_HUMAN: 'purple', WAITING_ACCEPTANCE: 'purple', WAITING_DESIGN_ACCEPTANCE: 'purple', PAUSED: 'purple', HUMAN_REQUIRED: 'purple',
 }
 const toneOf = (status: string) => TONE[status] ?? 'neutral'
 
@@ -45,7 +45,8 @@ async function render() {
   const layoutEdges = flowEdges.value.map((edge, i) => ({ id: `f${i}`, source: edge.from, target: edge.to as string }))
   const positions = await layoutGraph(layoutNodes, layoutEdges, { layerGap: 56, nodeGap: 30, padding: 18 })
   nodes.value = agents.map((agent) => {
-    const current = props.stage?.currentAgent === agent.name
+    const currentAgent = String(props.stage?.currentAgent ?? '')
+    const current = [agent.key, agent.name, agent.displayName].filter(Boolean).some((value) => String(value) === currentAgent)
     return {
       id: agent.key,
       position: positions[agent.key] ?? { x: 0, y: 0 },
@@ -73,13 +74,13 @@ async function render() {
 watch(() => [props.stage, props.reviewCycle], () => void render(), { deep: true, immediate: true })
 
 const metrics = computed(() => ({
-  agent: props.stage?.currentAgent ?? '—',
+  agent: props.stage?.agents?.find((item) => [item.key, item.name, item.displayName].includes(props.stage?.currentAgent ?? ''))?.displayName || props.stage?.currentAgent || '—',
   loop: props.reviewCycle ? `${props.reviewCycle.current}/${props.reviewCycle.max}` : '—',
   revision: props.latestRevision != null ? `#${props.latestRevision}` : '—',
   token: '—',
   elapsed: '—',
 }))
-const statusText: Record<string, string> = { COMPLETED: '已完成', RUNNING: '运行中', STARTING: '启动中', QUEUED: '排队中', PENDING: '待执行', WAITING_HUMAN: '等待人工', PAUSED: '已暂停', FAILED: '失败' }
+const statusText: Record<string, string> = { COMPLETED: '已完成', RUNNING: '运行中', STARTING: '启动中', QUEUED: '排队中', PENDING: '待执行', WAITING_HUMAN: '等待人工', WAITING_ACCEPTANCE: '待人员验收', WAITING_DESIGN_ACCEPTANCE: '待人员验收', PAUSED: '已暂停', FAILED: '失败' }
 </script>
 
 <template>

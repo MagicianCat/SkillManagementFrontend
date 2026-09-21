@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { answerWorkflowHumanQuestion, designAcceptWorkflowRun, getCurrentWorkflowRun, sendIntervention, startWorkflowRun } from '../api/workflow.api'
+import { acceptWorkflowStage, answerWorkflowHumanQuestion, designAcceptWorkflowRun, getCurrentWorkflowRun, sendIntervention, startWorkflowRun } from '../api/workflow.api'
 import WorkbenchHeader from '../features/workbench/WorkbenchHeader.vue'
 import WorkflowDagPanel from '../features/workbench/WorkflowDagPanel.vue'
 import CurrentStagePanel from '../features/workbench/CurrentStagePanel.vue'
@@ -51,7 +51,21 @@ async function start() {
   } finally { starting.value = false }
 }
 
-const waitingAcceptance = computed(() => workspace.workflowRun?.status === 'WAITING_DESIGN_ACCEPTANCE')
+const selectedStage = computed(() => workspace.currentStage)
+const parallelStages = computed(() => workspace.parallelDesignStages)
+const selectedStageInteractive = computed(() => workspace.selectedStageInteractive)
+const stageReadonly = computed(() => runReadonly.value || !selectedStageInteractive.value)
+const selectedQuestions = computed(() => {
+  const stageId = selectedStage.value?.id == null ? null : String(selectedStage.value.id)
+  return (workspace.workflowRun?.humanQuestions || []).filter((question) => stageId == null || String(question.stageRunId) === stageId)
+})
+const waitingAcceptance = computed(() => {
+  const stage = selectedStage.value
+  if (!stage) return false
+  if (stage.approval?.canDecide === true) return true
+  if (['WAITING_ACCEPTANCE', 'WAITING_DESIGN_ACCEPTANCE'].includes(String(stage.status))) return true
+  return workspace.workflowRun?.status === 'WAITING_DESIGN_ACCEPTANCE' && String(stage.key).toUpperCase() === 'REQUIREMENT'
+})
 /** 终态 run：永远只有一次 run，所有阶段结束后只能查看过往产物，不再介入。 */
 const TERMINAL = ['COMPLETED', 'FAILED', 'CANCELLED', 'DESIGN_COMPLETED']
 const runReadonly = computed(() => TERMINAL.includes(workspace.workflowRun?.status || ''))
@@ -124,7 +138,12 @@ async function answerQuestion(questionId: string | number, answer: string) {
 async function acceptance(decision: 'ACCEPT' | 'REWORK', comment: string) {
   if (!workspace.workflowRun || accepting.value) return
   accepting.value = true
-  try { await designAcceptWorkflowRun(String(workspace.workflowRun.id), decision, 'REQUIREMENT', comment); await workspace.load(String(workspace.workflowRun.id)) } finally { accepting.value = false }
+  try {
+    const stage = selectedStage.value
+    if (stage?.id) await acceptWorkflowStage(String(workspace.workflowRun.id), String(stage.id), decision, comment)
+    else await designAcceptWorkflowRun(String(workspace.workflowRun.id), decision, stage?.key || 'REQUIREMENT', comment)
+    await workspace.load(String(workspace.workflowRun.id))
+  } finally { accepting.value = false }
 }
 function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }) }
 </script>
@@ -161,18 +180,40 @@ function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ beh
       <p v-if="runReadonly" class="readonly-banner" data-testid="run-readonly">{{ readonlyText }}</p>
 
       <!-- 研发流程：通栏一排，阶段间贝塞尔连线清晰呈现分支/汇聚。 -->
-      <WorkflowDagPanel :stages="workspace.stages" :selected-id="workspace.selectedStageId" :current-id="workspace.currentStage?.id ?? null" @select="workspace.select" />
+      <WorkflowDagPanel :stages="workspace.stages" :selected-id="workspace.selectedStageId" :current-id="workspace.currentStage?.id == null ? null : String(workspace.currentStage.id)" @select="workspace.select" />
+
+      <nav v-if="parallelStages.length > 1" class="parallel-switcher panel" aria-label="并行设计阶段">
+        <div class="parallel-switcher__heading">
+          <strong>并行设计</strong>
+          <span class="muted">两条支线可同时执行，切换查看与审批目标</span>
+        </div>
+        <div class="parallel-switcher__tabs" role="tablist">
+          <button
+            v-for="stage in parallelStages"
+            :key="String(stage.id)"
+            type="button"
+            role="tab"
+            :aria-selected="String(workspace.selectedStageId) === String(stage.id)"
+            :class="{ active: String(workspace.selectedStageId) === String(stage.id) }"
+            @click="workspace.select(String(stage.id))"
+          >
+            <span>{{ stage.displayName || stage.name || stage.key }}</span>
+            <small>{{ stage.status }}</small>
+            <i v-if="stage.attention || stage.approval?.canDecide" class="attention-dot" aria-label="需要处理" />
+          </button>
+        </div>
+      </nav>
 
       <!-- 当前阶段（含 Agent 顺序+回环） ‖ 人员介入 并排。 -->
       <div class="stage-row">
         <CurrentStagePanel :stage="workspace.currentStage" :review-cycle="workspace.reviewCycle" :latest-revision="workspace.latestRevision?.revision ?? null" />
         <InterventionPanel
-          :running="workspace.running"
-          :readonly="runReadonly"
+          :running="selectedStageInteractive && ['RUNNING', 'PROVISIONING'].includes(String(selectedStage?.status))"
+          :readonly="stageReadonly"
           :target="interventionTarget"
           :retryable="Boolean(interventionTarget.failed)"
-          :questions="workspace.workflowRun?.humanQuestions || []"
-          :disabled="answeringQuestion"
+          :questions="selectedQuestions"
+          :disabled="answeringQuestion || !selectedStageInteractive"
           @submit="intervention"
           @action="(type, target) => intervention(type, undefined, target)"
           @answer="answerQuestion"
@@ -189,7 +230,7 @@ function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ beh
         <ExecutionTimeline ref="timelineRef" :events="runtime.events" />
       </CollapsiblePanel>
 
-      <AcceptancePanel v-if="waitingAcceptance" ref="acceptanceRef" :accepting="accepting" @decide="acceptance" />
+      <AcceptancePanel v-if="waitingAcceptance" ref="acceptanceRef" :accepting="accepting" :stage-name="selectedStage?.displayName || selectedStage?.name" :stage-key="selectedStage?.key" @decide="acceptance" />
 
       <StatsBar
         :completed="workspace.completedStageCount"
@@ -222,5 +263,13 @@ function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ beh
 .readonly-side { padding: 14px 16px; display: grid; align-content: start; gap: 8px; }
 .readonly-side h3 { margin: 0; font-size: 13px; letter-spacing: 0.06em; color: var(--text-2); font-weight: 600; }
 .readonly-side .muted { margin: 0; font-size: 12px; }
+.parallel-switcher { display: grid; gap: 10px; padding: 12px 14px; }
+.parallel-switcher__heading { display: flex; align-items: baseline; gap: 10px; font-size: 13px; }
+.parallel-switcher__heading .muted { font-size: 11px; }
+.parallel-switcher__tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.parallel-switcher__tabs button { position: relative; display: grid; gap: 3px; min-width: 150px; padding: 9px 14px; border: 1px solid var(--border-2); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-2); text-align: left; cursor: pointer; }
+.parallel-switcher__tabs button.active { border-color: var(--accent-500); background: var(--accent-softer); color: var(--text-1); box-shadow: inset 3px 0 var(--accent-500); }
+.parallel-switcher__tabs button small { color: var(--text-3); font-size: 10px; }
+.attention-dot { position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--warning); box-shadow: 0 0 0 3px var(--warning-soft); }
 @media (max-width: 1100px) { .stage-row { grid-template-columns: 1fr; } }
 </style>

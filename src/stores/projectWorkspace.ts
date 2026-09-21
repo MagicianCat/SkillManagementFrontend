@@ -3,15 +3,29 @@ import { defineStore } from 'pinia'
 import { getWorkflowRun } from '../api/workflow.api'
 import type { WorkflowRun, WorkflowStage } from '../types/workflow'
 
-const ACTIVE = ['RUNNING', 'PROVISIONING', 'HUMAN_REQUIRED', 'PAUSED']
+const ACTIVE = ['RUNNING', 'PROVISIONING', 'HUMAN_REQUIRED', 'WAITING_HUMAN', 'PAUSED']
+const FOLLOWABLE = [...ACTIVE, 'WAITING_HUMAN', 'WAITING_ACCEPTANCE', 'WAITING_DESIGN_ACCEPTANCE']
 const COMPLETED = ['COMPLETED']
 
 export const useProjectWorkspaceStore = defineStore('projectWorkspace', () => {
   const workflowRun = ref<WorkflowRun | null>(null); const stagesById = ref<Record<string, WorkflowStage>>({}); const selectedStageId = ref<string | null>(null); const loading = ref(false); const error = ref('')
   let refreshPromise: Promise<void> | null = null; let refreshQueued = false; let refreshTimer: ReturnType<typeof setTimeout> | undefined; let pollTimer: ReturnType<typeof setInterval> | undefined; let autoRefreshRunId = ''; let visibilityHandler: (() => void) | undefined
-  const activeStatuses = [...ACTIVE, 'WAITING_HUMAN']
+  const activeStatuses = [...ACTIVE, 'WAITING_HUMAN', 'WAITING_DESIGN_ACCEPTANCE', 'WAITING_FINAL_ACCEPTANCE']
   const stages = computed(() => Object.values(stagesById.value))
-  function applySnapshot(run: WorkflowRun) { workflowRun.value = run; const data = run.stages ?? []; stagesById.value = Object.fromEntries(data.map((stage) => [stage.id, stage])); if (!selectedStageId.value || !stagesById.value[selectedStageId.value]) selectedStageId.value = (data.find((stage) => ACTIVE.includes(stage.status)) ?? data[0])?.id ?? null; if (autoRefreshRunId && !activeStatuses.includes(run.status)) stopAutoRefresh() }
+  function applySnapshot(run: WorkflowRun) {
+    const previousSelected = selectedStageId.value ? stagesById.value[selectedStageId.value] : null
+    workflowRun.value = run
+    const data = run.stages ?? []
+    stagesById.value = Object.fromEntries(data.map((stage) => [String(stage.id), stage]))
+    const activeStage = data.find((stage) => FOLLOWABLE.includes(stage.status))
+    const selected = selectedStageId.value ? stagesById.value[selectedStageId.value] : null
+    const selectedJustFinished = previousSelected && FOLLOWABLE.includes(previousSelected.status) && selected && !FOLLOWABLE.includes(selected.status)
+    if (!selected || (selectedJustFinished && activeStage)) {
+      const next = activeStage ?? data[0]
+      selectedStageId.value = next?.id == null ? null : String(next.id)
+    }
+    if (autoRefreshRunId && !activeStatuses.includes(run.status)) stopAutoRefresh()
+  }
   async function load(runId: string) { loading.value = true; error.value = ''; try { applySnapshot(await getWorkflowRun(runId)) } catch (cause) { error.value = cause instanceof Error ? cause.message : '工作台加载失败' } finally { loading.value = false } }
   async function refresh() {
     const runId = workflowRun.value?.id
@@ -49,8 +63,15 @@ export const useProjectWorkspaceStore = defineStore('projectWorkspace', () => {
     if (selectedStageId.value && stagesById.value[selectedStageId.value]) return stagesById.value[selectedStageId.value]
     return list.find((stage) => ACTIVE.includes(stage.status)) ?? list[0]
   })
-  /** 需求阶段（审批与默认目标）。 */
-  const requirementStage = computed(() => stages.value.find((stage) => stage.key === 'REQUIREMENT' || stage.key === 'requirement' || stage.name.includes('需求')) ?? null)
+  /** 需求阶段（兼容旧版审批与默认目标）。 */
+  const requirementStage = computed(() => stages.value.find((stage) => String(stage.key).toUpperCase() === 'REQUIREMENT') ?? null)
+  /** 后端可通过 metadata.parallelGroup 标记并行设计分支；旧版本按稳定 stage key 兼容识别。 */
+  const parallelDesignStages = computed(() => stages.value.filter((stage) => {
+    const group = String(stage.metadata?.parallelGroup ?? stage.metadata?.parallel_group ?? '').toUpperCase()
+    if (group === 'DESIGN' || group === 'DESIGN_BRANCH') return true
+    const key = String(stage.key ?? '').toUpperCase()
+    return key === 'ARCHITECTURE' || key === 'ARCHITECTURE_DESIGN' || key === 'UI' || key === 'UI_DESIGN'
+  }))
   /** 当前阶段的 Review Cycle（loopCount+1 / maxLoopCount）。 */
   const reviewCycle = computed(() => {
     const stage = currentStage.value
@@ -68,8 +89,13 @@ export const useProjectWorkspaceStore = defineStore('projectWorkspace', () => {
   const completedStageCount = computed(() => stages.value.filter((stage) => COMPLETED.includes(stage.status)).length)
   const activeAgentCount = computed(() => stages.value.reduce((total, stage) => total + (stage.agents ?? []).filter((agent) => ['QUEUED', 'STARTING', 'RUNNING', 'WAITING_HUMAN', 'PAUSED'].includes(agent.status)).length, 0))
   const running = computed(() => ['RUNNING', 'PROVISIONING'].includes(workflowRun.value?.status ?? ''))
+  /** 选中的阶段可以交互的唯一条件：该阶段仍在执行/等待回答；历史及待验收阶段只读。 */
+  const selectedStageInteractive = computed(() => {
+    const stage = currentStage.value
+    return Boolean(stage && ACTIVE.includes(String(stage.status)))
+  })
 
   function select(stageId: string) { selectedStageId.value = stageId }
 
-  return { workflowRun, stagesById, stages, selectedStageId, loading, error, load, refresh, startAutoRefresh, stopAutoRefresh, applyEvent, currentStage, requirementStage, reviewCycle, latestRevision, pendingIssues, completedStageCount, activeAgentCount, running, select }
+  return { workflowRun, stagesById, stages, selectedStageId, loading, error, load, refresh, startAutoRefresh, stopAutoRefresh, applyEvent, currentStage, requirementStage, parallelDesignStages, reviewCycle, latestRevision, pendingIssues, completedStageCount, activeAgentCount, running, selectedStageInteractive, select }
 })

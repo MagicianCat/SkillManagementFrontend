@@ -9,6 +9,11 @@ export async function sendIntervention(runId: string, type: InterventionType, co
 export async function answerWorkflowHumanQuestion(runId: string, questionId: string | number, answer: string) { const { data } = await http.post<WorkflowHumanQuestion>(`/workflow-runs/${encodeURIComponent(runId)}/human-questions/${encodeURIComponent(String(questionId))}:answer`, { answer }); return data }
 export async function finalAcceptWorkflowRun(runId: string, decision: 'ACCEPT' | 'REWORK', targetStageKey?: string, comment?: string) { const { data } = await http.post(`/workflow-runs/${encodeURIComponent(runId)}/final-acceptance`, { decision, targetStageKey, comment }); return data }
 export async function designAcceptWorkflowRun(runId: string, decision: 'ACCEPT' | 'REWORK', targetStageKey = 'REQUIREMENT', comment?: string) { const { data } = await http.post(`/workflow-runs/${encodeURIComponent(runId)}/design-acceptance`, { decision, targetStageKey, comment }); return data }
+/** 阶段级人工审批；target stage 由当前工作台选择决定。 */
+export async function acceptWorkflowStage(runId: string, stageRunId: string, decision: 'ACCEPT' | 'REWORK', comment?: string) {
+  const { data } = await http.post(`/workflow-runs/${encodeURIComponent(runId)}/stages/${encodeURIComponent(stageRunId)}/acceptance`, { decision, comment })
+  return data
+}
 
 export function workflowEventsUrl(runId: string) { return `/workflow-runs/${encodeURIComponent(runId)}/events` }
 export type { WorkflowEvent }

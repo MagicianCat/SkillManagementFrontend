@@ -18,6 +18,8 @@ test('workspace refreshes the authoritative run snapshot while agents are active
   assert.match(store, /agent\.status\.changed/)
   assert.match(store, /agent\.protocol\.retry\.requested/)
   assert.match(store, /refreshQueued/)
+  assert.match(store, /selectedJustFinished/)
+  assert.match(store, /FOLLOWABLE\.includes\(previousSelected\.status\)/)
   assert.match(view, /startAutoRefresh/)
   assert.match(view, /stopAutoRefresh/)
 })
@@ -93,12 +95,52 @@ test('project agent setup exposes validation result and keeps step 04 in documen
   assert.doesNotMatch(setup, /\.footer\{position:sticky/)
 })
 
+test('successful configuration validation refreshes READY state for immediate workflow start', async () => {
+  const store = await readFile(new URL('../src/stores/projectSetup.ts', import.meta.url), 'utf8')
+  assert.match(store, /if \(validation\.value\.valid\) configuration\.value = await getProjectAgentConfiguration\(projectKey\)/)
+})
+
 test('project agent setup validates JSON objects before saving and displays runtime checks', async () => {
   const setup = await readFile(new URL('../src/views/ProjectAgentSetupView.vue', import.meta.url), 'utf8')
   assert.match(setup, /function parseJsonObject\(/)
   assert.match(setup, /Runtime Config/)
   assert.match(setup, /outputSchemaJson = parseJsonObject/)
   assert.match(setup, /runtimeConfigJson = parseJsonObject/)
+})
+
+test('multi-stage workspace uses backend display metadata and exposes parallel design switching', async () => {
+  const types = await readFile(new URL('../src/types/workflow.ts', import.meta.url), 'utf8')
+  const store = await readFile(new URL('../src/stores/projectWorkspace.ts', import.meta.url), 'utf8')
+  const view = await readFile(new URL('../src/views/ProjectWorkspaceView.vue', import.meta.url), 'utf8')
+  assert.match(types, /displayName\?: string \| null/)
+  assert.match(types, /approval\?: WorkflowStageApproval/)
+  assert.match(store, /parallelDesignStages/)
+  assert.match(store, /metadata\?\.parallelGroup/)
+  assert.match(view, /并行设计阶段/)
+  assert.match(view, /stage\.displayName \|\| stage\.name \|\| stage\.key/)
+  assert.match(view, /acceptWorkflowStage/)
+})
+
+test('historical stages remain browsable while intervention is limited to selected active stage', async () => {
+  const store = await readFile(new URL('../src/stores/projectWorkspace.ts', import.meta.url), 'utf8')
+  const view = await readFile(new URL('../src/views/ProjectWorkspaceView.vue', import.meta.url), 'utf8')
+  const dag = await readFile(new URL('../src/features/workbench/WorkflowDagPanel.vue', import.meta.url), 'utf8')
+  assert.match(store, /selectedStageInteractive/)
+  assert.match(store, /ACTIVE\.includes\(String\(stage\.status\)\)/)
+  assert.match(view, /stageReadonly/)
+  assert.match(view, /selectedQuestions/)
+  assert.match(view, /String\(question\.stageRunId\) === stageId/)
+  assert.match(view, /:readonly="stageReadonly"/)
+  assert.match(dag, /@click\.stop=.*emit\('select'/)
+})
+
+test('project agent setup groups nodes by backend stage display metadata', async () => {
+  const types = await readFile(new URL('../src/types/agent-library.ts', import.meta.url), 'utf8')
+  const setup = await readFile(new URL('../src/views/ProjectAgentSetupView.vue', import.meta.url), 'utf8')
+  assert.match(types, /stageDisplayName\?: string/)
+  assert.match(setup, /groupedNodes/)
+  assert.match(setup, /node\.stageDisplayName \|\| node\.stageName \|\| node\.stageKey/)
+  assert.match(setup, /nodeDisplayName \|\| n\.nodeName/)
 })
 
 test('profile view derives latest version from descending versions', async () => {

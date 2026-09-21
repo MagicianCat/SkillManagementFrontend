@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-defineProps<{ accepting: boolean }>()
+defineProps<{ accepting: boolean; stageName?: string; stageKey?: string }>()
 const emit = defineEmits<{ decide: [decision: 'ACCEPT' | 'REWORK', comment: string] }>()
 const comment = ref('')
 </script>
@@ -9,14 +9,14 @@ const comment = ref('')
 <template>
   <section class="acceptance panel" data-testid="final-acceptance">
     <header class="panel-head">
-      <h3>设计验收</h3>
+      <h3>{{ stageName || '阶段' }}验收</h3>
       <span class="tag">人工门槛</span>
     </header>
-    <p class="muted">真实项目成员审批需求阶段产物后，流程才会进入设计阶段。</p>
+    <p class="muted">真实项目成员审批当前阶段产物后，满足依赖的后续阶段才会继续执行。</p>
     <textarea v-model="comment" rows="3" placeholder="审批备注（可选）" data-testid="acceptance-comment" />
     <div class="row">
-      <button type="button" class="primary" :disabled="accepting" @click="emit('decide', 'ACCEPT', comment)">通过 Requirement</button>
-      <button type="button" class="danger" :disabled="accepting" @click="emit('decide', 'REWORK', comment)">退回 Requirement</button>
+      <button type="button" class="primary" :disabled="accepting" @click="emit('decide', 'ACCEPT', comment)">通过{{ stageName || stageKey || '当前阶段' }}</button>
+      <button type="button" class="danger" :disabled="accepting" @click="emit('decide', 'REWORK', comment)">退回{{ stageName || stageKey || '当前阶段' }}</button>
     </div>
   </section>
 </template>

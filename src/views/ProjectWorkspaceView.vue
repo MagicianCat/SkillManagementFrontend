@@ -11,6 +11,9 @@ import InterventionPanel from '../features/workbench/InterventionPanel.vue'
 import AcceptancePanel from '../features/workbench/AcceptancePanel.vue'
 import CollapsiblePanel from '../features/workbench/CollapsiblePanel.vue'
 import StatsBar from '../features/workbench/StatsBar.vue'
+import VirtualIdePanel from '../features/workbench/mock/VirtualIdePanel.vue'
+import TestProgressPanel from '../features/workbench/mock/TestProgressPanel.vue'
+import { useMockEngine } from '../features/workbench/mock/mockEngine'
 import { useProjectWorkspaceStore } from '../stores/projectWorkspace'
 import { useRuntimeEventStore } from '../stores/runtimeEvent'
 import type { InterventionTarget, InterventionType } from '../types/workflow'
@@ -33,6 +36,19 @@ const answeringQuestion = ref(false)
 const acceptanceRef = ref<InstanceType<typeof AcceptancePanel> | null>(null)
 const artifactRef = ref<InstanceType<typeof ArtifactPanel> | null>(null)
 const timelineRef = ref<InstanceType<typeof ExecutionTimeline> | null>(null)
+
+/** Mock 引擎（mock/dev-pipeline-demo）：检测到 mock 阶段后由前端定时器驱动后续研发链路，不真实调用 agent。
+ *  展示态写入 store 的 mockOverlay，后端 2s 快照轮询后自动回放，避免覆盖 mock 视觉状态。 */
+const mock = useMockEngine({
+  stages: computed(() => workspace.stages),
+  workflowRun: computed(() => workspace.workflowRun),
+  pushEvent: (event) => runtime.events.push(event),
+  select: (stageId) => workspace.select(stageId),
+  projectKey: computed(() => projectKey.value),
+  setOverlay: (stageId, patch) => workspace.setMockOverlay(stageId, patch),
+  clearOverlay: () => workspace.clearMockOverlay(),
+})
+onBeforeUnmount(() => mock.dispose())
 
 const initialRequest = ref('')
 const starting = ref(false)
@@ -223,6 +239,16 @@ function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ beh
       <!-- 文档产物：默认折叠，需要时展开。 -->
       <CollapsiblePanel title="文档产物 / 文档修订" :badge="artifactBadge" :summary="artifactSummary">
         <ArtifactPanel ref="artifactRef" :stage="workspace.currentStage" :project-key="String(route.params.projectId || '')" />
+      </CollapsiblePanel>
+
+      <!-- 编码过程（mock）：虚拟 IDE，逐行生成代码 + 单文件 diff。 -->
+      <CollapsiblePanel v-if="mock.ideVisible.value" title="编码过程" badge="虚拟 IDE" :badge-on="true" summary="ExtractionService 六要素抽取实现" :default-open="true">
+        <VirtualIdePanel :file="mock.ideFile.value" :lines="mock.ideLines.value" :typing="mock.ideTyping.value" :diff="mock.ideDiff.value" :diff-visible="mock.ideDiffVisible.value" />
+      </CollapsiblePanel>
+
+      <!-- 测试执行（mock）：用例逐条通过进度。 -->
+      <CollapsiblePanel v-if="mock.testVisible.value" title="测试执行" :badge="`${mock.testPassedCount.value}/${mock.testCases.value.length} 通过`" :badge-on="true" summary="逐条执行测试用例" :default-open="true">
+        <TestProgressPanel :cases="mock.testCases.value" />
       </CollapsiblePanel>
 
       <!-- Agent 执行轨迹：默认折叠，需要时展开。 -->

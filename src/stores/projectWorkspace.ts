@@ -12,11 +12,26 @@ export const useProjectWorkspaceStore = defineStore('projectWorkspace', () => {
   let refreshPromise: Promise<void> | null = null; let refreshQueued = false; let refreshTimer: ReturnType<typeof setTimeout> | undefined; let pollTimer: ReturnType<typeof setInterval> | undefined; let autoRefreshRunId = ''; let visibilityHandler: (() => void) | undefined
   const activeStatuses = [...ACTIVE, 'WAITING_HUMAN', 'WAITING_DESIGN_ACCEPTANCE', 'WAITING_FINAL_ACCEPTANCE']
   const stages = computed(() => Object.values(stagesById.value))
+
+  /** MOCK（mock/dev-pipeline-demo）：mock 引擎驱动后续研发链路时，把 mock 阶段的展示态并入此 overlay；
+   *  后端周期快照只含 PENDING 占位，applySnapshot 后据此回放，避免 2s 轮询覆盖 mock 视觉状态。 */
+  const mockOverlay = ref<Record<string, Partial<WorkflowStage>>>({})
+  function setMockOverlay(stageId: string, patch: Partial<WorkflowStage>) {
+    mockOverlay.value = { ...mockOverlay.value, [stageId]: { ...mockOverlay.value[stageId], ...patch } }
+    if (stagesById.value[stageId]) stagesById.value[stageId] = { ...stagesById.value[stageId], ...patch }
+  }
+  function clearMockOverlay() { mockOverlay.value = {} }
+
   function applySnapshot(run: WorkflowRun) {
     const previousSelected = selectedStageId.value ? stagesById.value[selectedStageId.value] : null
     workflowRun.value = run
     const data = run.stages ?? []
-    stagesById.value = Object.fromEntries(data.map((stage) => [String(stage.id), stage]))
+    const next = Object.fromEntries(data.map((stage) => [String(stage.id), stage]))
+    // 回放 mock overlay：后端快照中的 mock 阶段仍为 PENDING 占位，用引擎维护的展示态覆盖。
+    for (const [stageId, patch] of Object.entries(mockOverlay.value)) {
+      if (next[stageId]) next[stageId] = { ...next[stageId], ...patch }
+    }
+    stagesById.value = next
     const activeStage = data.find((stage) => FOLLOWABLE.includes(stage.status))
     const selected = selectedStageId.value ? stagesById.value[selectedStageId.value] : null
     const selectedJustFinished = previousSelected && FOLLOWABLE.includes(previousSelected.status) && selected && !FOLLOWABLE.includes(selected.status)
@@ -97,5 +112,5 @@ export const useProjectWorkspaceStore = defineStore('projectWorkspace', () => {
 
   function select(stageId: string) { selectedStageId.value = stageId }
 
-  return { workflowRun, stagesById, stages, selectedStageId, loading, error, load, refresh, startAutoRefresh, stopAutoRefresh, applyEvent, currentStage, requirementStage, parallelDesignStages, reviewCycle, latestRevision, pendingIssues, completedStageCount, activeAgentCount, running, selectedStageInteractive, select }
+  return { workflowRun, stagesById, stages, selectedStageId, loading, error, load, refresh, startAutoRefresh, stopAutoRefresh, applyEvent, currentStage, requirementStage, parallelDesignStages, reviewCycle, latestRevision, pendingIssues, completedStageCount, activeAgentCount, running, selectedStageInteractive, select, mockOverlay, setMockOverlay, clearMockOverlay }
 })

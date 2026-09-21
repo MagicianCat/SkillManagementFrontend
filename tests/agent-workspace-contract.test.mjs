@@ -87,6 +87,11 @@ test('project agent setup searches and multi-selects published platform skills',
   assert.match(skills, /export async function getSkills/)
 })
 
+test('project startup context only offers published platform-visible Wiki documents', async () => {
+  const setup = await readFile(new URL('../src/views/ProjectAgentSetupView.vue', import.meta.url), 'utf8')
+  assert.match(setup, /page\.items\.filter\(x => x\.platformVisible && x\.active\)/)
+})
+
 test('project agent setup exposes validation result and keeps step 04 in document flow', async () => {
   const setup = await readFile(new URL('../src/views/ProjectAgentSetupView.vue', import.meta.url), 'utf8')
   assert.match(setup, /data-testid="config-validation-result"/)

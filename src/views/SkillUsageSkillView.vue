@@ -12,7 +12,6 @@ import {
   formatNumber,
   formatTime,
   formatTokens,
-  round2,
   stageLabel,
   useEfficiencyCharts,
   useEfficiencyPage,

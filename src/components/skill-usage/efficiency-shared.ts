@@ -9,8 +9,16 @@ import {
   TooltipComponent,
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
-import type { EfficiencyFilters } from '../api/skill-usage.api'
 import { chartTheme, onThemeChange } from '../../utils/theme'
+
+// 与 api/skill-usage.api 中 EfficiencyFilters 结构一致；此处本地定义以避免
+// 纯 ts 文件在 allowArbitraryExtensions 下对带 `.api` 文件名模块的解析问题。
+export interface EfficiencyFilters {
+  from?: string
+  to?: string
+  teamId?: number
+  userId?: number
+}
 
 echarts.use([LineChart, BarChart, PieChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent, CanvasRenderer])
 

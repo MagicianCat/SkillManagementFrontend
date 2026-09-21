@@ -20,7 +20,6 @@ import {
   type EfficiencyDashboard,
   type EfficiencyFilters,
   type GenerationPage,
-  type GenerationRow,
   type SkillUsageAccessScope,
 } from '../api/skill-usage.api'
 
@@ -43,7 +42,6 @@ const teamSearchLoading = ref(false)
 const memberLoading = ref(false)
 const errorMessage = ref('')
 const trendMetric = ref<'linesAdded' | 'totalTokens' | 'locPer1k' | 'activeUsers' | 'generations' | 'avgDuration'>('linesAdded')
-const selectedGeneration = ref<GenerationRow | null>(null)
 let teamSearchTimer: ReturnType<typeof setTimeout> | undefined
 let teamSearchRequestId = 0
 
@@ -54,7 +52,6 @@ const memberOptions = computed(() => members.value.map((member) => ({
 })))
 
 // ---- 图表配色 ----
-const PALETTE = ['#26c6ff', '#0fb5ec', '#60a5fa', '#4dd2ff', '#34d399', '#a78bfa', '#fbbf24', '#8b9bb5']
 const axisLabel = { color: '#8b9bb5', fontSize: 11 }
 const splitLine = { lineStyle: { color: 'rgba(160,195,255,0.09)' } }
 
@@ -126,11 +123,11 @@ function renderCharts() {
     series: [{ name: series.name, type: 'line', smooth: true, symbol: 'circle', symbolSize: 5, data: series.values, itemStyle: { color: '#26c6ff' }, lineStyle: { color: '#26c6ff', width: 2.5 }, areaStyle: { color: 'rgba(38,198,255,.12)' } }],
   })
 
-  const top = (arr: typeof o.stageRanking, n: number) => arr.slice(0, n)
+  const top = <T,>(arr: T[], n: number) => arr.slice(0, n)
   mountChart(stageBarRef.value, horizontalBar(top(o.stageRanking, 8).map((i) => stageLabel(i.key)).reverse(), top(o.stageRanking, 8).map((i) => i.linesAdded).reverse(), '#60a5fa'))
   mountChart(teamBarRef.value, horizontalBar(top(o.teamRanking, 6).map((i) => i.name).reverse(), top(o.teamRanking, 6).map((i) => i.linesAdded).reverse()))
   mountChart(projectBarRef.value, horizontalBar(top(o.projectRanking, 6).map((i) => i.name).reverse(), top(o.projectRanking, 6).map((i) => i.linesAdded).reverse(), '#4dd2ff'))
-  mountChart(skillBarRef.value, horizontalBar(top(o.skillRanking as unknown as Array<{ displayName: string }>, 8).map((i) => (i as unknown as { displayName: string; skillKey: string }).displayName || (i as unknown as { skillKey: string }).skillKey).reverse(), (o.skillRanking as unknown as Array<{ generations: number }>).slice(0, 8).map((i) => i.generations).reverse(), '#a78bfa'))
+  mountChart(skillBarRef.value, horizontalBar(top(o.skillRanking, 8).map((i) => i.displayName || i.skillKey).reverse(), top(o.skillRanking, 8).map((i) => i.generations).reverse(), '#a78bfa'))
 
   const ft = o.fileTypes.slice(0, 8)
   mountChart(fileTypeRef.value, horizontalBar(ft.map((i) => i.category).reverse(), ft.map((i) => i.linesAdded).reverse(), '#34d399'))
@@ -275,8 +272,6 @@ function goStage(stage: string) { void router.push({ name: 'skill-usage-stage', 
 function goTeam(teamId: number) { void router.push({ name: 'skill-usage-team', params: { teamId } }) }
 function goProject(projectKey: string | null) { if (projectKey) void router.push({ name: 'skill-usage-project', params: { projectKey } }) }
 function goSkill(skillKey: string) { void router.push({ name: 'skill-usage-skill', params: { skillKey } }) }
-function openGeneration(row: GenerationRow) { selectedGeneration.value = row }
-function closeGeneration() { selectedGeneration.value = null }
 
 watch(selectedTeamId, () => { void loadMembers() })
 onMounted(async () => {

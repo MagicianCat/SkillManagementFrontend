@@ -14,6 +14,7 @@ import {
 } from './api'
 import type {
   AgentMessage,
+  AgentPhase,
   AgentRecommendation,
   AgentSessionDetail,
   AgentSessionSummary,
@@ -29,6 +30,8 @@ export const useAgentStore = defineStore('agent', () => {
   const streamingText = ref('')
   const streamingRecommendation = ref<AgentRecommendation | null>(null)
   const toolStatus = ref('')
+  const phase = ref<AgentPhase | 'STARTING' | null>(null)
+  const runStartedAt = ref<number | null>(null)
   const error = ref('')
   const activeRunKey = ref<string | null>(null)
   const platform = ref('')
@@ -40,7 +43,15 @@ export const useAgentStore = defineStore('agent', () => {
   const busy = computed(() => loading.value || running.value)
   const visibleMessages = computed<AgentMessage[]>(() => {
     const saved = current.value?.messages ?? []
-    if (!streamingText.value) return saved
+    // Streaming content is only an optimistic view of an active run. Once the
+    // run is terminal, the persisted session is the single source of truth.
+    if (!running.value) return saved
+    const streamingRunAlreadyPersisted = Boolean(
+      activeRunKey.value
+      && saved.some((message) => message.role === 'ASSISTANT' && message.runKey === activeRunKey.value),
+    )
+    if (streamingRunAlreadyPersisted) return saved
+    if (!streamingText.value && !streamingRecommendation.value) return saved
     return [
       ...saved,
       {
@@ -91,6 +102,8 @@ export const useAgentStore = defineStore('agent', () => {
     streamingText.value = ''
     streamingRecommendation.value = null
     toolStatus.value = ''
+    phase.value = null
+    runStartedAt.value = null
     await refreshSessions()
   }
 
@@ -125,11 +138,17 @@ export const useAgentStore = defineStore('agent', () => {
       session.session.platform = accepted.platform
       session.session.osType = accepted.osType
       activeRunKey.value = accepted.runKey
+      phase.value = 'STARTING'
+      runStartedAt.value = Date.now()
+      toolStatus.value = '请求已提交，正在确认你的团队和知识权限…'
       loading.value = false
       streamController = new AbortController()
       const token = auth.accessToken
       if (!token) throw new Error('登录状态已失效')
       const onStreamEvent = (event: AgentStreamEvent) => {
+        // Polling may observe the terminal database state before the SSE reader
+        // drains its buffered frames. Ignore those late frames after cleanup.
+        if (activeRunKey.value !== accepted.runKey) return
         if (event.type === 'run.completed' || event.type === 'run.failed' || event.type === 'run.cancelled') {
           terminalObserved = true
         }
@@ -166,7 +185,10 @@ export const useAgentStore = defineStore('agent', () => {
       activeRunKey.value = null
       streamController = null
       streamingText.value = ''
+      streamingRecommendation.value = null
       toolStatus.value = ''
+      phase.value = null
+      runStartedAt.value = null
       await refreshSessions().catch(() => undefined)
     }
   }
@@ -202,11 +224,16 @@ export const useAgentStore = defineStore('agent', () => {
   function handleEvent(event: AgentStreamEvent) {
     const payload = event.data ?? {}
     if (event.type === 'message.delta') {
+      phase.value = 'COMPOSING'
       streamingText.value += String(payload.delta ?? '')
     } else if (event.type === 'tool.started') {
-      toolStatus.value = `正在调用 ${String(payload.toolName ?? 'Skill 工具')}…`
+      const progress = toolProgress(String(payload.toolName ?? ''), false)
+      phase.value = progress.phase
+      toolStatus.value = progress.message
     } else if (event.type === 'tool.completed') {
-      toolStatus.value = 'Skill 检索已完成，正在整理推荐…'
+      const progress = toolProgress(String(payload.toolName ?? ''), true)
+      phase.value = progress.phase
+      toolStatus.value = progress.message
     } else if (event.type === 'recommendation.completed') {
       if (current.value) {
         const next = {
@@ -219,7 +246,11 @@ export const useAgentStore = defineStore('agent', () => {
         streamingRecommendation.value = next
         current.value.latestRecommendation = next
       }
+      phase.value = 'COMPOSING'
+      toolStatus.value = '推荐清单已生成，正在组织最终回答…'
     } else if (event.type === 'run.phase') {
+      const nextPhase = String(payload.phase ?? '')
+      if (isAgentPhase(nextPhase)) phase.value = nextPhase
       toolStatus.value = String(payload.message ?? '正在处理…')
     } else if (event.type === 'run.completed') {
       const message = String(payload.message ?? '')
@@ -247,6 +278,8 @@ export const useAgentStore = defineStore('agent', () => {
     streamingText.value = ''
     streamingRecommendation.value = null
     toolStatus.value = ''
+    phase.value = null
+    runStartedAt.value = null
     await reloadCurrent()
   }
 
@@ -275,6 +308,8 @@ export const useAgentStore = defineStore('agent', () => {
     streamingText,
     streamingRecommendation,
     toolStatus,
+    phase,
+    runStartedAt,
     error,
     refreshSessions,
     selectSession,
@@ -288,3 +323,26 @@ export const useAgentStore = defineStore('agent', () => {
     setContext,
   }
 })
+
+function isAgentPhase(value: string): value is AgentPhase {
+  return ['CONTEXT', 'SEARCHING_KNOWLEDGE', 'SEARCHING_DOCUMENTS', 'READING_DOCUMENTS', 'COMPOSING'].includes(value)
+}
+
+function toolProgress(toolName: string, completed: boolean): { phase: AgentPhase; message: string } {
+  if (toolName.includes('get_current_user_context')) {
+    return { phase: 'CONTEXT', message: completed ? '团队与知识权限已确认…' : '正在确认你的团队和知识权限…' }
+  }
+  if (toolName.includes('search_feishu_documents') || toolName.includes('get_feishu_document')) {
+    return {
+      phase: toolName.includes('get_feishu_document') ? 'READING_DOCUMENTS' : 'SEARCHING_DOCUMENTS',
+      message: completed ? '相关业务资料已获取，正在分析内容…' : '正在检索你有权限访问的业务资料…',
+    }
+  }
+  if (toolName.includes('submit_skill_recommendation')) {
+    return { phase: 'COMPOSING', message: completed ? '推荐清单已生成，正在组织最终回答…' : '正在生成结构化推荐清单…' }
+  }
+  return {
+    phase: 'SEARCHING_KNOWLEDGE',
+    message: completed ? '相关 Skill 与知识已检索完成，正在分析结果…' : '正在检索相关 Skill 与研发知识…',
+  }
+}

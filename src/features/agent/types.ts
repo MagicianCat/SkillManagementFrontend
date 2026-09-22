@@ -85,4 +85,4 @@ export interface AgentStreamEvent {
   data: Record<string, unknown>
 }
 
-export type AgentPhase = 'CONTEXT' | 'SEARCHING_DOCUMENTS' | 'READING_DOCUMENTS' | 'COMPOSING'
+export type AgentPhase = 'CONTEXT' | 'SEARCHING_KNOWLEDGE' | 'SEARCHING_DOCUMENTS' | 'READING_DOCUMENTS' | 'COMPOSING'

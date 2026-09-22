@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => {
       // use the same dev proxy for the Feishu OAuth request.
       host: '::',
       port: 5173,
+      strictPort: true,
       proxy: {
         [apiUrl.pathname]: {
           target: apiUrl.origin,

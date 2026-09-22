@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { getWorkflowRun } from '../api/workflow.api'
-import type { WorkflowRun, WorkflowStage } from '../types/workflow'
+import type { StageStatus, WorkflowRun, WorkflowStage } from '../types/workflow'
 
 const ACTIVE = ['RUNNING', 'PROVISIONING', 'HUMAN_REQUIRED', 'WAITING_HUMAN', 'PAUSED']
 const FOLLOWABLE = [...ACTIVE, 'WAITING_HUMAN', 'WAITING_ACCEPTANCE', 'WAITING_DESIGN_ACCEPTANCE']
@@ -16,6 +16,12 @@ export const useProjectWorkspaceStore = defineStore('projectWorkspace', () => {
   /** MOCK（mock/dev-pipeline-demo）：mock 引擎驱动后续研发链路时，把 mock 阶段的展示态并入此 overlay；
    *  后端周期快照只含 PENDING 占位，applySnapshot 后据此回放，避免 2s 轮询覆盖 mock 视觉状态。 */
   const mockOverlay = ref<Record<string, Partial<WorkflowStage>>>({})
+  /** MOCK：DAG 上「前端编码」与「后端编码」是并行支线，但后端只落了 BACKEND_CODING 一个占位。
+   *  前端 mock 不跑具体的前端编码过程，只注入一个虚拟阶段节点，随编码阶段完成一起变绿。 */
+  const MOCK_FRONTEND_ID = 'mock-frontend-coding'
+  function frontendCodingVirtual(status: StageStatus): WorkflowStage {
+    return { id: MOCK_FRONTEND_ID, key: 'FRONTEND_CODING', name: '前端编码', displayName: '前端编码', status, maxLoopCount: 3, agents: [], artifacts: [], metadata: { virtual: true } }
+  }
   function setMockOverlay(stageId: string, patch: Partial<WorkflowStage>) {
     mockOverlay.value = { ...mockOverlay.value, [stageId]: { ...mockOverlay.value[stageId], ...patch } }
     if (stagesById.value[stageId]) stagesById.value[stageId] = { ...stagesById.value[stageId], ...patch }
@@ -30,6 +36,15 @@ export const useProjectWorkspaceStore = defineStore('projectWorkspace', () => {
     // 回放 mock overlay：后端快照中的 mock 阶段仍为 PENDING 占位，用引擎维护的展示态覆盖。
     for (const [stageId, patch] of Object.entries(mockOverlay.value)) {
       if (next[stageId]) next[stageId] = { ...next[stageId], ...patch }
+    }
+    // MOCK：存在 mock 阶段时注入虚拟「前端编码」节点，状态跟随编码阶段（完成即变绿，不跑具体执行）。
+    const backendCoding = data.find((stage) => String(stage.key).toUpperCase() === 'BACKEND_CODING')
+    if (backendCoding) {
+      const overlay = (mockOverlay.value[String(backendCoding.id)] ?? {}) as Partial<WorkflowStage>
+      const backendStatus = String(overlay.status ?? backendCoding.status)
+      next[MOCK_FRONTEND_ID] = frontendCodingVirtual(backendStatus === 'COMPLETED' ? 'COMPLETED' : backendStatus === 'PENDING' ? 'PENDING' : 'RUNNING')
+    } else {
+      delete next[MOCK_FRONTEND_ID]
     }
     stagesById.value = next
     const activeStage = data.find((stage) => FOLLOWABLE.includes(stage.status))
@@ -71,12 +86,12 @@ export const useProjectWorkspaceStore = defineStore('projectWorkspace', () => {
   }
 
 
-  /** 当前阶段：优先选中阶段，否则第一个活动阶段，否则第一个阶段。 */
+  /** 当前阶段：优先选中阶段，否则第一个活动阶段，否则第一个阶段。虚拟 mock 节点（前端编码）不参与兜底选中。 */
   const currentStage = computed(() => {
     const list = stages.value
     if (!list.length) return null
     if (selectedStageId.value && stagesById.value[selectedStageId.value]) return stagesById.value[selectedStageId.value]
-    return list.find((stage) => ACTIVE.includes(stage.status)) ?? list[0]
+    return list.find((stage) => ACTIVE.includes(stage.status) && !stage.metadata?.virtual) ?? list.find((stage) => !stage.metadata?.virtual) ?? null
   })
   /** 需求阶段（兼容旧版审批与默认目标）。 */
   const requirementStage = computed(() => stages.value.find((stage) => String(stage.key).toUpperCase() === 'REQUIREMENT') ?? null)
@@ -101,7 +116,7 @@ export const useProjectWorkspaceStore = defineStore('projectWorkspace', () => {
   })
   /** 待处理问题数（各阶段产物 reviewIssues 汇总）。 */
   const pendingIssues = computed(() => stages.value.reduce((total, stage) => total + (stage.artifacts ?? []).reduce((sum, artifact) => sum + (artifact.reviewIssues?.length ?? 0), 0), 0))
-  const completedStageCount = computed(() => stages.value.filter((stage) => COMPLETED.includes(stage.status)).length)
+  const completedStageCount = computed(() => stages.value.filter((stage) => COMPLETED.includes(stage.status) && !stage.metadata?.virtual).length)
   const activeAgentCount = computed(() => stages.value.reduce((total, stage) => total + (stage.agents ?? []).filter((agent) => ['QUEUED', 'STARTING', 'RUNNING', 'WAITING_HUMAN', 'PAUSED'].includes(agent.status)).length, 0))
   const running = computed(() => ['RUNNING', 'PROVISIONING'].includes(workflowRun.value?.status ?? ''))
   /** 选中的阶段可以交互的唯一条件：该阶段仍在执行/等待回答；历史及待验收阶段只读。 */

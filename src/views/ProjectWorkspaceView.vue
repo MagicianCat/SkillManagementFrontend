@@ -198,7 +198,7 @@ function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ beh
       <!-- 研发流程：通栏一排，阶段间贝塞尔连线清晰呈现分支/汇聚。 -->
       <WorkflowDagPanel :stages="workspace.stages" :selected-id="workspace.selectedStageId" :current-id="workspace.currentStage?.id == null ? null : String(workspace.currentStage.id)" @select="workspace.select" />
 
-      <nav v-if="parallelStages.length > 1" class="parallel-switcher panel" aria-label="并行设计阶段">
+      <nav v-if="parallelStages.length > 1 && !mock.active.value" class="parallel-switcher panel" aria-label="并行设计阶段">
         <div class="parallel-switcher__heading">
           <strong>并行设计</strong>
           <span class="muted">两条支线可同时执行，切换查看与审批目标</span>
@@ -260,7 +260,7 @@ function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ beh
 
       <StatsBar
         :completed="workspace.completedStageCount"
-        :total="workspace.stages.length"
+        :total="workspace.stages.filter((s) => !s.metadata?.virtual).length"
         :active-agents="workspace.activeAgentCount"
         :pending-issues="workspace.pendingIssues"
         :last-event-at="lastEventAt"

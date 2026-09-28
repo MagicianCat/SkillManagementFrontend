@@ -478,7 +478,7 @@ onBeforeUnmount(() => {
 .token-breakdown div{display:grid;gap:2px}
 .token-breakdown span{color:var(--text-3);font-size:11px}
 .token-breakdown strong{color:var(--text-1);font-size:15px}
-.events-card{margin-top:0}
+.events-card{margin-top:0;overflow-x:auto}.events-card :deep(.t-table){min-width:1180px}
 .cell-subtitle{display:block;color:var(--text-3);font-size:11px}
 .cell-link{color:var(--accent-300);cursor:pointer}
 .lines-added{color:var(--success);font-weight:600}

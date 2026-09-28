@@ -178,7 +178,7 @@ onBeforeUnmount(() => { window.removeEventListener('resize', charts.resize); cha
 .cell-link{color:var(--accent-300);cursor:pointer}
 .lines-added{color:#34d399;font-weight:600}
 .lines-deleted{color:#f87171;font-weight:600}
-.events-card{margin-top:0}
+.events-card{margin-top:0;overflow-x:auto}.events-card :deep(.t-table){min-width:960px}
 @media(max-width:1100px){.summary-grid{grid-template-columns:repeat(3,1fr)}.dashboard-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.summary-grid{grid-template-columns:repeat(2,1fr)}}
 </style>

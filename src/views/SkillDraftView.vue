@@ -784,11 +784,21 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   padding: 9px 14px;
   border-bottom: 1px solid var(--border-1);
   color: var(--text-2);
   font-family: var(--font-mono, monospace);
   font-size: 12px;
+}
+.editor-pane__bar > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.editor-pane__bar .dirty-dot {
+  flex: 0 0 auto;
 }
 .dirty-dot {
   color: var(--warning);
@@ -950,5 +960,23 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 18px;
+}
+/* 三栏布局（文件树 220 / 编辑器 / 元数据 300）窄屏降级，避免相互挤压 */
+@media (max-width: 1180px) {
+  .draft-layout {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+  /* 元数据栏折行到编辑器下方，占满整行 */
+  .draft-layout > .meta-pane {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 760px) {
+  .draft-layout {
+    grid-template-columns: 1fr;
+  }
+  .draft-layout > .meta-pane {
+    grid-column: auto;
+  }
 }
 </style>

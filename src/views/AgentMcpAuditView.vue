@@ -12,13 +12,13 @@ const toolName = ref('')
 const status = ref('')
 
 const columns: TableProps['columns'] = [
-  { colKey: 'startedAt', title: '调用时间', width: 180 },
-  { colKey: 'toolName', title: 'MCP 工具', width: 220 },
-  { colKey: 'status', title: '状态', width: 100 },
-  { colKey: 'durationMs', title: '耗时', width: 100 },
-  { colKey: 'sourceChannel', title: '渠道', width: 120 },
-  { colKey: 'knowledgeScope', title: '知识范围', width: 160 },
-  { colKey: 'runKey', title: 'Agent Run', ellipsis: true },
+  { colKey: 'startedAt', title: '调用时间', width: 170, ellipsis: true },
+  { colKey: 'toolName', title: 'MCP 工具', width: 260, ellipsis: true },
+  { colKey: 'status', title: '状态', width: 110, ellipsis: true },
+  { colKey: 'durationMs', title: '耗时', width: 90, ellipsis: true },
+  { colKey: 'sourceChannel', title: '渠道', width: 90, ellipsis: true },
+  { colKey: 'knowledgeScope', title: '知识范围', width: 130, ellipsis: true },
+  { colKey: 'runKey', title: 'Agent Run', width: 120, ellipsis: true },
 ]
 
 function formatTime(value: string) { return new Date(value).toLocaleString('zh-CN', { hour12: false }) }
@@ -46,19 +46,26 @@ onMounted(() => void load())
       <t-button theme="primary" @click="search">查询</t-button>
     </section>
     <t-alert v-if="!loading && rows.some(row => row.toolName === 'search_feishu_documents' || row.toolName === 'get_feishu_document')" theme="success" message="当前结果包含飞书云文档 MCP 调用" />
-    <t-table row-key="id" :columns="columns" :data="rows" :loading="loading" bordered stripe>
-      <template #startedAt="{ row }">{{ formatTime(row.startedAt) }}</template>
-      <template #toolName="{ row }"><t-tag :theme="row.toolName.includes('feishu') ? 'warning' : 'default'">{{ row.toolName }}</t-tag></template>
+    <div class="table-scroll">
+      <t-table row-key="id" :columns="columns" :data="rows" :loading="loading" bordered stripe>
+      <template #startedAt="{ row }"><span class="cell-nowrap">{{ formatTime(row.startedAt) }}</span></template>
+      <template #toolName="{ row }"><span class="cell-mono" :title="row.toolName">{{ row.toolName }}</span></template>
       <template #status="{ row }"><t-tag :theme="row.status === 'SUCCEEDED' ? 'success' : row.status === 'FAILED' ? 'danger' : 'warning'">{{ row.status }}</t-tag></template>
       <template #durationMs="{ row }">{{ row.durationMs == null ? '-' : `${row.durationMs} ms` }}</template>
-      <template #runKey="{ row }"><span :title="row.runKey">{{ row.runKey }}</span></template>
-    </t-table>
+      <template #runKey="{ row }"><span class="cell-mono" :title="row.runKey">{{ row.runKey }}</span></template>
+      </t-table>
+    </div>
     <t-pagination v-model="page" v-model:page-size="pageSize" :total="total" :page-size-options="[20, 50, 100]" show-page-size @change="load" @page-size-change="onPageSizeChange" />
   </main>
 </template>
 
 <style scoped>
-.agent-audit-page { display: grid; gap: 18px; }
+.agent-audit-page { display: grid; gap: 18px; min-width: 0; }
+/* 表格超出容器时横向滚动，避免列被挤压、文字溢出重叠 */
+.table-scroll { min-width: 0; overflow-x: auto; }
+.table-scroll :deep(.t-table) { min-width: 980px; }
 .agent-audit-page :deep(.t-table) { background: var(--surface-1); }
 .agent-audit-page :deep(.t-pagination) { justify-self: end; }
+.cell-nowrap { white-space: nowrap; }
+.cell-mono { font-family: var(--font-mono); font-size: 12px; }
 </style>

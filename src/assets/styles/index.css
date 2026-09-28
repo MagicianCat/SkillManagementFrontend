@@ -347,7 +347,9 @@ a {
 }
 .workspace-content {
   flex: 1;
+  min-width: 0; /* 防止内部宽内容（表格/代码）撑破 flex 容器 */
   overflow-y: auto;
+  overflow-x: hidden; /* 横向溢出由各卡片内部的滚动容器承担，不整页横滚 */
   padding: 28px 32px 48px;
 }
 
@@ -650,11 +652,18 @@ a {
   gap: 16px;
   margin-bottom: 28px;
 }
+/* 标题/描述文本容器可被压缩，避免长内容把右侧徽章挤出 */
+.detail-header > div:first-child {
+  min-width: 0;
+}
 .skill-key {
   margin: 7px 0 0;
   color: var(--accent-300);
   font-family: var(--font-mono);
   font-size: 12px;
+  /* 长标识符（如 dsh.feishu-document-sync）允许换行，避免横向溢出 */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .detail-description {
   max-width: 680px;
@@ -666,6 +675,16 @@ a {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
   gap: 22px;
+}
+/* 窄屏：详情头部纵向堆叠，下载/版本面板单列 */
+@media (max-width: 900px) {
+  .detail-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .detail-layout {
+    grid-template-columns: 1fr;
+  }
 }
 .version-panel,
 .download-panel {

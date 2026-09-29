@@ -73,10 +73,12 @@ export const useProjectWorkspaceStore = defineStore('projectWorkspace', () => {
     const key = String(stage.key ?? '').toUpperCase()
     return key === 'ARCHITECTURE' || key === 'ARCHITECTURE_DESIGN' || key === 'UI' || key === 'UI_DESIGN'
   }))
-  /** 当前阶段的 Review Cycle（loopCount+1 / maxLoopCount）。 */
+  /** 当前阶段的 Review Cycle（loopCount+1 / maxLoopCount）。
+   *  终态阶段（COMPLETED/FAILED/CANCELLED）不再视为"迭代中"，返回 null。 */
   const reviewCycle = computed(() => {
     const stage = currentStage.value
     if (!stage) return null
+    if (COMPLETED.includes(stage.status) || ['FAILED', 'CANCELLED'].includes(stage.status)) return null
     return { current: (stage.loopCount ?? 0) + 1, max: stage.maxLoopCount ?? 0 }
   })
   /** 当前阶段最新 Revision。 */

@@ -3,7 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { WorkflowArtifact, WorkflowStage } from '../../types/workflow'
 
-const props = defineProps<{ stage: WorkflowStage | null; projectKey?: string }>()
+const props = defineProps<{ stage: WorkflowStage | null; projectKey?: string; ownerCanRetry?: boolean }>()
+const emit = defineEmits<{ retryPublication: [] }>()
 const router = useRouter()
 
 type Tab = 'preview' | 'diff' | 'issues'
@@ -19,6 +20,9 @@ const previous = computed(() => {
   return sorted.value.find((a) => (a.revision ?? 0) === (current.value!.revision ?? 0) - 1) ?? null
 })
 const issues = computed(() => current.value?.reviewIssues ?? [])
+/** 飞书发布状态：与产物同源（stage.feishuPublication），跟随产物面板展示。 */
+const publicationText: Record<string, string> = { PENDING: '待同步', RUNNING: '同步中', SUCCEEDED: '已同步', FAILED: '同步失败', RETRYING: '重试中' }
+const publication = computed(() => props.stage?.feishuPublication ?? null)
 /** 产物文档链接：artifact.id 即 project_document_id（后端 ArtifactView 首字段）。
  *  用 router.resolve 生成真实 href 的原生链接并新标签打开，避免 SPA 内部导航被拦截导致点不动。 */
 const docHref = computed(() => {
@@ -64,6 +68,14 @@ defineExpose({ summary, badge, count: computed(() => sorted.value.length) })
           <p class="muted">状态 {{ current.status || '—' }} · RevisionId {{ current.revisionId ?? '—' }}</p>
           <a v-if="docHref" :href="docHref" target="_blank" rel="noopener" class="open-doc-btn">打开文档 ↗</a>
           <p v-else class="muted">完整内容请在项目文档中查看。</p>
+          <div v-if="publication" class="publication-status" :class="`is-${String(publication.status || '').toLowerCase()}`" data-testid="feishu-publication-status">
+            <span class="pub-label">飞书发布</span>
+            <strong>{{ publicationText[publication.status || ''] || publication.status || '未知' }}</strong>
+            <small v-if="publication.attemptCount">尝试 {{ publication.attemptCount }} 次</small>
+            <a v-if="publication.documentUrl" :href="publication.documentUrl" target="_blank" rel="noreferrer" class="pub-link">打开飞书文档 ↗</a>
+            <span v-if="publication.lastError" class="publication-error">{{ publication.lastError }}</span>
+            <button v-if="publication.retryable && ownerCanRetry" type="button" class="pub-retry" @click="emit('retryPublication')">Owner 重试同步</button>
+          </div>
         </div>
         <div v-else-if="tab === 'diff'" class="diff">
           <p class="compare mono">Revision #{{ previous?.revision ?? '—' }} ↔ #{{ current.revision ?? '—' }}</p>
@@ -91,6 +103,22 @@ defineExpose({ summary, badge, count: computed(() => sorted.value.length) })
 .revisions { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
 .rev-chip { padding: 5px 10px; font-size: 11px; border: 1px solid var(--border-2); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-2); cursor: pointer; }
 .rev-chip.on { color: var(--accent-300); border-color: var(--border-accent); background: var(--accent-softer); }
+/* 飞书发布状态条：挂在预览面板内，仅「预览」tab 展示；成功/失败用语义色描边 */
+.publication-status { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; padding: 8px 12px; border: 1px solid var(--border-1); border-radius: var(--radius-sm); background: var(--surface-2); font-size: 12px; color: var(--text-2); }
+.publication-status .pub-label { color: var(--text-3); }
+.publication-status strong { color: var(--text-1); font-weight: 600; }
+.publication-status small { color: var(--text-3); }
+.publication-status.is-succeeded { border-color: rgb(52 211 153 / 40%); background: var(--success-soft); }
+.publication-status.is-succeeded strong { color: var(--success); }
+.publication-status.is-failed { border-color: rgb(248 113 113 / 40%); background: var(--error-soft); }
+.publication-status.is-failed strong { color: var(--error); }
+.publication-status.is-running, .publication-status.is-retrying, .publication-status.is-pending { border-color: var(--border-accent); background: var(--accent-softer); }
+.publication-status.is-running strong, .publication-status.is-retrying strong, .publication-status.is-pending strong { color: var(--accent-300); }
+.pub-link { color: var(--accent-300); text-decoration: none; font-weight: 600; }
+.pub-link:hover { color: var(--accent-200); text-decoration: underline; }
+.publication-error { color: var(--error); font-size: 11px; }
+.pub-retry { padding: 4px 10px; font-size: 11px; font-weight: 600; border: 1px solid var(--border-accent); border-radius: var(--radius-sm); background: var(--accent-softer); color: var(--accent-300); cursor: pointer; }
+.pub-retry:hover { background: var(--accent-soft); box-shadow: 0 0 10px var(--accent-glow); }
 .pane { flex: 1; overflow-y: auto; border-top: 1px solid var(--border-1); padding-top: 10px; min-height: 0; }
 .preview h4 { margin: 0 0 6px; font-size: 14px; color: var(--text-1); }
 .doc-link { color: var(--text-1); text-decoration: none; }

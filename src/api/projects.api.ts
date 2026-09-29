@@ -1,6 +1,7 @@
 import { http } from './http'
 
-export type Project = { projectKey: string; name: string; description?: string | null; status: string; role?: string | null; versionNo: number }
+export type Project = { projectKey: string; name: string; description?: string | null; status: string; role?: string | null; versionNo: number; feishuWikiRootUrl?: string | null }
+export type FeishuPublishTarget = { configured: boolean; url?: string | null; title?: string | null; validatedAt?: string | null; editable: boolean }
 export type Revision = { id: number; revisionNo: number; markdownContent: string; sourceType: string; profileKey?: string | null; createdByName: string; createdAt: string }
 export type ProjectDocument = { id: number; projectKey: string; documentType: string; title: string; status: string; draft?: Revision | null; published?: Revision | null; everPublished: boolean; versionNo: number }
 export type ProjectMember = { userId: number; displayName: string; role: string; status: string }
@@ -12,7 +13,11 @@ export type ProjectWorkflow = { projectKey: string; progress: number; stages: Pr
 export type ProjectUser = { userId: number; username: string; displayName: string; teamName?: string|null }
 
 export async function listProjects() { return (await http.get<{ items: Project[] }>('/projects', { params: { page: 0, size: 50 } })).data.items }
-export async function createProject(name: string, description: string, enabledStages?: string[]) { return (await http.post<Project>('/projects', { name, description, enabledStages })).data }
+export async function createProject(name: string, description: string, enabledStages?: string[], feishuWikiRootUrl?: string) { return (await http.post<Project>('/projects', { name, description, enabledStages, ...(feishuWikiRootUrl ? { feishuWikiRootUrl } : {}) })).data }
+export async function validateFeishuPublishTarget(url: string) { return (await http.post<FeishuPublishTarget>('/projects/feishu-publish-target:validate', { url })).data }
+export async function getFeishuPublishTarget(projectKey: string) { return (await http.get<FeishuPublishTarget>(`/projects/${encodeURIComponent(projectKey)}/feishu-publish-target`)).data }
+export async function updateFeishuPublishTarget(projectKey: string, url: string) { return (await http.put<FeishuPublishTarget>(`/projects/${encodeURIComponent(projectKey)}/feishu-publish-target`, { url })).data }
+export async function retryFeishuPublication(projectKey: string, taskId: string | number) { return (await http.post<FeishuPublishTarget>(`/projects/${encodeURIComponent(projectKey)}/feishu-publications/${encodeURIComponent(String(taskId))}:retry`)).data }
 export async function getProject(projectKey: string) { return (await http.get<Project>(`/projects/${projectKey}`)).data }
 export async function listProjectMembers(projectKey: string) { return (await http.get<ProjectMember[]>(`/projects/${projectKey}/members`)).data }
 export async function putProjectMember(projectKey: string, userId: number, role = 'MEMBER') { return (await http.put<ProjectMember>(`/projects/${projectKey}/members/${userId}`, { role })).data }

@@ -133,6 +133,12 @@ async function toggleNotifications() {
   }
 }
 
+/** 后端偶发返回超长内容（如重复拼接的推送文案），面板内截断展示，避免撑破布局 */
+function previewText(value: string, max = 120) {
+  const text = value.trim()
+  return text.length > max ? `${text.slice(0, max)}…` : text
+}
+
 async function openNotification(item: NotificationView) {
   if (!item.readAt) {
     try {
@@ -395,8 +401,10 @@ async function signOut() {
                 :class="{ 'is-unread': !item.readAt }"
                 @click="openNotification(item)"
               >
-                <strong>{{ item.title }}</strong>
-                <span>{{ notificationContent(item) }}</span>
+                <strong :title="item.title">{{ item.title }}</strong>
+                <span :title="notificationContent(item)">{{
+                  previewText(notificationContent(item))
+                }}</span>
                 <small>{{ formatTime(item.createdAt) }}</small>
               </button>
               <RouterLink

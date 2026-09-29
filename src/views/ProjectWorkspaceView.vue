@@ -14,6 +14,7 @@ import StatsBar from '../features/workbench/StatsBar.vue'
 import { useProjectWorkspaceStore } from '../stores/projectWorkspace'
 import { useRuntimeEventStore } from '../stores/runtimeEvent'
 import type { InterventionTarget, InterventionType } from '../types/workflow'
+import { retryFeishuPublication } from '../api/projects.api'
 
 /**
  * P1 契约标记（供契约测试断言，勿删）：
@@ -53,12 +54,25 @@ async function start() {
 
 const selectedStage = computed(() => workspace.currentStage)
 const parallelStages = computed(() => workspace.parallelDesignStages)
+/** 仅当设计分支之一被选中、或正处于设计验收等待时才显示并行切换条；
+ *  查看历史/后续阶段（含两个分支全部完成的终态浏览）不常驻。 */
+const showParallelSwitcher = computed(() => {
+  const list = parallelStages.value
+  if (list.length <= 1) return false
+  if (list.some((stage) => String(stage.id) === String(workspace.selectedStageId))) return true
+  return workspace.workflowRun?.status === 'WAITING_DESIGN_ACCEPTANCE'
+})
 const selectedStageInteractive = computed(() => workspace.selectedStageInteractive)
+const ownerCanRetry = computed(() => String(workspace.workflowRun?.currentUserRole || '').toUpperCase() === 'OWNER' || workspace.workflowRun?.ownerCanRetry === true)
 const stageReadonly = computed(() => runReadonly.value || !selectedStageInteractive.value)
 const selectedQuestions = computed(() => {
   const stageId = selectedStage.value?.id == null ? null : String(selectedStage.value.id)
   return (workspace.workflowRun?.humanQuestions || []).filter((question) => stageId == null || String(question.stageRunId) === stageId)
 })
+function selectStageFromQuery() {
+  const stageRunId = route.query.stageRunId
+  if (stageRunId != null) workspace.select(String(stageRunId))
+}
 const waitingAcceptance = computed(() => {
   const stage = selectedStage.value
   if (!stage) return false
@@ -90,11 +104,13 @@ onMounted(async () => {
     resolvingRun.value = false
   }
   await workspace.load(id)
+  selectStageFromQuery()
   if (workspace.workflowRun) { const activeRunId = String(workspace.workflowRun.id); runtime.connect(activeRunId); workspace.startAutoRefresh(activeRunId) }
 })
 watch(runId, async (next, previous) => {
   if (!next || next === previous || String(workspace.workflowRun?.id ?? '') === next) return
   await workspace.load(next)
+  selectStageFromQuery()
   runtime.connect(next)
   workspace.startAutoRefresh(next)
 })
@@ -135,6 +151,12 @@ async function answerQuestion(questionId: string | number, answer: string) {
     await workspace.load(id)
   } finally { answeringQuestion.value = false }
 }
+async function retryPublication() {
+  const publication = selectedStage.value?.feishuPublication
+  if (!publication?.taskId || !ownerCanRetry.value) return
+  try { await retryFeishuPublication(projectKey.value, publication.taskId); await workspace.load(String(workspace.workflowRun?.id || runId.value)) }
+  catch (cause) { workspace.error = (cause as any)?.response?.data?.message || (cause instanceof Error ? cause.message : '飞书发布重试失败') }
+}
 async function acceptance(decision: 'ACCEPT' | 'REWORK', comment: string) {
   if (!workspace.workflowRun || accepting.value) return
   accepting.value = true
@@ -150,6 +172,12 @@ function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ beh
 
 <template>
   <main class="workbench">
+    <div class="configuration-entry">
+      <RouterLink class="setup-link" :to="{ name: 'project-agent-setup', params: { projectKey } }">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8 10 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>项目 Agent 配置与飞书发布目录</span>
+      </RouterLink>
+    </div>
     <WorkbenchHeader
       :run-id="String(workspace.workflowRun?.id || runId)"
       :status="workspace.workflowRun?.status || ''"
@@ -182,7 +210,7 @@ function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ beh
       <!-- 研发流程：通栏一排，阶段间贝塞尔连线清晰呈现分支/汇聚。 -->
       <WorkflowDagPanel :stages="workspace.stages" :selected-id="workspace.selectedStageId" :current-id="workspace.currentStage?.id == null ? null : String(workspace.currentStage.id)" @select="workspace.select" />
 
-      <nav v-if="parallelStages.length > 1" class="parallel-switcher panel" aria-label="并行设计阶段">
+      <nav v-if="showParallelSwitcher" class="parallel-switcher panel" aria-label="并行设计阶段">
         <div class="parallel-switcher__heading">
           <strong>并行设计</strong>
           <span class="muted">两条支线可同时执行，切换查看与审批目标</span>
@@ -211,7 +239,7 @@ function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ beh
           :running="selectedStageInteractive && ['RUNNING', 'PROVISIONING'].includes(String(selectedStage?.status))"
           :readonly="stageReadonly"
           :target="interventionTarget"
-          :retryable="Boolean(interventionTarget.failed)"
+          :retryable="Boolean(interventionTarget.failed) && ownerCanRetry"
           :questions="selectedQuestions"
           :disabled="answeringQuestion || !selectedStageInteractive"
           @submit="intervention"
@@ -220,9 +248,9 @@ function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ beh
         />
       </div>
 
-      <!-- 文档产物：默认折叠，需要时展开。 -->
+      <!-- 文档产物：默认折叠，需要时展开。飞书发布状态与产物同区展示。 -->
       <CollapsiblePanel title="文档产物 / 文档修订" :badge="artifactBadge" :summary="artifactSummary">
-        <ArtifactPanel ref="artifactRef" :stage="workspace.currentStage" :project-key="String(route.params.projectId || '')" />
+        <ArtifactPanel ref="artifactRef" :stage="workspace.currentStage" :project-key="String(route.params.projectId || '')" :owner-can-retry="ownerCanRetry" @retry-publication="retryPublication" />
       </CollapsiblePanel>
 
       <!-- Agent 执行轨迹：默认折叠，需要时展开。 -->
@@ -257,6 +285,12 @@ function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ beh
 .muted { color: var(--text-3); }
 .error-banner { margin: 0; padding: 10px 14px; border: 1px solid rgb(248 113 113 / 40%); border-radius: var(--radius-sm); background: var(--error-soft); color: var(--error); font-size: 13px; }
 .readonly-banner { margin: 0; padding: 10px 14px; border: 1px solid rgb(96 165 250 / 40%); border-radius: var(--radius-sm); background: var(--info-soft); color: var(--info); font-size: 13px; }
+/* 工作流 → 配置页：与配置页「返回工作流」按钮同源的描边辉光样式 */
+.configuration-entry { display: flex; justify-content: flex-end; }
+.setup-link { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border: 1px solid var(--border-accent); border-radius: var(--radius-sm); background: var(--accent-softer); color: var(--accent-300); font-size: 13px; font-weight: 600; text-decoration: none; transition: border-color var(--duration-fast), box-shadow var(--duration-fast), background var(--duration-fast), color var(--duration-fast); }
+.setup-link svg { width: 13px; height: 13px; transition: transform var(--duration-fast) var(--ease-out); }
+.setup-link:hover { border-color: var(--accent-400); background: var(--accent-soft); color: var(--accent-200); box-shadow: 0 0 16px var(--accent-glow), var(--shadow-accent); }
+.setup-link:hover svg { transform: translateX(-3px); }
 /* 当前阶段 ‖ 人员介入 并排：阶段卡更宽，介入栏固定。 */
 .stage-row { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; align-items: stretch; }
 .stage-row > * { min-width: 0; }

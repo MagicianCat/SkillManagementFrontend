@@ -9,8 +9,10 @@ export type NotificationType =
   | 'SKILL_VERSION_UPDATED'
   | 'DIRECTORY_SYNC_SUCCEEDED'
   | 'DIRECTORY_SYNC_FAILED'
+  | 'FEISHU_PUBLICATION_SUCCEEDED'
+  | 'FEISHU_PUBLICATION_FAILED'
 
-export type NotificationTargetType = 'REVIEW' | 'WIKI_REVIEW' | 'WIKI_DOCUMENT' | 'SKILL_VERSION' | 'BUILD_TASK' | 'FEISHU_DIRECTORY'
+export type NotificationTargetType = 'REVIEW' | 'WIKI_REVIEW' | 'WIKI_DOCUMENT' | 'SKILL_VERSION' | 'BUILD_TASK' | 'FEISHU_DIRECTORY' | 'WORKFLOW_STAGE'
 
 export interface NotificationView {
   id: number
@@ -23,11 +25,13 @@ export interface NotificationView {
   versionId: number | null
   readAt: string | null
   createdAt: string
+  targetData?: { projectKey?: string; runId?: string | number; stageRunId?: string | number; publishTaskId?: string | number; documentUrl?: string | null } | string | null
 }
 
 export function notificationContent(
   item: Pick<NotificationView, 'type' | 'content'>,
 ) {
   if (item.type === 'DIRECTORY_SYNC_FAILED') return '飞书通讯录同步失败，请稍后重试。'
+  if (item.type === 'FEISHU_PUBLICATION_FAILED') return item.content || '飞书文档发布失败，请重试。'
   return item.content
 }

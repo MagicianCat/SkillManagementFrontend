@@ -202,8 +202,11 @@ a {
   color: var(--text-3);
   font-size: 10px;
 }
-.workspace-user button,
-.header-actions button {
+/* 头部右侧的图标按钮（主题/帮助/通知铃铛）做成 32px 方块。
+   限定为具体类，避免误伤通知面板里同为 <button> 的 .notification-item。 */
+.workspace-user > button,
+.header-actions > button,
+.header-actions .notification-bell {
   display: inline-grid;
   width: 32px;
   height: 32px;
@@ -218,8 +221,9 @@ a {
     background var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out);
 }
-.workspace-user button:hover,
-.header-actions button:hover {
+.workspace-user > button:hover,
+.header-actions > button:hover,
+.header-actions .notification-bell:hover {
   border-color: var(--border-2);
   color: var(--text-1);
   background: var(--surface-2);
@@ -231,6 +235,10 @@ a {
   flex-direction: column;
 }
 .workspace-header {
+  position: relative;
+  /* backdrop-filter 会建立层叠上下文；给 header 高于浮层（z-index:50）的层级，
+     保证头部弹出的通知面板不被 Agent 悬浮窗等 fixed 元素遮挡 */
+  z-index: 60;
   display: flex;
   height: var(--header-height);
   flex: 0 0 var(--header-height);
@@ -274,7 +282,9 @@ a {
   top: 34px;
   right: 0;
   width: 320px;
+  max-width: calc(100vw - 24px); /* 小窗口不超出屏幕 */
   max-height: 420px;
+  overflow-x: hidden; /* 内容只允许纵向滚动 */
   overflow-y: auto;
   border: 1px solid var(--border-2);
   border-radius: var(--radius-md);
@@ -313,15 +323,23 @@ a {
   background: var(--surface-2);
 }
 .notification-item strong {
-  color: var(--text-1);
-  font-size: 12px;
-}
-.notification-item span {
   overflow: hidden;
-  color: var(--text-2);
+  color: var(--text-1);
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.notification-item span {
+  display: -webkit-box;
+  overflow: hidden;
+  /* 最多两行，超出省略；兼容任意长度的异常通知内容 */
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--text-2);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  line-height: 1.5;
 }
 .notification-item small {
   color: var(--text-3);

@@ -141,7 +141,14 @@ async function openNotification(item: NotificationView) {
       // 忽略标记失败，仍允许跳转
     }
   }
-  if (item.targetType === 'SKILL_VERSION' && item.skillKey) {
+  let target = typeof item.targetData === 'string' ? null : item.targetData
+  if (typeof item.targetData === 'string') {
+    try { target = JSON.parse(item.targetData) }
+    catch { target = null }
+  }
+  if (target?.projectKey && (target.runId != null || target.stageRunId != null)) {
+    void router.push({ name: 'project-workspace', params: { projectId: target.projectKey, runId: target.runId != null ? String(target.runId) : undefined }, query: target.stageRunId != null ? { stageRunId: String(target.stageRunId) } : undefined })
+  } else if (item.targetType === 'SKILL_VERSION' && item.skillKey) {
     if (item.type === 'REVIEW_REJECTED') {
       void router.push({
         name: 'skill-draft',

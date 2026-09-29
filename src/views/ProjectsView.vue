@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useRouter } from 'vue-router'
-import { createProject, listProjectMembers, listProjects, putProjectMember, searchProjectUsers, type Project, type ProjectMember, type ProjectUser } from '../api/projects.api'
+import { createProject, listProjectMembers, listProjects, putProjectMember, searchProjectUsers, validateFeishuPublishTarget, type Project, type ProjectMember, type ProjectUser } from '../api/projects.api'
 import { getCurrentWorkflowRun } from '../api/workflow.api'
 
 const router = useRouter()
@@ -14,6 +14,10 @@ const loading = ref(true)
 const enteringProjectKey = ref('')
 
 const newName = ref('')
+const feishuWikiRootUrl = ref('')
+const feishuValidation = ref<{ state: 'idle'|'checking'|'valid'|'invalid'; message: string }>({ state: 'idle', message: '' })
+let feishuValidationTimer: ReturnType<typeof setTimeout> | undefined
+let feishuValidationRequest = 0
 const creating = ref(false)
 const userQuery = ref('')
 const users = ref<ProjectUser[]>([])
@@ -35,15 +39,26 @@ async function choose(project: Project) {
 }
 async function addProject() {
   const name = newName.value.trim()
-  if (!name || creating.value) return
+  if (!name || creating.value || feishuValidation.value.state === 'checking' || feishuValidation.value.state === 'invalid') return
   creating.value = true
   try {
-    const project = await createProject(name, 'Agent 驱动研发项目组')
-    newName.value = ''
+    const project = await createProject(name, 'Agent 驱动研发项目组', undefined, feishuWikiRootUrl.value.trim() || undefined)
+    newName.value = ''; feishuWikiRootUrl.value = ''; feishuValidation.value = { state: 'idle', message: '' }
     projects.value = await listProjects()
     await choose(project)
     MessagePlugin.success('项目组已创建')
   } catch (e) { MessagePlugin.error((e as any)?.response?.data?.message || String(e)) } finally { creating.value = false }
+}
+function validateFeishuRoot() {
+  if (feishuValidationTimer) clearTimeout(feishuValidationTimer)
+  const request = ++feishuValidationRequest
+  const url = feishuWikiRootUrl.value.trim()
+  if (!url) { feishuValidation.value = { state: 'idle', message: '' }; return }
+  feishuValidation.value = { state: 'checking', message: '正在校验飞书 Wiki 根目录…' }
+  feishuValidationTimer = setTimeout(async () => {
+    try { await validateFeishuPublishTarget(url); if (request === feishuValidationRequest) feishuValidation.value = { state: 'valid', message: '飞书 Wiki 根目录可用' } }
+    catch (error) { if (request === feishuValidationRequest) feishuValidation.value = { state: 'invalid', message: (error as any)?.response?.data?.message || '无法访问该飞书 Wiki 根目录' } }
+  }, 350)
 }
 async function searchUsers() { users.value = await searchProjectUsers(userQuery.value.trim()) }
 async function addMember() {
@@ -78,6 +93,7 @@ async function enterWorkspace(project: Project) {
 }
 
 onMounted(() => void loadProjects())
+onBeforeUnmount(() => { if (feishuValidationTimer) clearTimeout(feishuValidationTimer); feishuValidationRequest += 1 })
 </script>
 
 <template>
@@ -90,7 +106,9 @@ onMounted(() => void loadProjects())
       </div>
       <form class="create-box" @submit.prevent="addProject">
         <input v-model="newName" placeholder="新项目组名称" :disabled="creating" data-testid="new-project-name" />
-        <button type="submit" class="primary" :disabled="creating || !newName.trim()" data-testid="create-project">{{ creating ? '创建中…' : '+ 新建项目组' }}</button>
+        <input v-model="feishuWikiRootUrl" placeholder="飞书 Wiki 根目录（可选）" :disabled="creating" data-testid="feishu-wiki-root-url" @input="validateFeishuRoot" />
+        <small v-if="feishuValidation.message" class="feishu-validation" :class="feishuValidation.state">{{ feishuValidation.message }}</small>
+        <button type="submit" class="primary" :disabled="creating || !newName.trim() || feishuValidation.state === 'checking' || feishuValidation.state === 'invalid'" data-testid="create-project">{{ creating ? '创建中…' : '+ 新建项目组' }}</button>
       </form>
     </header>
 

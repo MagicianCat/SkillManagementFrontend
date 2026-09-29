@@ -24,7 +24,8 @@ export const useProjectWorkspaceStore = defineStore('projectWorkspace', () => {
       const next = activeStage ?? data[0]
       selectedStageId.value = next?.id == null ? null : String(next.id)
     }
-    if (autoRefreshRunId && !activeStatuses.includes(run.status)) stopAutoRefresh()
+    const publicationPending = data.some((stage) => ['PENDING', 'RUNNING', 'RETRY_WAIT', 'RETRYING'].includes(String(stage.feishuPublication?.status ?? '')))
+    if (autoRefreshRunId && !activeStatuses.includes(run.status) && !publicationPending) stopAutoRefresh()
   }
   async function load(runId: string) { loading.value = true; error.value = ''; try { applySnapshot(await getWorkflowRun(runId)) } catch (cause) { error.value = cause instanceof Error ? cause.message : '工作台加载失败' } finally { loading.value = false } }
   async function refresh() {
@@ -38,7 +39,7 @@ export const useProjectWorkspaceStore = defineStore('projectWorkspace', () => {
   function stopAutoRefresh() { if (refreshTimer) clearTimeout(refreshTimer); if (pollTimer) clearInterval(pollTimer); if (visibilityHandler && typeof document !== 'undefined') document.removeEventListener('visibilitychange', visibilityHandler); refreshTimer = undefined; pollTimer = undefined; visibilityHandler = undefined; autoRefreshRunId = '' }
   function startAutoRefresh(runId: string) {
     stopAutoRefresh(); autoRefreshRunId = runId
-    const tick = () => { if (autoRefreshRunId !== runId || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return; if (workflowRun.value && activeStatuses.includes(workflowRun.value.status)) void refresh() }
+    const tick = () => { if (autoRefreshRunId !== runId || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return; const publicationPending = stages.value.some((stage) => ['PENDING', 'RUNNING', 'RETRY_WAIT', 'RETRYING'].includes(String(stage.feishuPublication?.status ?? ''))); if (workflowRun.value && (activeStatuses.includes(workflowRun.value.status) || publicationPending)) void refresh() }
     pollTimer = setInterval(tick, 2000)
     if (typeof document !== 'undefined') { visibilityHandler = tick; document.addEventListener('visibilitychange', tick); scheduleRefresh(0) }
   }

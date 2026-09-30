@@ -175,12 +175,6 @@ async function externalStageCompleted(){ await workspace.load(String(workspace.w
 
 <template>
   <main class="workbench">
-    <div class="configuration-entry">
-      <RouterLink class="setup-link" :to="{ name: 'project-agent-setup', params: { projectKey } }">
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8 10 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>项目 Agent 配置与飞书发布目录</span>
-      </RouterLink>
-    </div>
     <WorkbenchHeader
       :run-id="String(workspace.workflowRun?.id || runId)"
       :status="workspace.workflowRun?.status || ''"
@@ -192,7 +186,14 @@ async function externalStageCompleted(){ await workspace.load(String(workspace.w
       @pause="intervention('PAUSE', undefined, interventionTarget)"
       @resume="intervention('RESUME', undefined, interventionTarget)"
       @accept="scrollToAcceptance"
-    />
+    >
+      <template #leading>
+        <RouterLink class="setup-link" :to="{ name: 'project-agent-setup', params: { projectKey } }">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8 10 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>项目 Agent 配置与飞书发布目录</span>
+        </RouterLink>
+      </template>
+    </WorkbenchHeader>
     <p v-if="workspace.error" class="error-banner">{{ workspace.error }}</p>
 
     <section v-if="!runId && resolvingRun" class="empty-state panel">
@@ -290,8 +291,7 @@ async function externalStageCompleted(){ await workspace.load(String(workspace.w
 .muted { color: var(--text-3); }
 .error-banner { margin: 0; padding: 10px 14px; border: 1px solid rgb(248 113 113 / 40%); border-radius: var(--radius-sm); background: var(--error-soft); color: var(--error); font-size: 13px; }
 .readonly-banner { margin: 0; padding: 10px 14px; border: 1px solid rgb(96 165 250 / 40%); border-radius: var(--radius-sm); background: var(--info-soft); color: var(--info); font-size: 13px; }
-/* 工作流 → 配置页：与配置页「返回工作流」按钮同源的描边辉光样式 */
-.configuration-entry { display: flex; justify-content: flex-end; }
+/* 工作流 → 配置页：嵌入页头操作区，与配置页「返回工作流」按钮同源的描边辉光样式 */
 .setup-link { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border: 1px solid var(--border-accent); border-radius: var(--radius-sm); background: var(--accent-softer); color: var(--accent-300); font-size: 13px; font-weight: 600; text-decoration: none; transition: border-color var(--duration-fast), box-shadow var(--duration-fast), background var(--duration-fast), color var(--duration-fast); }
 .setup-link svg { width: 13px; height: 13px; transition: transform var(--duration-fast) var(--ease-out); }
 .setup-link:hover { border-color: var(--accent-400); background: var(--accent-soft); color: var(--accent-200); box-shadow: 0 0 16px var(--accent-glow), var(--shadow-accent); }

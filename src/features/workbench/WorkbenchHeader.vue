@@ -28,6 +28,7 @@ const liveText = computed(() => (props.connected ? '实时连接中' : props.rec
       </div>
     </div>
     <div class="actions">
+      <slot name="leading" />
       <span class="live mono" :class="{ online: connected }">{{ liveText }}</span>
       <button v-if="running" type="button" class="btn" :disabled="readonly" @click="emit('pause')">暂停</button>
       <button v-else type="button" class="btn" :disabled="readonly" @click="emit('resume')">继续</button>

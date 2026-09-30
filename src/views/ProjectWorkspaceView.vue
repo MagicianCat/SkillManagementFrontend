@@ -11,6 +11,7 @@ import InterventionPanel from '../features/workbench/InterventionPanel.vue'
 import AcceptancePanel from '../features/workbench/AcceptancePanel.vue'
 import CollapsiblePanel from '../features/workbench/CollapsiblePanel.vue'
 import StatsBar from '../features/workbench/StatsBar.vue'
+import GitWatchPanel from '../features/workbench/GitWatchPanel.vue'
 import { useProjectWorkspaceStore } from '../stores/projectWorkspace'
 import { useRuntimeEventStore } from '../stores/runtimeEvent'
 import type { InterventionTarget, InterventionType } from '../types/workflow'
@@ -53,6 +54,7 @@ async function start() {
 }
 
 const selectedStage = computed(() => workspace.currentStage)
+const gitWatchStage = computed(() => selectedStage.value?.executionMode === 'GIT_WATCH')
 const parallelStages = computed(() => workspace.parallelDesignStages)
 /** 仅当设计分支之一被选中、或正处于设计验收等待时才显示并行切换条；
  *  查看历史/后续阶段（含两个分支全部完成的终态浏览）不常驻。 */
@@ -168,6 +170,7 @@ async function acceptance(decision: 'ACCEPT' | 'REWORK', comment: string) {
   } finally { accepting.value = false }
 }
 function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }) }
+async function externalStageCompleted(){ await workspace.load(String(workspace.workflowRun?.id || runId.value)) }
 </script>
 
 <template>
@@ -233,7 +236,9 @@ function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ beh
       </nav>
 
       <!-- 当前阶段（含 Agent 顺序+回环） ‖ 人员介入 并排。 -->
-      <div class="stage-row">
+      <GitWatchPanel v-if="gitWatchStage && selectedStage?.id" :run-id="String(workspace.workflowRun?.id || runId)" :stage-run-id="String(selectedStage.id)" :readonly="runReadonly || selectedStage.status === 'COMPLETED'" :event-sequence="runtime.events.length" @completed="externalStageCompleted" />
+
+      <div v-else class="stage-row">
         <CurrentStagePanel :stage="workspace.currentStage" :review-cycle="workspace.reviewCycle" :latest-revision="workspace.latestRevision?.revision ?? null" />
         <InterventionPanel
           :running="selectedStageInteractive && ['RUNNING', 'PROVISIONING'].includes(String(selectedStage?.status))"
@@ -249,12 +254,12 @@ function scrollToAcceptance() { acceptanceRef.value?.$el?.scrollIntoView?.({ beh
       </div>
 
       <!-- 文档产物：默认折叠，需要时展开。飞书发布状态与产物同区展示。 -->
-      <CollapsiblePanel title="文档产物 / 文档修订" :badge="artifactBadge" :summary="artifactSummary">
+      <CollapsiblePanel v-if="!gitWatchStage" title="文档产物 / 文档修订" :badge="artifactBadge" :summary="artifactSummary">
         <ArtifactPanel ref="artifactRef" :stage="workspace.currentStage" :project-key="String(route.params.projectId || '')" :owner-can-retry="ownerCanRetry" @retry-publication="retryPublication" />
       </CollapsiblePanel>
 
       <!-- Agent 执行轨迹：默认折叠，需要时展开。 -->
-      <CollapsiblePanel title="Agent 执行轨迹" :badge="timelineLive ? '实时' : ''" :badge-on="timelineLive" :summary="timelineSummary">
+      <CollapsiblePanel v-if="!gitWatchStage" title="Agent 执行轨迹" :badge="timelineLive ? '实时' : ''" :badge-on="timelineLive" :summary="timelineSummary">
         <ExecutionTimeline ref="timelineRef" :events="runtime.events" />
       </CollapsiblePanel>
 

@@ -7,18 +7,27 @@ import { getWikiDocuments } from '../api/wiki.api'
 import { searchDocumentAgentFeishu } from '../api/document-agent.api'
 import { getSkills, getSkillCategories } from '../api/skills.api'
 import { MessagePlugin } from 'tdesign-vue-next'
-import { Button as TButton, Tag as TTag, Select as TSelect, Input as TInput, InputNumber as TInputNumber, Textarea as TTextarea, RadioGroup as TRadioGroup, RadioButton as TRadioButton, Collapse as TCollapse, CollapsePanel as TCollapsePanel, Pagination as TPagination, DialogPlugin } from 'tdesign-vue-next'
-import { LockOnIcon, InfoCircleFilledIcon, EditIcon, ChevronRightIcon, AddIcon, CloudUploadIcon, SearchIcon, CodeIcon, FileIcon, SecuredIcon } from 'tdesign-icons-vue-next'
+import { Button as TButton, Tag as TTag, Select as TSelect, Input as TInput, InputNumber as TInputNumber, Textarea as TTextarea, RadioGroup as TRadioGroup, RadioButton as TRadioButton, Collapse as TCollapse, CollapsePanel as TCollapsePanel, Pagination as TPagination, CheckboxGroup as TCheckboxGroup, Checkbox as TCheckbox, DialogPlugin } from 'tdesign-vue-next'
+import { LockOnIcon, InfoCircleFilledIcon, EditIcon, ChevronRightIcon, AddIcon, CloudUploadIcon, SearchIcon, CodeIcon, FileIcon, SecuredIcon, GitBranchIcon } from 'tdesign-icons-vue-next'
 import type { SkillCategory, SkillView } from '../types/skill'
 import type { AgentLibraryProfile, AgentTeamBinding, AgentTeamPreset, ProjectAgentContext, ProjectAgentContexts, ProjectAgentNodeDraft } from '../types/agent-library'
 import { useProjectSetupStore } from '../stores/projectSetup'
 import { getFeishuPublishTarget, updateFeishuPublishTarget, validateFeishuPublishTarget, type FeishuPublishTarget } from '../api/projects.api'
+import { appendProjectGitRepository, getProjectGitRepositories, resolveGitRepository, saveProjectGitRepositories, type GitRepositoryResolution, type ProjectGitRepository, type ProjectGitRepositoryInput } from '../api/git.api'
 
 const route = useRoute(); const router = useRouter(); const setup = useProjectSetupStore(); const projectKey = String(route.params.projectKey)
 const profiles = ref<AgentLibraryProfile[]>([]); const presets = ref<AgentTeamPreset[]>([]); const source = ref<'SYSTEM_PRESET'|'PROJECT_COPY'|'CUSTOM'>('SYSTEM_PRESET'); const selectedPreset = ref<string|number>(''); const sourceProjectKey = ref(''); const selectedDraft = ref<ProjectAgentNodeDraft|null>(null); const contexts = ref<ProjectAgentContexts>({ platformWiki: [], feishu: [] }); const initialRequest = ref(''); const wikiQuery = ref(''); const feishuQuery = ref(''); const contextTab = ref<'PLATFORM_WIKI'|'FEISHU'>('PLATFORM_WIKI'); const message = ref(''); const busy = ref(false); const saving = ref(false); const validating = ref(false); const resolvingEntry = ref(true); const feishuResolving = ref(false); const skillQuery = ref(''); const skillResults = ref<SkillView[]>([]); const skillSearching = ref(false)
 const workflowStarted = ref(false)
 const currentRunId = ref<string|number|null>(null)
 const persistedContextKeys = ref(new Set<string>())
+/* ===== 05 代码仓库：识别 → 选分支与绑定阶段 → 追加/保存 ===== */
+const repositories = ref<ProjectGitRepository[]>([])
+const repoUrl = ref(''); const repoResolving = ref(false); const repoResolution = ref<GitRepositoryResolution | null>(null); const repoBranch = ref(''); const repoStages = ref<string[]>(['BACKEND_CODING']); const repoSaving = ref(false); const repoError = ref('')
+const REPO_STAGE_OPTIONS = [{ label: '后端编码', value: 'BACKEND_CODING' }, { label: '前端编码', value: 'FRONTEND_CODING' }]
+function repoStageLabel(key: string) { return REPO_STAGE_OPTIONS.find(o => o.value === key)?.label ?? key }
+async function resolveRepo() { const url = repoUrl.value.trim(); if (!url || repoResolving.value) return; repoResolving.value = true; repoError.value = ''; try { repoResolution.value = await resolveGitRepository(projectKey, url); repoBranch.value = repoResolution.value.defaultBranch || '' } catch (e) { repoResolution.value = null; repoError.value = apiErrorMessage(e, '仓库识别失败，请检查 URL 是否可访问') } finally { repoResolving.value = false } }
+const repoHeadShort = computed(() => repoResolution.value?.headCommit?.slice(0, 8) || '')
+const repoBranchOptions = computed(() => (repoResolution.value?.branches ?? []).map(name => ({ label: name, value: name })))
 /** 阶段折叠面板 value：展开的 stageKey 数组，默认只展开第一个（需求）阶段。（#2） */
 const activeStages = ref<string[]>([])
 /** Skill 二级细分类（skill.category.parentId != null 为二级），用于按当前阶段预筛。 */
@@ -112,7 +121,7 @@ function contextLocked(item: ProjectAgentContext) { return workflowStarted.value
 function rememberPersisted(value: ProjectAgentContexts) { persistedContextKeys.value = new Set([...value.platformWiki, ...value.feishu].map(contextKey)) }
 const pendingContexts = computed<ProjectAgentContexts>(() => ({ platformWiki: contexts.value.platformWiki.filter(item => !persistedContextKeys.value.has(contextKey(item))), feishu: contexts.value.feishu.filter(item => !persistedContextKeys.value.has(contextKey(item))) }))
 const pendingContextCount = computed(() => pendingContexts.value.platformWiki.length + pendingContexts.value.feishu.length)
-async function loadAll() { await Promise.allSettled([setup.load(projectKey), setup.loadReusable(projectKey), listAgentLibrary().then(v => profiles.value = v), listTeamPresets().then(v => { presets.value = v; selectedPreset.value = v.find(x => x.isDefault)?.versionId ?? v[0]?.versionId ?? '' }), getProjectAgentContexts(projectKey).then(v => { contexts.value = v; rememberPersisted(v) }), getFeishuPublishTarget(projectKey).then(v => { feishuTarget.value = v; feishuTargetUrl.value = v.url || '' }), getSkillCategories().then(v => skillCategories.value = (v ?? []).filter(c => c.parentId != null && c.selectable !== false)).catch(() => {}), getCurrentWorkflowRun(projectKey).then(run => { workflowStarted.value = true; currentRunId.value = run?.id ?? null }).catch(() => { workflowStarted.value = false })]); if (!activeStages.value.length) activeStages.value = groupedNodes.value.slice(0, 1).map(group => group.key); const firstNode = setup.configuration?.nodes?.[0]; if (firstNode) { setup.selectedNodeKey = `${firstNode.stageKey}/${firstNode.nodeKey}`; await loadNode() } }
+async function loadAll() { await Promise.allSettled([setup.load(projectKey), setup.loadReusable(projectKey), listAgentLibrary().then(v => profiles.value = v), listTeamPresets().then(v => { presets.value = v; selectedPreset.value = v.find(x => x.isDefault)?.versionId ?? v[0]?.versionId ?? '' }), getProjectAgentContexts(projectKey).then(v => { contexts.value = v; rememberPersisted(v) }), getProjectGitRepositories(projectKey).then(v => repositories.value = v), getFeishuPublishTarget(projectKey).then(v => { feishuTarget.value = v; feishuTargetUrl.value = v.url || '' }), getSkillCategories().then(v => skillCategories.value = (v ?? []).filter(c => c.parentId != null && c.selectable !== false)).catch(() => {}), getCurrentWorkflowRun(projectKey).then(run => { workflowStarted.value = true; currentRunId.value = run?.id ?? null }).catch(() => { workflowStarted.value = false })]); if (!activeStages.value.length) activeStages.value = groupedNodes.value.slice(0, 1).map(group => group.key); const firstNode = setup.configuration?.nodes?.[0]; if (firstNode) { setup.selectedNodeKey = `${firstNode.stageKey}/${firstNode.nodeKey}`; await loadNode() } }
 async function resolveEntry() { try { await loadAll() } catch (error) { message.value = (error as any)?.response?.data?.message || '项目配置加载失败，请稍后重试' } finally { resolvingEntry.value = false } }
 onMounted(resolveEntry)
 function goWorkspace() { router.push({ name: 'project-workspace', params: { projectId: projectKey, ...(currentRunId.value ? { runId: String(currentRunId.value) } : {}) } }) }
@@ -130,6 +139,9 @@ function apiErrorMessage(error: any, fallback: string) { return error?.response?
 async function searchContext() { if (feishuResolving.value) return; try { if (contextTab.value === 'PLATFORM_WIKI') { const page = await getWikiDocuments({ keyword: wikiQuery.value.trim() || undefined, page: 0, size: 10 }); wikiResults.value = page.items.filter(x => x.platformVisible && x.active).map(x => ({ kind: 'PLATFORM_WIKI', id: x.id, title: x.title, revisionNo: x.revisionNo })) } else { const query = feishuQuery.value.trim(); const documentUrl = /^https:\/\/[A-Za-z0-9.-]+\.feishu\.cn\/(?:wiki|docx|docs)\/[A-Za-z0-9_-]+(?:[?#].*)?$/i.test(query); if (documentUrl) { feishuResolving.value = true; const resolved = await resolveProjectFeishuWiki(projectKey, query); if (resolved.readable === false) throw new Error(resolved.message || '暂不支持该类型文件'); const item = { kind: 'FEISHU' as const, id: resolved.nodeToken || resolved.docId, title: resolved.title || resolved.nodeToken || resolved.docId, docType: resolved.docType, url: resolved.sourceUrl || query, readable: true }; feishuResults.value = [item, ...feishuResults.value.filter(x => String(x.id) !== String(item.id))]; addContext(item); MessagePlugin.success('飞书文档解析成功，已加入启动上下文'); return } const raw = await searchDocumentAgentFeishu(query); const data = Array.isArray(raw) ? raw : (raw as any).result ?? raw; const items = (data as any).files ?? (data as any).items ?? (data as any).docs ?? []; feishuResults.value = items.filter((x: any) => x.readable !== false).map((x: any) => ({ kind: 'FEISHU', id: x.docId, title: x.title || x.docId, docType: x.docType, url: x.open_url })) } } catch (e) { const text = apiErrorMessage(e, '上下文搜索失败'); message.value = text; MessagePlugin.error(text) } finally { feishuResolving.value = false } }
 function addContext(item: ProjectAgentContext) { const key = item.kind === 'PLATFORM_WIKI' ? 'platformWiki' : 'feishu'; const index = contexts.value[key].findIndex(x => contextKey(x) === contextKey(item)); if (index >= 0) { if (!contextLocked(contexts.value[key][index])) contexts.value[key] = contexts.value[key].map((value, current) => current === index ? item : value); return } if (contexts.value[key].length >= 10) return; contexts.value[key] = [...contexts.value[key], item] }
 async function saveFeishuTarget() { const url = feishuTargetUrl.value.trim(); if (!url || feishuTargetBusy.value) return; feishuTargetBusy.value = true; feishuTargetMessage.value = ''; try { await validateFeishuPublishTarget(url); feishuTarget.value = await updateFeishuPublishTarget(projectKey, url); feishuTargetUrl.value = feishuTarget.value.url || url; feishuTargetMessage.value = '飞书发布目录已校验并保存' } catch (e) { feishuTargetMessage.value = apiErrorMessage(e, '飞书发布目录校验失败') } finally { feishuTargetBusy.value = false } }
+function repositoryInputs(extra?: ProjectGitRepositoryInput) { const current = repositories.value.map(item => ({ url: item.remoteUrl, displayName: item.displayName, branch: item.trackedBranch, stageKeys: item.stageKeys })); return extra ? [...current, extra] : current }
+async function addGitRepository() { if (!repoResolution.value || !repoBranch.value || !repoStages.value.length || repoSaving.value) return; repoSaving.value = true; repoError.value = ''; const input = { url: repoUrl.value.trim(), branch: repoBranch.value, stageKeys: [...repoStages.value] }; try { repositories.value = workflowStarted.value ? await appendProjectGitRepository(projectKey, input) : await saveProjectGitRepositories(projectKey, repositoryInputs(input)); repoUrl.value = ''; repoResolution.value = null; repoBranch.value = ''; repoStages.value = []; MessagePlugin.success(workflowStarted.value ? '代码仓库已追加并对运行中的编码阶段生效' : '代码仓库已保存') } catch (e) { repoError.value = apiErrorMessage(e, '代码仓库保存失败') } finally { repoSaving.value = false } }
+async function removeGitRepository(id: number) { if (workflowStarted.value || repoSaving.value) return; repoSaving.value = true; repoError.value = ''; try { repositories.value = await saveProjectGitRepositories(projectKey, repositories.value.filter(item => item.id !== id).map(item => ({ url: item.remoteUrl, displayName: item.displayName, branch: item.trackedBranch, stageKeys: item.stageKeys }))); MessagePlugin.success('代码仓库已移除') } catch (e) { repoError.value = apiErrorMessage(e, '代码仓库移除失败') } finally { repoSaving.value = false } }
 </script>
 <template>
   <main v-if="resolvingEntry" class="setup-workbench"><section class="panel muted">正在检查项目工作流…</section></main>
@@ -254,8 +266,38 @@ async function saveFeishuTarget() { const url = feishuTargetUrl.value.trim(); if
       <div class="selected"><span v-for="item in contexts[contextTab==='PLATFORM_WIKI'?'platformWiki':'feishu']" :key="contextKey(item)" class="tag" :class="{ locked: contextLocked(item) }">{{ item.title }} <small v-if="contextLocked(item)">已锁定</small><button v-else type="button" @click="remove(contextTab==='PLATFORM_WIKI'?'platformWiki':'feishu',item)">×</button></span><p v-if="!contexts[contextTab==='PLATFORM_WIKI'?'platformWiki':'feishu'].length" class="muted">尚未选择资料</p></div>
     </section>
 
+    <section class="git-repositories panel" data-testid="project-git-repositories">
+      <div class="section-head"><div><span class="step">05</span><h2>代码仓库</h2><p class="muted">只读监听远端分支提交；{{ workflowStarted ? '已有仓库已锁定，仍可追加新仓库或新分支。' : '启动前可新增、移除和调整绑定。' }}</p></div><TTag theme="primary" variant="light">{{ repositories.length }} Repositories</TTag></div>
+      <div v-if="repositories.length" class="repo-list">
+        <article v-for="repo in repositories" :key="repo.id" class="repo-card">
+          <div class="repo-icon"><GitBranchIcon /></div>
+          <div class="repo-body">
+            <header><strong>{{ repo.displayName }}</strong><TTag size="small" theme="success" variant="light">已同步</TTag></header>
+            <p class="mono">{{ repo.normalizedUrl }}</p>
+            <footer><span class="repo-branch mono">{{ repo.trackedBranch }}</span><i>·</i><span>{{ repo.stageKeys.map(repoStageLabel).join(' / ') }}</span></footer>
+          </div>
+          <span v-if="workflowStarted" class="locked-chip repo-lock"><LockOnIcon />已锁定</span>
+          <TButton v-else theme="danger" variant="text" :disabled="repoSaving" @click="removeGitRepository(repo.id)">移除</TButton>
+        </article>
+      </div>
+      <div class="repo-resolve">
+        <TInput v-model="repoUrl" placeholder="https://github.com/owner/repository" clearable @enter="resolveRepo"><template #prefixIcon><CodeIcon /></template></TInput>
+        <TButton variant="outline" :loading="repoResolving" :disabled="!repoUrl.trim()" @click="resolveRepo">识别仓库</TButton>
+      </div>
+      <div v-if="repoResolution" class="repo-config">
+        <p class="repo-meta">默认分支: <b class="mono accent">{{ repoResolution.defaultBranch || '远端未声明' }}</b>　当前 HEAD: <b class="mono">{{ repoHeadShort || '—' }}</b></p>
+        <div class="repo-config-row">
+          <TSelect v-model="repoBranch" :options="repoBranchOptions" placeholder="选择跟踪分支" filterable class="repo-branch-select" />
+          <TCheckboxGroup v-model="repoStages" class="repo-stage-checks"><TCheckbox v-for="opt in REPO_STAGE_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</TCheckbox></TCheckboxGroup>
+          <TButton theme="primary" :disabled="!repoBranch || !repoStages.length || repoSaving" :loading="repoSaving" @click="addGitRepository">{{ workflowStarted ? '追加到项目' : '加入项目' }}</TButton>
+        </div>
+        <p class="hint">仓库可访问，请选择跟踪分支和应用阶段</p>
+      </div>
+      <p v-if="repoError" class="hint error-text">{{ repoError }}</p>
+    </section>
+
     <section class="footer panel">
-      <div><span class="step">05</span><h2>{{ workflowStarted ? '配置已锁定' : '校验并启动' }}</h2><p class="muted">{{ workflowStarted ? '工作流已经启动，Agent 配置不可修改；可在上方继续追加上下文。' : '确认后项目 Agent 草稿冻结；启动时生成上下文快照。' }}</p></div>
+      <div><span class="step">06</span><h2>{{ workflowStarted ? '配置已锁定' : '校验并启动' }}</h2><p class="muted">{{ workflowStarted ? '工作流已经启动，Agent 配置不可修改；可在上方继续追加上下文和代码仓库。' : '确认后项目 Agent 草稿冻结；启动时生成上下文和仓库快照。' }}</p></div>
       <template v-if="!workflowStarted">
         <div class="actions"><TButton variant="outline" :disabled="validating" :loading="validating" @click="validate">{{ validating ? '校验中…' : '校验配置' }}</TButton><TButton v-if="setup.configuration?.status==='READY'" theme="primary" :disabled="!initialRequest.trim()" @click="start">启动 Workflow</TButton><TButton v-else theme="primary" @click="confirm">确认配置</TButton></div>
         <div v-if="setup.validation" class="validation-result" :class="{valid: setup.validation.valid, invalid: !setup.validation.valid}" data-testid="config-validation-result"><strong>{{ setup.validation.valid ? '配置校验通过' : '配置校验未通过' }}</strong><div class="checks"><span v-for="check in setup.validation.checks || []" :key="check.label" :class="{passed: check.passed}">{{ check.passed ? '✓' : '!' }} {{ check.label }}</span></div><ul v-if="setup.validation.issues.length"><li v-for="issue in setup.validation.issues" :key="issue">{{ issue }}</li></ul><p v-else class="muted">所有配置检查均已通过。</p></div>
@@ -356,7 +398,27 @@ h2,h3{margin:4px 0}
 .result-footer :deep(.t-pagination__number){border-color:var(--border-1);background:var(--surface-2);color:var(--text-2)}
 .result-footer :deep(.t-pagination__number.t-is-current){border-color:var(--accent-500);background:var(--accent-softer);color:var(--accent-300)}
 .skill-head-meta{display:inline-flex;align-items:center;gap:12px;margin-left:auto}
-/* ===== 04 启动上下文 ===== */
+/* ===== 05 代码仓库 ===== */
+.repo-list{display:grid;gap:10px;margin-bottom:14px}
+.repo-card{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:1px solid var(--border-1);border-radius:var(--radius-md);background:var(--surface-2)}
+.repo-icon{flex:none;width:36px;height:36px;display:grid;place-items:center;border-radius:var(--radius-sm);background:var(--accent-softer);color:var(--accent-400);font-size:18px}
+.repo-body{flex:1;min-width:0;display:grid;gap:5px}
+.repo-body header{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.repo-body strong{color:var(--text-1);font-size:14px}
+.repo-body p{margin:0;color:var(--text-2);font-size:12px}
+.repo-body footer{display:flex;align-items:center;gap:8px;color:var(--text-3);font-size:12px}
+.repo-body footer i{font-style:normal;opacity:.5}
+.repo-branch{color:var(--text-2)}
+.repo-lock{flex:none}
+.repo-resolve{display:flex;gap:10px;margin-bottom:12px}
+.repo-resolve .t-input{flex:1}
+.repo-config{display:grid;gap:10px;padding:14px 16px;border:1px dashed var(--border-2);border-radius:var(--radius-md);background:var(--surface-1)}
+.repo-meta{margin:0;color:var(--text-2);font-size:13px}
+.repo-meta .accent{color:var(--accent-300)}
+.repo-config-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.repo-branch-select{min-width:240px}
+.repo-stage-checks{display:inline-flex;gap:16px}
+.error-text{color:var(--error)}
 .context-tabs{margin:14px 0}
 .context-tabs b{font-family:var(--font-mono);font-weight:600}
 .context-search{justify-content:flex-start}

@@ -14,6 +14,7 @@ export async function acceptWorkflowStage(runId: string, stageRunId: string, dec
   const { data } = await http.post(`/workflow-runs/${encodeURIComponent(runId)}/stages/${encodeURIComponent(stageRunId)}/acceptance`, { decision, comment })
   return data
 }
+export async function completeExternalWorkflowStage(runId: string, stageRunId: string, comment?: string) { const { data } = await http.post<WorkflowRun>(`/workflow-runs/${encodeURIComponent(runId)}/stages/${encodeURIComponent(stageRunId)}:complete`, { comment }); return data }
 
 export function workflowEventsUrl(runId: string) { return `/workflow-runs/${encodeURIComponent(runId)}/events` }
 export type { WorkflowEvent }

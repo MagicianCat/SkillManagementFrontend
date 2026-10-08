@@ -64,7 +64,7 @@ const navEntries = computed<NavEntry[]>(() => [
       hasPermission(authStore.user?.permissions, 'wiki:review'),
   },
   {
-    label: 'Agent 审计',
+    label: 'Agent 运行与审计',
     routeName: 'agent-mcp-audits',
     icon: 'review',
     visible: hasPermission(authStore.user?.permissions, 'admin:audit'),

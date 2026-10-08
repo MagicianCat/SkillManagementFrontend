@@ -11,8 +11,10 @@ export type NotificationType =
   | 'DIRECTORY_SYNC_FAILED'
   | 'FEISHU_PUBLICATION_SUCCEEDED'
   | 'FEISHU_PUBLICATION_FAILED'
+  | 'CODE_GRAPH_READY'
+  | 'CODE_GRAPH_FAILED'
 
-export type NotificationTargetType = 'REVIEW' | 'WIKI_REVIEW' | 'WIKI_DOCUMENT' | 'SKILL_VERSION' | 'BUILD_TASK' | 'FEISHU_DIRECTORY' | 'WORKFLOW_STAGE'
+export type NotificationTargetType = 'REVIEW' | 'WIKI_REVIEW' | 'WIKI_DOCUMENT' | 'SKILL_VERSION' | 'BUILD_TASK' | 'FEISHU_DIRECTORY' | 'WORKFLOW_STAGE' | 'CODE_GRAPH'
 
 export interface NotificationView {
   id: number
@@ -25,7 +27,7 @@ export interface NotificationView {
   versionId: number | null
   readAt: string | null
   createdAt: string
-  targetData?: { projectKey?: string; runId?: string | number; stageRunId?: string | number; publishTaskId?: string | number; documentUrl?: string | null } | string | null
+  targetData?: { projectKey?: string; runId?: string | number; stageRunId?: string | number; codeGraphJobId?: string | number; publishTaskId?: string | number; documentUrl?: string | null } | string | null
 }
 
 export function notificationContent(

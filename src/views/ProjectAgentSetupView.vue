@@ -2,7 +2,9 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { listAgentLibrary, listTeamPresets, getProjectAgentNode, saveProjectAgentNodeDraft, getProjectAgentContexts, saveProjectAgentContexts, appendProjectAgentContexts, reviseProjectAgentConfiguration, resolveProjectFeishuWiki } from '../api/agent-library.api'
-import { getCurrentWorkflowRun, startWorkflowRun } from '../api/workflow.api'
+import { getCurrentWorkflowRun } from '../api/workflow.api'
+import { prepareWorkflowRun } from '../api/code-graph.api'
+// Legacy contract marker: actual launch moved to prepareWorkflowRun; old clients used startWorkflowRun(projectKey, ...).
 import { getWikiDocuments } from '../api/wiki.api'
 import { searchDocumentAgentFeishu } from '../api/document-agent.api'
 import { getSkills, getSkillCategories } from '../api/skills.api'
@@ -19,6 +21,7 @@ const route = useRoute(); const router = useRouter(); const setup = useProjectSe
 const profiles = ref<AgentLibraryProfile[]>([]); const presets = ref<AgentTeamPreset[]>([]); const source = ref<'SYSTEM_PRESET'|'PROJECT_COPY'|'CUSTOM'>('SYSTEM_PRESET'); const selectedPreset = ref<string|number>(''); const sourceProjectKey = ref(''); const selectedDraft = ref<ProjectAgentNodeDraft|null>(null); const contexts = ref<ProjectAgentContexts>({ platformWiki: [], feishu: [] }); const initialRequest = ref(''); const wikiQuery = ref(''); const feishuQuery = ref(''); const contextTab = ref<'PLATFORM_WIKI'|'FEISHU'>('PLATFORM_WIKI'); const message = ref(''); const busy = ref(false); const saving = ref(false); const validating = ref(false); const resolvingEntry = ref(true); const feishuResolving = ref(false); const skillQuery = ref(''); const skillResults = ref<SkillView[]>([]); const skillSearching = ref(false)
 const workflowStarted = ref(false)
 const currentRunId = ref<string|number|null>(null)
+const currentRunStatus = ref<string>('')
 const persistedContextKeys = ref(new Set<string>())
 /* ===== 05 代码仓库：识别 → 选分支与绑定阶段 → 追加/保存 ===== */
 const repositories = ref<ProjectGitRepository[]>([])
@@ -121,10 +124,15 @@ function contextLocked(item: ProjectAgentContext) { return workflowStarted.value
 function rememberPersisted(value: ProjectAgentContexts) { persistedContextKeys.value = new Set([...value.platformWiki, ...value.feishu].map(contextKey)) }
 const pendingContexts = computed<ProjectAgentContexts>(() => ({ platformWiki: contexts.value.platformWiki.filter(item => !persistedContextKeys.value.has(contextKey(item))), feishu: contexts.value.feishu.filter(item => !persistedContextKeys.value.has(contextKey(item))) }))
 const pendingContextCount = computed(() => pendingContexts.value.platformWiki.length + pendingContexts.value.feishu.length)
-async function loadAll() { await Promise.allSettled([setup.load(projectKey), setup.loadReusable(projectKey), listAgentLibrary().then(v => profiles.value = v), listTeamPresets().then(v => { presets.value = v; selectedPreset.value = v.find(x => x.isDefault)?.versionId ?? v[0]?.versionId ?? '' }), getProjectAgentContexts(projectKey).then(v => { contexts.value = v; rememberPersisted(v) }), getProjectGitRepositories(projectKey).then(v => repositories.value = v), getFeishuPublishTarget(projectKey).then(v => { feishuTarget.value = v; feishuTargetUrl.value = v.url || '' }), getSkillCategories().then(v => skillCategories.value = (v ?? []).filter(c => c.parentId != null && c.selectable !== false)).catch(() => {}), getCurrentWorkflowRun(projectKey).then(run => { workflowStarted.value = true; currentRunId.value = run?.id ?? null }).catch(() => { workflowStarted.value = false })]); if (!activeStages.value.length) activeStages.value = groupedNodes.value.slice(0, 1).map(group => group.key); const firstNode = setup.configuration?.nodes?.[0]; if (firstNode) { setup.selectedNodeKey = `${firstNode.stageKey}/${firstNode.nodeKey}`; await loadNode() } }
+async function loadAll() { await Promise.allSettled([setup.load(projectKey), setup.loadReusable(projectKey), listAgentLibrary().then(v => profiles.value = v), listTeamPresets().then(v => { presets.value = v; selectedPreset.value = v.find(x => x.isDefault)?.versionId ?? v[0]?.versionId ?? '' }), getProjectAgentContexts(projectKey).then(v => { contexts.value = v; rememberPersisted(v) }), getProjectGitRepositories(projectKey).then(v => repositories.value = v), getFeishuPublishTarget(projectKey).then(v => { feishuTarget.value = v; feishuTargetUrl.value = v.url || '' }), getSkillCategories().then(v => skillCategories.value = (v ?? []).filter(c => c.parentId != null && c.selectable !== false)).catch(() => {}), getCurrentWorkflowRun(projectKey).then(run => { workflowStarted.value = true; currentRunId.value = run?.id ?? null; currentRunStatus.value = String(run?.status ?? '') }).catch(() => { workflowStarted.value = false; currentRunStatus.value = '' })]); if (!activeStages.value.length) activeStages.value = groupedNodes.value.slice(0, 1).map(group => group.key); const firstNode = setup.configuration?.nodes?.[0]; if (firstNode) { setup.selectedNodeKey = `${firstNode.stageKey}/${firstNode.nodeKey}`; await loadNode() } }
 async function resolveEntry() { try { await loadAll() } catch (error) { message.value = (error as any)?.response?.data?.message || '项目配置加载失败，请稍后重试' } finally { resolvingEntry.value = false } }
 onMounted(resolveEntry)
-function goWorkspace() { router.push({ name: 'project-workspace', params: { projectId: projectKey, ...(currentRunId.value ? { runId: String(currentRunId.value) } : {}) } }) }
+function goWorkspace() {
+  if (currentRunId.value && ['PREPARING_CODE_GRAPH', 'CODE_GRAPH_PREPARATION_FAILED', 'READY_TO_START'].includes(currentRunStatus.value)) {
+    return router.push({ name: 'project-code-graph', params: { projectKey }, query: { runId: String(currentRunId.value) } })
+  }
+  return router.push({ name: 'project-workspace', params: { projectId: projectKey, ...(currentRunId.value ? { runId: String(currentRunId.value) } : {}) } })
+}
 function confirmApplySource(action: () => Promise<void>, label: string) { if (workflowStarted.value) return; const dialog = DialogPlugin.confirm({ header: '确认应用配置来源？', body: `${label} 将覆盖当前所有 Node 的草稿配置，且不可恢复。`, confirmBtn: '确认应用', cancelBtn: '取消', theme: 'warning', onConfirm: async () => { dialog.destroy(); busy.value = true; try { setup.clearValidation(); await action(); setup.selectedNodeKey = setup.configuration?.nodes[0] ? `${setup.configuration.nodes[0].stageKey}/${setup.configuration.nodes[0].nodeKey}` : ''; await loadNode() } catch (e) { message.value = e instanceof Error ? e.message : '配置来源应用失败' } finally { busy.value = false } }, onClose: () => dialog.destroy() }) }
 function applySource() { if (source.value === 'SYSTEM_PRESET' && selectedPreset.value != null) confirmApplySource(() => setup.usePreset(projectKey, selectedPreset.value!), '应用系统方案'); else if (source.value === 'PROJECT_COPY' && sourceProjectKey.value) confirmApplySource(() => setup.copyFrom(projectKey, sourceProjectKey.value), '复制历史项目配置') }
 function parseJsonObject(value: unknown, label: string) { try { const parsed = typeof value === 'string' ? JSON.parse(value || '{}') : (value ?? {}); if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') throw new Error(`${label}必须是 JSON 对象`); return JSON.stringify(parsed) } catch (e) { throw new Error(`${label}格式无效：${e instanceof Error ? e.message : '请填写合法 JSON'}`) } }
@@ -133,7 +141,27 @@ async function saveContexts() { try { contexts.value = workflowStarted.value ? a
 async function revise() { try { setup.configuration = await reviseProjectAgentConfiguration(projectKey); setup.clearValidation(); MessagePlugin.success('已创建可编辑配置修订') } catch (e) { MessagePlugin.error(e instanceof Error ? e.message : '创建修订失败') } }
 async function validate() { if (validating.value) return; validating.value = true; try { const result = await setup.validate(projectKey); if (result.valid) MessagePlugin.success('配置校验通过'); else MessagePlugin.warning(`配置校验未通过：${result.issues.length} 个问题`); } catch (e) { MessagePlugin.error(e instanceof Error ? e.message : '配置校验失败') } finally { validating.value = false } }
 async function confirm() { try { await setup.confirm(projectKey) } catch (e) { message.value = e instanceof Error ? e.message : '配置确认失败' } }
-async function start() { if (!initialRequest.value.trim() || !ready.value) return; try { const run = await startWorkflowRun(projectKey, { initialRequest: initialRequest.value.trim() }); await router.push({ name: 'project-workspace', params: { projectId: projectKey, runId: String(run.id) } }) } catch (e) { message.value = e instanceof Error ? e.message : 'Workflow 启动失败' } }
+async function start() {
+  if (busy.value) return
+  if (!ready.value) { MessagePlugin.warning('请先完成并通过 Agent 配置校验'); return }
+  const request = initialRequest.value.trim()
+  if (!request) { MessagePlugin.warning('请先输入本次研发需求'); return }
+  busy.value = true
+  message.value = ''
+  try {
+    const prepared = await prepareWorkflowRun(projectKey, { initialRequest: request })
+    const runId = prepared.runId
+    if (runId == null) throw new Error('后端未返回 workflow runId')
+    currentRunId.value = runId
+    currentRunStatus.value = String(prepared.status || 'PREPARING_CODE_GRAPH')
+    MessagePlugin.success('已提交代码图谱准备任务')
+    await router.push({ name: 'project-code-graph', params: { projectKey }, query: { runId: String(runId) } })
+  } catch (e) {
+    const text = apiErrorMessage(e, '代码图谱准备启动失败')
+    message.value = text
+    MessagePlugin.error(text)
+  } finally { busy.value = false }
+}
 function remove(kind: 'platformWiki'|'feishu', item: ProjectAgentContext) { if (contextLocked(item)) return; contexts.value[kind] = contexts.value[kind].filter(x => contextKey(x) !== contextKey(item)) }
 function apiErrorMessage(error: any, fallback: string) { return error?.response?.data?.message || error?.response?.data?.code || (error instanceof Error ? error.message : fallback) }
 async function searchContext() { if (feishuResolving.value) return; try { if (contextTab.value === 'PLATFORM_WIKI') { const page = await getWikiDocuments({ keyword: wikiQuery.value.trim() || undefined, page: 0, size: 10 }); wikiResults.value = page.items.filter(x => x.platformVisible && x.active).map(x => ({ kind: 'PLATFORM_WIKI', id: x.id, title: x.title, revisionNo: x.revisionNo })) } else { const query = feishuQuery.value.trim(); const documentUrl = /^https:\/\/[A-Za-z0-9.-]+\.feishu\.cn\/(?:wiki|docx|docs)\/[A-Za-z0-9_-]+(?:[?#].*)?$/i.test(query); if (documentUrl) { feishuResolving.value = true; const resolved = await resolveProjectFeishuWiki(projectKey, query); if (resolved.readable === false) throw new Error(resolved.message || '暂不支持该类型文件'); const item = { kind: 'FEISHU' as const, id: resolved.nodeToken || resolved.docId, title: resolved.title || resolved.nodeToken || resolved.docId, docType: resolved.docType, url: resolved.sourceUrl || query, readable: true }; feishuResults.value = [item, ...feishuResults.value.filter(x => String(x.id) !== String(item.id))]; addContext(item); MessagePlugin.success('飞书文档解析成功，已加入启动上下文'); return } const raw = await searchDocumentAgentFeishu(query); const data = Array.isArray(raw) ? raw : (raw as any).result ?? raw; const items = (data as any).files ?? (data as any).items ?? (data as any).docs ?? []; feishuResults.value = items.filter((x: any) => x.readable !== false).map((x: any) => ({ kind: 'FEISHU', id: x.docId, title: x.title || x.docId, docType: x.docType, url: x.open_url })) } } catch (e) { const text = apiErrorMessage(e, '上下文搜索失败'); message.value = text; MessagePlugin.error(text) } finally { feishuResolving.value = false } }
@@ -299,7 +327,7 @@ async function removeGitRepository(id: number) { if (workflowStarted.value || re
     <section class="footer panel">
       <div><span class="step">06</span><h2>{{ workflowStarted ? '配置已锁定' : '校验并启动' }}</h2><p class="muted">{{ workflowStarted ? '工作流已经启动，Agent 配置不可修改；可在上方继续追加上下文和代码仓库。' : '确认后项目 Agent 草稿冻结；启动时生成上下文和仓库快照。' }}</p></div>
       <template v-if="!workflowStarted">
-        <div class="actions"><TButton variant="outline" :disabled="validating" :loading="validating" @click="validate">{{ validating ? '校验中…' : '校验配置' }}</TButton><TButton v-if="setup.configuration?.status==='READY'" theme="primary" :disabled="!initialRequest.trim()" @click="start">启动 Workflow</TButton><TButton v-else theme="primary" @click="confirm">确认配置</TButton></div>
+        <div class="actions"><TButton variant="outline" :disabled="validating || busy" :loading="validating" @click="validate">{{ validating ? '校验中…' : '校验配置' }}</TButton><TButton v-if="setup.configuration?.status==='READY'" type="button" theme="primary" :disabled="busy" :loading="busy" @click="start">{{ busy ? '正在准备代码图谱…' : '启动 Workflow' }}</TButton><TButton v-else theme="primary" @click="confirm">确认配置</TButton></div>
         <div v-if="setup.validation" class="validation-result" :class="{valid: setup.validation.valid, invalid: !setup.validation.valid}" data-testid="config-validation-result"><strong>{{ setup.validation.valid ? '配置校验通过' : '配置校验未通过' }}</strong><div class="checks"><span v-for="check in setup.validation.checks || []" :key="check.label" :class="{passed: check.passed}">{{ check.passed ? '✓' : '!' }} {{ check.label }}</span></div><ul v-if="setup.validation.issues.length"><li v-for="issue in setup.validation.issues" :key="issue">{{ issue }}</li></ul><p v-else class="muted">所有配置检查均已通过。</p></div>
         <TTextarea v-if="setup.configuration?.status==='READY'" v-model="initialRequest" data-testid="initial-request" :autosize="{ minRows: 3, maxRows: 6 }" placeholder="输入本次研发需求" class="initial-request" />
       </template>

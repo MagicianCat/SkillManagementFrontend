@@ -163,6 +163,8 @@ async function openNotification(item: NotificationView) {
         params: { skillKey: item.skillKey },
       })
     }
+  } else if (item.targetType === 'CODE_GRAPH' && typeof item.targetData !== 'string' && item.targetData?.projectKey && item.targetData.runId != null) {
+    void router.push({ name: 'project-code-graph', params: { projectKey: item.targetData.projectKey }, query: { runId: String(item.targetData.runId) } })
   } else if (item.targetType === 'REVIEW') {
     // REVIEW_SUBMITTED 通知携带 reviewId，直达审核详情
     if (item.targetId) {

@@ -194,6 +194,12 @@ const router = createRouter({
           meta: { title: '项目工作台' },
         },
         {
+          path: 'projects/:projectKey/code-graph',
+          name: 'project-code-graph',
+          component: () => import('../views/CodeGraphView.vue'),
+          meta: { title: '代码图谱准备' },
+        },
+        {
           path: 'projects/:projectKey/setup',
           name: 'project-agent-setup',
           component: () => import('../views/ProjectAgentSetupView.vue'),

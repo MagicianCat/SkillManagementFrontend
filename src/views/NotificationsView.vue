@@ -146,8 +146,10 @@ async function openNotification(item: NotificationView) {
     try { target = JSON.parse(item.targetData) }
     catch { target = null }
   }
-  if (target?.projectKey && (target.runId != null || target.stageRunId != null)) {
+  if (item.targetType !== 'CODE_GRAPH' && target?.projectKey && (target.runId != null || target.stageRunId != null)) {
     void router.push({ name: 'project-workspace', params: { projectId: target.projectKey, runId: target.runId != null ? String(target.runId) : undefined }, query: target.stageRunId != null ? { stageRunId: String(target.stageRunId) } : undefined })
+  } else if (item.targetType === 'CODE_GRAPH' && target?.projectKey && target.runId != null) {
+    void router.push({ name: 'project-code-graph', params: { projectKey: target.projectKey }, query: { runId: String(target.runId) } })
   } else if (item.targetType === 'SKILL_VERSION' && item.skillKey) {
     if (item.type === 'REVIEW_REJECTED') {
       void router.push({

@@ -1,8 +1,15 @@
 import { http } from './http'
 import type { WorkflowRun, WorkflowEvent, WorkflowHumanQuestion, InterventionType, InterventionTarget } from '../types/workflow'
+import type { WorkflowRunStatus } from '../types/workflow'
 
 export async function getWorkflowRun(runId: string) { const { data } = await http.get<WorkflowRun>(`/workflow-runs/${encodeURIComponent(runId)}`); return data }
 export async function startWorkflowRun(projectKey: string, input: { initialRequest: string; contextSnapshotJson?: Record<string, unknown> }) { const { data } = await http.post<WorkflowRun>(`/projects/${encodeURIComponent(projectKey)}/workflow-runs`, input); return data }
+/** M3：图谱 READY 后才创建真正的 Agent StageRun。 */
+export async function activateWorkflowRun(runId: string | number) {
+  const { data } = await http.post<WorkflowRun>(`/workflow-runs/${encodeURIComponent(String(runId))}:activate`)
+  return data
+}
+export type WorkflowPreparationStatus = WorkflowRunStatus | 'PREPARING_CODE_GRAPH' | 'CODE_GRAPH_PREPARATION_FAILED' | 'READY_TO_START'
 /** 每个项目组只有一个工作流 run：返回该项目当前 run，没有则 404。 */
 export async function getCurrentWorkflowRun(projectKey: string) { const { data } = await http.get<WorkflowRun>(`/projects/${encodeURIComponent(projectKey)}/workflow-runs/current`); return data }
 export async function sendIntervention(runId: string, type: InterventionType, content?: string, target?: InterventionTarget) { const { stageRunId, agentSessionId, agentRunId } = target ?? {}; const { data } = await http.post(`/workflow-runs/${encodeURIComponent(runId)}/interventions`, { type, content, stageRunId, agentSessionId, agentRunId }); return data }

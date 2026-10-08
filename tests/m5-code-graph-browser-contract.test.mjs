@@ -1,0 +1,29 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+
+const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
+
+test('M5 code graph API is run-scoped and exposes structured read-only queries', async () => {
+  const api = await read('src/api/code-graph.api.ts')
+  for (const marker of ['getCodeGraphOverview', 'searchCodeGraph', 'getCodeGraphNode', 'getCodeGraphContext', 'getCodeGraphImpact', 'getCodeGraphTrace', 'getCodeGraphRouteMap']) {
+    assert.match(api, new RegExp(marker))
+  }
+  assert.match(api, /workflow-runs\/\$\{encodeURIComponent\(String\(runId\)\)\}\/code-graph/)
+  assert.doesNotMatch(api, /cypher/i)
+})
+
+test('M5 browser supports navigation, graph and read-only analysis without artifact internals', async () => {
+  const browser = await read('src/features/code-graph/CodeGraphBrowser.vue')
+  for (const marker of ['代码仓库', '搜索', 'symbol', '影响分析', '调用链', '路由图', '@vue-flow/core']) {
+    assert.match(browser, new RegExp(marker, 'i'))
+  }
+  assert.doesNotMatch(browser, /artifactUri|artifactSha|bundleKey|cypher/i)
+})
+
+test('M5 graph page keeps browser available for ready, active and completed runs', async () => {
+  const view = await read('src/views/CodeGraphView.vue')
+  assert.match(view, /CodeGraphBrowser/)
+  assert.match(view, /READY_TO_START|RUNNING|COMPLETED/)
+  assert.match(view, /readonly/)
+})

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { acceptWorkflowStage, answerWorkflowHumanQuestion, designAcceptWorkflowRun, getCurrentWorkflowRun, sendIntervention, startWorkflowRun } from '../api/workflow.api'
+import { acceptWorkflowStage, answerWorkflowHumanQuestion, designAcceptWorkflowRun, getCurrentWorkflowRun, sendIntervention } from '../api/workflow.api'
+import { prepareWorkflowRun } from '../api/code-graph.api'
 import WorkbenchHeader from '../features/workbench/WorkbenchHeader.vue'
 import WorkflowDagPanel from '../features/workbench/WorkflowDagPanel.vue'
 import CurrentStagePanel from '../features/workbench/CurrentStagePanel.vue'
@@ -45,11 +46,9 @@ async function start() {
   if (!request || !projectKey.value || starting.value) return
   starting.value = true
   try {
-    const run = await startWorkflowRun(projectKey.value, { initialRequest: request, contextSnapshotJson: {} })
+    const run = await prepareWorkflowRun(projectKey.value, { initialRequest: request })
     initialRequest.value = ''
-    await router.push({ name: 'project-workspace', params: { projectId: projectKey.value, runId: String(run.id) } })
-    await workspace.load(String(run.id))
-    if (workspace.workflowRun) { const activeRunId = String(workspace.workflowRun.id); runtime.connect(activeRunId); workspace.startAutoRefresh(activeRunId) }
+    await router.push({ name: 'project-code-graph', params: { projectKey: projectKey.value }, query: { runId: String(run.runId) } })
   } finally { starting.value = false }
 }
 
@@ -101,6 +100,10 @@ onMounted(async () => {
     try {
       const run = await getCurrentWorkflowRun(projectKey.value)
       id = String(run.id)
+      if (['PREPARING_CODE_GRAPH', 'CODE_GRAPH_PREPARATION_FAILED', 'READY_TO_START'].includes(String(run.status))) {
+        await router.replace({ name: 'project-code-graph', params: { projectKey: projectKey.value }, query: { runId: id } })
+        return
+      }
       await router.replace({ name: 'project-workspace', params: { projectId: projectKey.value, runId: id } })
     } catch { resolvingRun.value = false; return }
     resolvingRun.value = false

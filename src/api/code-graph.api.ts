@@ -66,6 +66,17 @@ export async function retryCodeGraphPreparation(runId: string | number) {
   return unwrap(data)
 }
 
+/**
+ * M7: retry a FAILED REPO_APPEND update request. Only the failed target version is
+ * rebuilt; the current ACTIVE binding keeps serving traffic throughout.
+ */
+export async function retryCodeGraphUpdate(runId: string | number, updateRequestId: string | number) {
+  const { data } = await http.post<{ updateRequestId: string | number; workflowRunId: string | number }>(
+    `/workflow-runs/${encodeURIComponent(String(runId))}/code-graph/updates/${encodeURIComponent(String(updateRequestId))}:retry`,
+  )
+  return data
+}
+
 /** M5 只读查询：所有资源由 workflow run 绑定解析，前端不接触 artifact URI/SHA。 */
 export async function getCodeGraphOverview(runId: string | number) {
   const { data } = await http.get<any>(`${graphPath(runId)}/overview`)

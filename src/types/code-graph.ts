@@ -18,19 +18,50 @@ export interface CodeGraphJob {
   maxRetries?: number | null
   errorCode?: string | null
   errorMessage?: string | null
-  engineJobId?: string | null
+  engineJobId?: string | number | null
   createdAt?: string | null
   updatedAt?: string | null
 }
 
 export interface CodeGraphBinding {
   id?: string | number | null
+  bindingId?: string | number | null
+  version?: number | null
   versionNo?: number | null
   status?: 'PREPARING' | 'ACTIVE' | 'SUPERSEDED' | 'FAILED' | string
+  semanticIndexStatus?: 'DISABLED' | 'INDEXING' | 'READY' | 'DEGRADED' | string
+  bundleId?: string | number | null
   bundleKey?: string | null
   repositoryCount?: number | null
   preparedAt?: string | null
   activatedAt?: string | null
+}
+
+/**
+ * M7: a queued "append repositories" update. Lands as PENDING while another
+ * REPO_APPEND build is in flight; transitions to BUILDING when the drain pass picks
+ * it up; completes as READY or FAILED. Consecutive appends merge into the same
+ * PENDING row — the {@link targetRepositoryCount} reflects the merged set size.
+ */
+export interface CodeGraphPendingUpdate {
+  updateRequestId: string | number
+  status: 'PENDING' | 'BUILDING' | 'READY' | 'FAILED' | 'CANCELLED' | string
+  retryCount?: number | null
+  lastErrorCode?: string | null
+  lastErrorMessage?: string | null
+  targetRepositoryCount?: number | null
+  queuedAt?: string | null
+}
+
+/**
+ * M7: the most recent FAILED update request for a workflow run, if any. The
+ * retry endpoint rebuilds only this target version — the ACTIVE binding keeps
+ * serving traffic throughout.
+ */
+export interface CodeGraphUpdateError {
+  updateRequestId: string | number
+  errorCode?: string | null
+  errorMessage?: string | null
 }
 
 export interface CodeGraphStatus {
@@ -46,9 +77,17 @@ export interface CodeGraphStatus {
   frozenCommitCount?: number | null
   repositories?: Array<{
     name: string
-    reuseDecision: 'REUSE_EXACT' | 'FULL_REQUIRED' | string
+    reuseDecision: 'REUSE_EXACT' | 'INCREMENTAL' | 'FULL_REQUIRED' | string
     status: 'REUSED' | 'BUILDING' | 'READY' | 'FAILED' | string
   }>
+  /** M7: currently ACTIVE binding serving live traffic; null before the first activation. */
+  activeBinding?: CodeGraphBinding | null
+  /** M7: the next binding under construction (REPO_APPEND target version), if any. */
+  preparingBinding?: CodeGraphBinding | null
+  /** M7: a PENDING update merged behind the in-flight REPO_APPEND build, if any. */
+  pendingUpdate?: CodeGraphPendingUpdate | null
+  /** M7: the most recent FAILED update request, surfaced so users can retry it. */
+  lastUpdateError?: CodeGraphUpdateError | null
 }
 
 export interface PrepareWorkflowRunResponse {

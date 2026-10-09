@@ -1,140 +1,166 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { VueFlow, type Edge, type Node, Position } from '@vue-flow/core'
-import { Background } from '@vue-flow/background'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
-import {
-  getCodeGraphContext,
-  getCodeGraphImpact,
-  getCodeGraphNode,
-  getCodeGraphOverview,
-  getCodeGraphRouteMap,
-  getCodeGraphTrace,
-  searchCodeGraph,
-} from '../../api/code-graph.api'
-import type { CodeGraphNode, CodeGraphOverview, CodeGraphSearchResult, CodeGraphSubgraph } from '../../types/code-graph'
-import '@vue-flow/core/dist/style.css'
-import '@vue-flow/core/dist/theme-default.css'
+import { getCodeGraphContext, getCodeGraphImpact, getCodeGraphNode, getCodeGraphOverview, getCodeGraphRouteMap, searchCodeGraph } from '../../api/code-graph.api'
+import type { CodeGraphContextResult, CodeGraphNode, CodeGraphOverview, CodeGraphSubgraph } from '../../types/code-graph'
+import GraphInspector from './GraphInspector.vue'
+import GraphSummaryBar from './GraphSummaryBar.vue'
+import GraphWorkbench from './GraphWorkbench.vue'
+import RepositoryNavigator from './RepositoryNavigator.vue'
+import { repositoryTopology, type ExplorerLevel, type RepositoryRelationViewModel, type RepositoryViewModel, type RepositoryTopology } from './codeGraphViewModel'
 
 const props = defineProps<{ runId: string; readonly?: boolean }>()
+const route = useRoute()
+const router = useRouter()
 const overview = ref<CodeGraphOverview | null>(null)
-const results = ref<CodeGraphSearchResult | null>(null)
-const selected = ref<CodeGraphNode | null>(null)
-const facts = ref<Array<{ title: string; detail: string; nodeId?: string | null }>>([])
+const topology = ref<RepositoryTopology>({ repositories: [], relations: [], unresolvedRepositoryCount: 0 })
+const level = ref<ExplorerLevel>(['overview', 'files', 'impact'].includes(String(route.query.level)) ? String(route.query.level) as ExplorerLevel : 'overview')
+const selectedRepository = ref(String(route.query.repoKey ?? ''))
+const selectedId = ref(String(route.query.selectedId ?? ''))
+const selectedRelation = ref<RepositoryRelationViewModel | null>(null)
+const selectedSymbol = ref<CodeGraphNode | null>(null)
+const context = ref<CodeGraphContextResult | null>(null)
 const graph = ref<CodeGraphSubgraph>({ nodes: [], relations: [] })
-const query = ref('')
-const kind = ref('')
-const selectedRepository = ref('')
-const mode = ref<'IMPACT' | 'TRACE' | 'ROUTE'>('IMPACT')
-const busy = ref(false)
+const searchQuery = ref('')
+const searchResults = ref<CodeGraphNode[]>([])
+const showEvidence = ref(true)
 const loading = ref(true)
+const busy = ref(false)
 const error = ref('')
-const routeFrom = ref('')
-const routeTo = ref('')
 
-const counts = computed(() => overview.value?.counts ?? {})
-const discoveredFiles = computed(() => Array.from(new Set((results.value?.items ?? []).map((item) => item.position?.path).filter((value): value is string => Boolean(value)))))
-const discoveredModules = computed(() => Array.from(new Set(discoveredFiles.value.map((file) => file.includes('/') ? file.slice(0, file.lastIndexOf('/')) : '').filter(Boolean))))
-const repoName = (repo: CodeGraphOverview['repositories'][number]) => repo.displayName || repo.name || repo.logicalName || repo.logicalRepositoryKey || repo.alias || '未命名仓库'
-const flowNodes = computed<Node[]>(() => graph.value.nodes.map((node, index) => ({
-  id: node.id,
-  type: 'default',
-  position: { x: (index % 3) * 230, y: Math.floor(index / 3) * 100 },
-  sourcePosition: Position.Right,
-  targetPosition: Position.Left,
-  data: { label: `${node.label} · ${node.kind}` },
-})))
-const flowEdges = computed<Edge[]>(() => graph.value.relations.map((relation, index) => ({
-  id: relation.id ?? `${relation.source}-${relation.target}-${index}`,
-  source: relation.source,
-  target: relation.target,
-  label: relation.label ?? relation.kind,
-  animated: false,
-})))
+const currentRepository = computed(() => topology.value.repositories.find((repository) => repository.queryKey === selectedRepository.value) ?? null)
+const tabs: Array<{ value: ExplorerLevel; label: string; description: string }> = [
+  { value: 'overview', label: '仓库依赖总览', description: '先看系统与跨仓依赖' },
+  { value: 'files', label: '文件与符号', description: '查看成员、引用与方法调用' },
+  { value: 'impact', label: '影响分析', description: '逆向追踪潜在上游影响' },
+]
 
-async function loadOverview() {
+async function load() {
   loading.value = true
-  try { overview.value = await getCodeGraphOverview(props.runId); error.value = '' }
-  catch (cause) { error.value = cause instanceof Error ? cause.message : '图谱概览加载失败' }
+  try {
+    const [overviewValue, routeMap] = await Promise.all([getCodeGraphOverview(props.runId), getCodeGraphRouteMap(props.runId)])
+    overview.value = overviewValue
+    topology.value = repositoryTopology(overviewValue, routeMap)
+    if (!selectedRepository.value || !topology.value.repositories.some((repository) => repository.queryKey === selectedRepository.value)) selectedRepository.value = topology.value.repositories[0]?.queryKey ?? ''
+    if (!selectedId.value) selectedId.value = selectedRepository.value
+    error.value = ''
+    const deepLinkedSymbolId = selectedId.value
+    if (level.value !== 'overview' && deepLinkedSymbolId && !topology.value.repositories.some((repository) => repository.queryKey === deepLinkedSymbolId)) {
+      await selectSymbol({ id: deepLinkedSymbolId, label: deepLinkedSymbolId, kind: 'UNKNOWN', repository: selectedRepository.value }, level.value)
+    }
+  } catch (cause) { error.value = cause instanceof Error ? cause.message : '代码图谱加载失败' }
   finally { loading.value = false }
 }
 
-async function search() {
-  if (!query.value.trim()) { results.value = null; return }
-  busy.value = true
-  try { results.value = await searchCodeGraph(props.runId, { query: query.value.trim(), kind: kind.value || undefined, repository: selectedRepository.value || undefined, limit: 30 }) }
-  catch (cause) { MessagePlugin.error(cause instanceof Error ? cause.message : '图谱搜索失败') }
-  finally { busy.value = false }
+async function syncUrl() {
+  await router.replace({ query: { ...route.query, runId: props.runId, level: level.value, repoKey: selectedRepository.value || undefined, selectedId: selectedId.value || undefined } })
 }
-
-async function selectNode(node: CodeGraphNode) {
-  selected.value = node
-  routeFrom.value ||= node.id
-  try {
-    const [detail, context] = await Promise.all([getCodeGraphNode(props.runId, node.id), getCodeGraphContext(props.runId, node.id)])
-    selected.value = detail
-    facts.value = context.facts
-  } catch (cause) { MessagePlugin.error(cause instanceof Error ? cause.message : '节点详情加载失败') }
+function selectRepository(repository: RepositoryViewModel) {
+  selectedRepository.value = repository.queryKey
+  selectedId.value = repository.queryKey
+  selectedRelation.value = null
+  selectedSymbol.value = null
+  context.value = null
+  if (level.value === 'impact') level.value = 'overview'
+  void syncUrl()
 }
-function selectFlowNode(event: { node?: { id?: string } }) {
-  const id = event.node?.id
-  const node = id ? graph.value.nodes.find((item) => item.id === id) : undefined
-  if (node) void selectNode(node)
+function selectRepositoryById(id: string) {
+  const repository = topology.value.repositories.find((item) => item.queryKey === id)
+  if (repository) selectRepository(repository)
 }
-
-async function runAnalysis() {
-  const nodeId = selected.value?.id
-  if (!nodeId && mode.value !== 'ROUTE' && mode.value !== 'TRACE') { MessagePlugin.warning('请先选择一个节点'); return }
-  if (mode.value === 'TRACE' && (!routeFrom.value || !routeTo.value)) { MessagePlugin.warning('请选择起点和终点'); return }
+function selectRelationById(id: string) {
+  selectedRelation.value = topology.value.relations.find((relation) => relation.id === id) ?? null
+  selectedSymbol.value = null
+  selectedId.value = id
+  void syncUrl()
+}
+async function runSearch() {
+  if (!searchQuery.value.trim()) { searchResults.value = []; return }
   busy.value = true
   try {
-    graph.value = mode.value === 'IMPACT'
-      ? await getCodeGraphImpact(props.runId, nodeId as string)
-      : mode.value === 'TRACE'
-        ? await getCodeGraphTrace(props.runId, routeFrom.value, routeTo.value)
-        : await getCodeGraphRouteMap(props.runId)
-  } catch (cause) { MessagePlugin.error(cause instanceof Error ? cause.message : '图谱分析失败') }
+    const result = await searchCodeGraph(props.runId, { query: searchQuery.value.trim(), repository: selectedRepository.value || undefined, limit: 30 })
+    searchResults.value = result.items
+    if (!result.items.length) MessagePlugin.info('当前仓库未找到匹配节点')
+  } catch (cause) { MessagePlugin.error(cause instanceof Error ? cause.message : '代码图谱搜索失败') }
   finally { busy.value = false }
 }
+async function selectSymbol(node: CodeGraphNode, targetLevel: ExplorerLevel = level.value === 'overview' ? 'files' : level.value) {
+  busy.value = true
+  level.value = targetLevel
+  selectedId.value = node.id
+  selectedRelation.value = null
+  selectedRepository.value = node.repository || selectedRepository.value
+  try {
+    const [detail, contextValue] = await Promise.all([
+      getCodeGraphNode(props.runId, node.id),
+      getCodeGraphContext(props.runId, node.id, 60),
+    ])
+    // File/symbol exploration must use exact context relations: selecting a
+    // class reveals HAS_METHOD/HAS_PROPERTY; selecting a method reveals CALLS.
+    // UPSTREAM impact is a separate question and can legitimately contain only
+    // the target when no callers are resolved.
+    const graphValue = targetLevel === 'impact'
+      ? await getCodeGraphImpact(props.runId, node.id, 2, 'UPSTREAM')
+      : (contextValue.graph ?? { nodes: [detail], relations: [] })
+    selectedSymbol.value = detail
+    context.value = contextValue
+    graph.value = graphValue
+    await syncUrl()
+  } catch (cause) { MessagePlugin.error(cause instanceof Error ? cause.message : '节点关系加载失败') }
+  finally { busy.value = false }
+}
+function selectSymbolById(id: string) {
+  const node = graph.value.nodes.find((item) => item.id === id) ?? searchResults.value.find((item) => item.id === id)
+  if (node) void selectSymbol(node)
+}
+function selectSearchResult(node: CodeGraphNode) {
+  // Search opens the node's concrete neighbourhood. Impact analysis remains
+  // an explicit follow-up action because it answers a different question.
+  void selectSymbol(node, 'files')
+}
+function changeLevel(value: ExplorerLevel) {
+  level.value = value
+  selectedRelation.value = null
+  if (value === 'overview') {
+    graph.value = { nodes: [], relations: [] }
+    selectedSymbol.value = null
+    selectedId.value = selectedRepository.value
+  } else if (value === 'impact' && selectedSymbol.value) void selectSymbol(selectedSymbol.value, 'impact')
+  void syncUrl()
+}
+function drillRepository() {
+  if (selectedSymbol.value) void selectSymbol(selectedSymbol.value, 'files')
+  else changeLevel('files')
+}
+function analyzeImpact() { if (selectedSymbol.value) void selectSymbol(selectedSymbol.value, 'impact') }
 
-function chooseRepository(name: string) { selectedRepository.value = name; kind.value = ''; query.value = ''; results.value = null }
-function chooseModule(name: string) { kind.value = ''; query.value = name.split('/').at(-1) ?? name; void search() }
-function chooseFile(path: string) { kind.value = 'FILE'; query.value = path.split('/').at(-1) ?? path; void search() }
-
-onMounted(loadOverview)
+watch(() => props.runId, () => void load())
+onMounted(load)
 </script>
 
 <template>
-  <section class="browser" data-testid="code-graph-browser" :aria-readonly="readonly !== false">
-    <div class="browser-head">
-      <div><p class="eyebrow">READ-ONLY EXPLORER</p><h2>代码图谱浏览</h2><p class="muted">基于当前 Workflow Run 的冻结代码图谱，只读查看。</p></div>
-      <div class="counts" v-if="overview"><span>{{ counts.repositories ?? overview.repositories.length }} 仓库</span><span>{{ counts.modules ?? overview.modules?.length ?? 0 }} 模块</span><span>{{ counts.symbols ?? 0 }} 符号</span></div>
-    </div>
-    <div v-if="loading" class="empty">正在加载图谱概览…</div>
-    <div v-else-if="error" class="error-block">{{ error }} <button type="button" @click="loadOverview">重新加载</button></div>
-    <template v-else>
-      <div class="browser-grid">
-        <aside class="navigator" aria-label="代码仓库导航">
-          <h3>代码仓库</h3>
-          <button v-for="repo in overview?.repositories ?? []" :key="repoName(repo)" type="button" class="nav-item" @click="chooseRepository(repo.logicalName || repo.alias || repo.name || '')">{{ repoName(repo) }}<small>{{ selectedRepository === (repo.logicalName || repo.alias || repo.name) ? '已限定此仓库' : `${repo.fileCount ?? repo.nodeCount ?? '—'} 节点` }}</small></button>
-          <h3>模块</h3>
-          <button v-for="module in discoveredModules" :key="module" type="button" class="nav-item" @click="chooseModule(module)">{{ module }}</button>
-          <h3>文件</h3>
-          <button v-for="file in discoveredFiles" :key="file" type="button" class="nav-item" @click="chooseFile(file)">{{ file.split('/').at(-1) }}<small>{{ file }}</small></button>
-        </aside>
-        <div class="explorer">
-          <form class="search" @submit.prevent="search"><input v-model="query" aria-label="搜索代码图谱" placeholder="搜索仓库、模块、文件或符号…" /><select v-model="kind" aria-label="节点类型"><option value="">全部类型</option><option value="REPOSITORY">仓库</option><option value="MODULE">模块</option><option value="FILE">文件</option><option value="SYMBOL">符号</option></select><button class="primary" type="submit" :disabled="busy">{{ busy ? '查询中…' : '搜索' }}</button></form>
-          <div v-if="results" class="results" aria-label="代码图谱搜索结果"><button v-for="node in results.items" :key="node.id" type="button" class="result" @click="selectNode(node)"><span>{{ node.label }}</span><small>{{ node.kind }} · {{ node.repository || '未标注仓库' }}</small></button><p v-if="!results.items.length" class="muted">没有找到匹配节点。</p></div>
-          <div class="analysis-head"><h3>局部图谱</h3><div class="tabs"><button v-for="item in [['IMPACT','影响分析'],['TRACE','调用链'],['ROUTE','路由图']]" :key="item[0]" type="button" :class="{ active: mode === item[0] }" @click="mode = item[0] as typeof mode">{{ item[1] }}</button><button type="button" class="secondary" @click="runAnalysis">查询</button></div></div>
-          <div v-if="mode === 'TRACE'" class="route-inputs"><input v-model="routeFrom" placeholder="起点节点 ID" aria-label="调用链起点" /><input v-model="routeTo" placeholder="终点节点 ID" aria-label="调用链终点" /></div>
-          <div class="flow-wrap"><VueFlow v-if="flowNodes.length" :nodes="flowNodes" :edges="flowEdges" :nodes-draggable="false" :nodes-connectable="false" fit-view-on-init @node-click="selectFlowNode"><Background /></VueFlow><div v-else class="empty">选择节点后查看局部关系</div></div>
-        </div>
+  <section class="explorer" data-testid="code-graph-browser" :aria-readonly="readonly !== false">
+    <div v-if="loading" class="page-state">正在读取当前 Workflow Run 的冻结代码图谱…</div>
+    <div v-else-if="error" class="page-state error"><strong>图谱加载失败</strong><p>{{ error }}</p><button type="button" @click="load">重新加载</button></div>
+    <template v-else-if="overview">
+      <header class="explorer-head">
+        <div><p class="eyebrow">CODE INTELLIGENCE / GRAPH EXPLORER</p><h2>代码图谱 · 架构与依赖分析</h2><p>先看代码仓库间的依赖，再逐层定位到文件、符号、调用链与路由图。所有关系均来自当前冻结快照。</p></div>
+        <button type="button" class="reset" @click="changeLevel('overview')">重置视图</button>
+      </header>
+      <GraphSummaryBar :overview="overview" :confirmed-relations="topology.relations.length" />
+      <nav class="level-tabs" aria-label="图谱层级">
+        <button v-for="tab in tabs" :key="tab.value" type="button" :class="{ active: level === tab.value }" @click="changeLevel(tab.value)"><strong>{{ tab.label }}</strong><small>{{ tab.description }}</small></button>
+      </nav>
+      <div class="explorer-grid">
+        <RepositoryNavigator :repositories="topology.repositories" :selected-repository="selectedRepository" :search-query="searchQuery" :search-results="searchResults" :searching="busy" :show-evidence="showEvidence" @select-repository="selectRepository" @update-search="searchQuery = $event" @search="runSearch" @select-result="selectSearchResult" @update-show-evidence="showEvidence = $event" />
+        <GraphWorkbench :level="level" :repositories="topology.repositories" :repository-relations="topology.relations" :symbol-graph="graph" :selected-id="selectedId" :show-evidence="showEvidence" :busy="busy" @select-repository="selectRepositoryById" @select-relation="selectRelationById" @select-symbol="selectSymbolById" />
+        <GraphInspector :level="level" :repository="currentRepository" :relation="selectedRelation" :symbol="selectedSymbol" :context="context" :relation-count="graph.relations.length" @drill="drillRepository" @impact="analyzeImpact" @overview="changeLevel('overview')" />
       </div>
-      <div v-if="selected" class="detail" aria-label="符号详情"><div><p class="eyebrow">SYMBOL DETAIL</p><h3>{{ selected.label }}</h3><p class="muted">{{ selected.kind }} · {{ selected.qualifiedName || selected.position?.path || '暂无源码位置' }}</p><p v-if="selected.position?.line" class="location">{{ selected.position.path }}:{{ selected.position.line }}{{ selected.position.column ? `:${selected.position.column}` : '' }}</p></div><div class="facts"><h4>上下文</h4><p v-for="fact in facts" :key="fact.title + fact.detail"><strong>{{ fact.title }}</strong> {{ fact.detail }}</p><p v-if="!facts.length" class="muted">暂无上下文事实。</p></div></div>
     </template>
   </section>
 </template>
 
 <style scoped>
-.browser{margin-top:22px;padding:25px;background:var(--surface-1);border:1px solid var(--line-1);border-radius:14px;box-shadow:0 8px 30px rgba(22,45,80,.05)}.browser-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.eyebrow{margin:0 0 7px;font:600 11px var(--font-mono);letter-spacing:.14em;color:var(--text-3)}h2{margin:0 0 7px;font-size:22px}.muted{color:var(--text-3);line-height:1.55}.counts{display:flex;gap:8px;flex-wrap:wrap}.counts span{padding:6px 9px;border-radius:7px;background:var(--surface-2);color:var(--text-2);font-size:12px}.browser-grid{display:grid;grid-template-columns:220px minmax(0,1fr);gap:18px;margin-top:22px}.navigator{border-right:1px solid var(--line-1);padding-right:14px;max-height:520px;overflow:auto}.navigator h3,.analysis-head h3{font-size:14px;margin:10px 0}.nav-item,.result{display:flex;width:100%;border:0;background:transparent;text-align:left;padding:8px;border-radius:7px;color:var(--text-1);cursor:pointer;flex-direction:column;gap:3px}.nav-item:hover,.result:hover{background:var(--surface-2)}small{color:var(--text-3);font-size:11px}.search{display:flex;gap:8px}.search input,.search select,.route-inputs input{min-width:0;border:1px solid var(--line-2);background:var(--surface-2);border-radius:7px;padding:9px;color:var(--text-1)}.search input{flex:1}.primary,.secondary,.error-block button{border:1px solid var(--line-2);border-radius:7px;padding:9px 13px;background:var(--surface-2);color:var(--text-1);cursor:pointer}.primary{background:#315edb;border-color:#315edb;color:#fff}.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:5px;margin:12px 0}.analysis-head{display:flex;justify-content:space-between;align-items:center;margin-top:18px}.tabs{display:flex;gap:6px;flex-wrap:wrap}.tabs button{border:1px solid var(--line-2);background:var(--surface-2);border-radius:7px;padding:7px 9px;color:var(--text-2);cursor:pointer}.tabs button.active{background:var(--accent-100);color:var(--accent-700);border-color:var(--accent-400)}.route-inputs{display:flex;gap:8px;margin-bottom:8px}.route-inputs input{flex:1}.flow-wrap{height:310px;border:1px solid var(--line-1);border-radius:9px;overflow:hidden;background:var(--surface-2)}.flow-wrap :deep(.vue-flow){background:transparent}.empty{height:100%;display:grid;place-items:center;color:var(--text-3);padding:30px;text-align:center}.detail{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:18px;padding:17px;border-top:1px solid var(--line-1)}.detail h3{margin:0 0 5px}.location{font:12px var(--font-mono);color:var(--text-2)}.facts{border-left:1px solid var(--line-1);padding-left:18px}.facts h4{margin:0 0 8px}.facts p{font-size:13px;line-height:1.5;margin:6px 0}.error-block{padding:15px;border-radius:8px;background:rgba(227,77,89,.08);color:#b73845}.error-block button{margin-left:8px}@media(max-width:760px){.browser-head,.browser-grid,.detail{display:block}.navigator{border-right:0;border-bottom:1px solid var(--line-1);padding:0 0 12px;max-height:220px}.explorer{margin-top:14px}.facts{border-left:0;padding:15px 0 0;border-top:1px solid var(--line-1);margin-top:15px}.search{flex-wrap:wrap}.search input{flex-basis:100%}}
+.explorer{display:grid;gap:16px;margin-top:20px}.explorer-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px}.eyebrow{margin:0 0 6px;color:var(--text-3);font:700 9px var(--font-mono);letter-spacing:.16em}.explorer-head h2{margin:0;font-size:22px;letter-spacing:-.02em}.explorer-head p:not(.eyebrow){margin:7px 0 0;color:var(--text-3);font-size:11px}.reset,.page-state button{border:1px solid var(--border-2);border-radius:8px;background:var(--surface-1);padding:9px 13px;color:var(--text-2);cursor:pointer}.level-tabs{display:flex;gap:24px;border-bottom:1px solid var(--border-1)}.level-tabs button{display:grid;gap:2px;padding:10px 3px 11px;border:0;border-bottom:3px solid transparent;background:transparent;text-align:left;color:var(--text-3);cursor:pointer}.level-tabs button.active{border-bottom-color:var(--accent-500);color:var(--accent-500)}.level-tabs strong{font-size:12px}.level-tabs small{font-size:9px}.explorer-grid{display:grid;grid-template-columns:220px minmax(0,1fr) 275px;gap:12px;min-height:620px;height:calc(100vh - 330px);max-height:820px}.page-state{display:grid;min-height:360px;place-content:center;justify-items:center;color:var(--text-3)}.page-state.error{color:var(--error)}.page-state p{max-width:520px}@media(max-width:1180px){.explorer-grid{grid-template-columns:200px minmax(0,1fr);height:auto;max-height:none}.explorer-grid>*:last-child{grid-column:1/-1;min-height:300px}}@media(max-width:760px){.explorer-head{align-items:flex-start;flex-direction:column}.reset{width:100%}.level-tabs{gap:8px;overflow:auto}.level-tabs button{min-width:130px}.explorer-grid{grid-template-columns:1fr}.explorer-grid>*:last-child{grid-column:auto}}
 </style>

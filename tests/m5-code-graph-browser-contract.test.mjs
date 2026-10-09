@@ -14,7 +14,11 @@ test('M5 code graph API is run-scoped and exposes structured read-only queries',
 })
 
 test('M5 browser supports navigation, graph and read-only analysis without artifact internals', async () => {
-  const browser = await read('src/features/code-graph/CodeGraphBrowser.vue')
+  const browser = [
+    await read('src/features/code-graph/CodeGraphBrowser.vue'),
+    await read('src/features/code-graph/GraphWorkbench.vue'),
+    await read('src/features/code-graph/RepositoryNavigator.vue'),
+  ].join('\n')
   for (const marker of ['代码仓库', '搜索', 'symbol', '影响分析', '调用链', '路由图', '@vue-flow/core']) {
     assert.match(browser, new RegExp(marker, 'i'))
   }
@@ -26,4 +30,16 @@ test('M5 graph page keeps browser available for ready, active and completed runs
   assert.match(view, /CodeGraphBrowser/)
   assert.match(view, /READY_TO_START|RUNNING|COMPLETED/)
   assert.match(view, /readonly/)
+})
+
+test('file exploration renders exact context relations while impact remains upstream-only', async () => {
+  const api = await read('src/api/code-graph.api.ts')
+  const browser = await read('src/features/code-graph/CodeGraphBrowser.vue')
+  const workbench = await read('src/features/code-graph/GraphWorkbench.vue')
+  assert.match(api, /graph:\s*normalizeSubgraph\(raw\)/)
+  assert.match(browser, /contextValue\.graph/)
+  assert.match(browser, /getCodeGraphImpact\([^)]*'UPSTREAM'/s)
+  assert.match(browser, /HAS_METHOD\/HAS_PROPERTY/)
+  assert.match(browser, /selectSearchResult[\s\S]*selectSymbol\(node, 'files'\)/)
+  assert.match(workbench, /未解析到上游影响路径/)
 })

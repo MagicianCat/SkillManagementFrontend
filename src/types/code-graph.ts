@@ -144,4 +144,9 @@ export interface CodeGraphSubgraph {
 
 export interface CodeGraphSearchResult { items: CodeGraphNode[]; total?: number; truncated?: boolean }
 
-export interface CodeGraphContextResult { facts: Array<{ title: string; detail: string; nodeId?: string | null; source?: CodeGraphPosition | null }>; truncated?: boolean }
+export interface CodeGraphContextResult {
+  facts: Array<{ title: string; detail: string; nodeId?: string | null; source?: CodeGraphPosition | null }>
+  /** Exact one-hop relations returned by GitNexus context (HAS_METHOD, CALLS, etc.). */
+  graph?: CodeGraphSubgraph
+  truncated?: boolean
+}

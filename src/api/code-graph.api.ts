@@ -85,11 +85,18 @@ export async function getCodeGraphOverview(runId: string | number) {
   const repositories = (raw.repositories ?? []).map((repo: any) => ({
     name: repo.name ?? repo.logicalName ?? repo.alias ?? repo.repository_alias ?? repo.logicalRepositoryKey,
     displayName: repo.displayName ?? repo.logicalRepositoryKey ?? repo.alias,
-    fileCount: repo.fileCount ?? null,
+    fileCount: repo.fileCount ?? engineRepositories.find((item: any) => item.logicalName === (repo.alias ?? repo.logicalRepositoryKey))?.fileCount ?? null,
     symbolCount: repo.symbolCount ?? engineRepositories.find((item: any) => item.logicalName === (repo.alias ?? repo.logicalRepositoryKey))?.nodeCount ?? null,
+    edgeCount: repo.edgeCount ?? engineRepositories.find((item: any) => item.logicalName === (repo.alias ?? repo.logicalRepositoryKey))?.edgeCount ?? null,
   }))
   const symbols = engineRepositories.reduce((sum: number, repo: any) => sum + (repo.nodeCount ?? 0), 0)
-  return { ...raw, repositories, counts: raw.counts ?? { repositories: repositories.length, symbols } } as CodeGraphOverview
+  const rawCounts = raw.counts ?? {}
+  return { ...raw, repositories, counts: {
+    repositories: rawCounts.repositories ?? repositories.length,
+    files: rawCounts.files ?? repositories.reduce((sum: number, repo: any) => sum + (repo.fileCount ?? 0), 0),
+    symbols: rawCounts.symbols ?? symbols,
+    relations: rawCounts.relations ?? repositories.reduce((sum: number, repo: any) => sum + (repo.edgeCount ?? 0), 0),
+  } } as CodeGraphOverview
 }
 
 export async function searchCodeGraph(runId: string | number, params: { query: string; kind?: string; repository?: string; limit?: number }) {
@@ -112,12 +119,23 @@ export async function getCodeGraphNode(runId: string | number, nodeId: string) {
 export async function getCodeGraphContext(runId: string | number, nodeId?: string, limit = 15) {
   const { data } = await http.post<{ data: any }>(`${graphPath(runId)}/context`, { target: selector(nodeId ?? ''), limit })
   const raw = resultData(data)
-  const facts = (raw?.symbols ?? []).map((item: any) => ({ title: item.name ?? item.uid ?? '关联符号', detail: `${item.kind ?? 'UNKNOWN'}${item.filePath ? ` · ${item.filePath}` : ''}`, nodeId: item.uid ?? item.id ?? null, source: item.filePath ? { path: item.filePath, line: item.startLine ?? null } : null }))
-  return { facts, truncated: raw?.truncated } satisfies CodeGraphContextResult
+  const relationByNode = new Map<string, string>()
+  for (const relation of raw?.relations ?? []) {
+    const targetId = String(relation.toUid ?? relation.target ?? '')
+    const sourceId = String(relation.fromUid ?? relation.source ?? '')
+    const relatedId = targetId === String(raw?.target?.uid ?? raw?.target?.id ?? '') ? sourceId : targetId
+    if (relatedId) relationByNode.set(relatedId, String(relation.type ?? relation.kind ?? 'RELATED'))
+  }
+  const facts = (raw?.symbols ?? []).map((item: any) => {
+    const id = String(item.uid ?? item.id ?? '')
+    const relation = relationByNode.get(id) ?? 'RELATED'
+    return { title: `${relation} · ${item.name ?? id ?? '关联符号'}`, detail: `${item.kind ?? 'UNKNOWN'}${item.filePath ? ` · ${item.filePath}` : ''}`, nodeId: id || null, source: item.filePath ? { path: item.filePath, line: item.startLine ?? null } : null }
+  })
+  return { facts, graph: normalizeSubgraph(raw), truncated: raw?.truncated } satisfies CodeGraphContextResult
 }
 
-export async function getCodeGraphImpact(runId: string | number, nodeId: string, depth = 2) {
-  const { data } = await http.post<{ data: any }>(`${graphPath(runId)}/impact`, { target: selector(nodeId), direction: 'DOWNSTREAM', depth, limit: 100 })
+export async function getCodeGraphImpact(runId: string | number, nodeId: string, depth = 2, direction: 'UPSTREAM' | 'DOWNSTREAM' = 'DOWNSTREAM') {
+  const { data } = await http.post<{ data: any }>(`${graphPath(runId)}/impact`, { target: selector(nodeId), direction, depth, limit: 100 })
   return normalizeSubgraph(resultData(data))
 }
 

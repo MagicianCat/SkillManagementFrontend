@@ -33,12 +33,28 @@ async function render() {
     : props.symbolGraph.nodes.map((node) => ({ id: node.id, width: 196, height: 78, type: 'symbol', data: node }))
   const sourceEdges = repositoryMode
     ? props.repositoryRelations.map((relation) => ({ id: relation.id, source: relation.source, target: relation.target, label: props.showEvidence ? relation.type : undefined, markerEnd: MarkerType.ArrowClosed, data: relation }))
-    : props.symbolGraph.relations.filter((relation) => relation.source && relation.target).map((relation, index) => ({ id: relation.id || `relation-${index}`, source: relation.source, target: relation.target, label: props.showEvidence ? (relation.label || relation.kind) : undefined, markerEnd: MarkerType.ArrowClosed, data: relation }))
+    : impactPathEdges(props.symbolGraph, props.showEvidence)
   const positions = await layoutGraph(sourceNodes.map(({ id, width, height }) => ({ id, width, height })), sourceEdges, { layerGap: 105, nodeGap: 55, padding: 35 })
   nodes.value = sourceNodes.map((node) => ({ id: node.id, type: node.type, position: positions[node.id] ?? { x: 0, y: 0 }, data: node.data }))
   edges.value = sourceEdges.map((edge) => ({ ...edge, type: 'default', animated: false, class: props.selectedId === edge.id ? 'is-selected' : '' }))
   await nextTick()
   if (nodes.value.length) void fitView({ padding: .22, duration: 250 })
+}
+
+function impactPathEdges(graph: CodeGraphSubgraph, showEvidence: boolean): FlowEdge[] {
+  if (!graph.paths?.length) return graph.relations.filter((relation) => relation.source && relation.target).map((relation, index) => ({ id: relation.id || `relation-${index}`, source: relation.source, target: relation.target, label: showEvidence ? (relation.label || relation.kind) : undefined, markerEnd: MarkerType.ArrowClosed, data: relation }))
+  const relationById = new Map(graph.relations.map((relation) => [relation.id, relation]))
+  const edges: FlowEdge[] = []
+  for (const path of graph.paths) {
+    for (let index = 0; index < path.orderedNodeIds.length - 1; index += 1) {
+      const relation = relationById.get(path.edgeIds[index])
+      if (!relation) continue
+      // Impact paths are ordered by propagation (target -> caller/callee),
+      // while relation.source/target remain the factual code direction.
+      edges.push({ id: relation.id || `path-${path.id ?? 'path'}-${index}`, source: path.orderedNodeIds[index], target: path.orderedNodeIds[index + 1], label: showEvidence ? (relation.label || relation.kind) : undefined, markerEnd: MarkerType.ArrowClosed, data: relation })
+    }
+  }
+  return edges.filter((edge, index, all) => all.findIndex((item) => item.id === edge.id) === index)
 }
 watch(() => [props.level, props.repositories, props.repositoryRelations, props.symbolGraph, props.selectedId, props.showEvidence], () => void render(), { deep: true, immediate: true })
 
@@ -87,7 +103,8 @@ function selectEdge(event: { edge: { id: string } }) { emit('selectRelation', ev
         <p v-else-if="!busy">左侧搜索文件、类或方法，然后查看一跳关系与影响路径。</p>
       </div>
       <div v-if="level === 'overview' && repositories.length && !repositoryRelations.length" class="notice">已确认 0 条跨仓关系 · 待解析 {{ repositories.length }} 个仓库</div>
-      <div v-if="level === 'impact' && nodes.length === 1 && !edges.length && !busy" class="notice">未解析到上游影响路径；该节点仍可能存在所属、访问或成员关系，请查看“文件与符号”。</div>
+      <div v-if="level === 'impact' && !busy && symbolGraph.analysisStatus && symbolGraph.analysisStatus !== 'COMPLETE'" class="notice">影响分析结果不完整（{{ symbolGraph.analysisSource === 'MCP_CONTEXT_FALLBACK' ? '已使用属性访问关系回退' : '图谱返回部分结果' }}），请结合“文件与符号”复核。</div>
+      <div v-else-if="level === 'impact' && nodes.length === 1 && !edges.length && !busy" class="notice">未解析到上游影响路径；该节点仍可能存在所属、访问或成员关系，请查看“文件与符号”。</div>
     </div>
     <footer class="legend"><span><i class="verified" />已确认关系</span><span><i class="inferred" />推断关系</span><span><i class="internal" />仓内引用</span><em>只读 · 绑定当前 Workflow Run 快照</em></footer>
   </section>

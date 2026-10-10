@@ -1,29 +1,45 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { CodeGraphContextResult, CodeGraphNode } from '../../types/code-graph'
 import type { ExplorerLevel, RepositoryRelationViewModel, RepositoryViewModel } from './codeGraphViewModel'
 
-defineProps<{
+type ImpactRelation = {
+  id?: string | null
+  source?: string
+  target?: string
+  label?: string | null
+  kind?: string
+  type?: string
+  confidence?: number | null
+  evidence?: Record<string, unknown>
+}
+
+const props = defineProps<{
   level: ExplorerLevel
   repository?: RepositoryViewModel | null
   relation?: RepositoryRelationViewModel | null
+  impactRelation?: ImpactRelation | null
   symbol?: CodeGraphNode | null
   context?: CodeGraphContextResult | null
   relationCount: number
 }>()
+const activeRelation = computed(() => props.impactRelation ?? props.relation)
+const activeRelationType = computed(() => props.impactRelation?.kind ?? props.impactRelation?.type ?? props.relation?.type ?? 'RELATION')
 const emit = defineEmits<{ drill: []; impact: []; overview: [] }>()
 </script>
 
 <template>
   <aside class="inspector panel" aria-label="图谱详情">
-    <template v-if="relation">
+    <template v-if="activeRelation">
       <header>RELATION DETAIL <span>↗</span></header>
-      <span class="badge">{{ relation.type }} · {{ relation.evidenceStatus === 'VERIFIED' ? '已确认' : '待确认' }}</span>
-      <h2>{{ relation.source }} → {{ relation.target }}</h2>
-      <p class="subtitle">箭头由调用方或依赖方指向被调用方或被依赖方。</p>
-      <div class="stats"><div><span>证据数量</span><strong>{{ relation.evidenceCount }}</strong></div><div><span>关系类型</span><strong class="small">{{ relation.type }}</strong></div></div>
+      <span class="badge">{{ activeRelationType }} · {{ impactRelation ? '图谱真实边' : relation?.evidenceStatus === 'VERIFIED' ? '已确认' : '待确认' }}</span>
+      <h2>{{ activeRelation.source }} → {{ activeRelation.target }}</h2>
+      <p class="subtitle">影响路径按传播方向展示；关系事实仍保留 GitNexus 原始边方向。</p>
+      <div class="stats"><div><span>证据数量</span><strong>{{ relation?.evidenceCount ?? (impactRelation?.evidence ? 1 : 0) }}</strong></div><div><span>关系类型</span><strong class="small">{{ activeRelationType }}</strong></div></div>
       <div class="divider" /><h3>关系证据</h3>
-      <article v-for="source in relation.evidenceSources" :key="source" class="evidence"><b>✓ {{ source }}</b><p>来源于当前冻结快照；具体文件路径尚未由现有接口返回。</p><code>{{ relation.label }}</code></article>
-      <article v-for="(evidence, index) in relation.evidence ?? []" :key="`${evidence.contractId ?? 'evidence'}-${index}`" class="evidence"><b>✓ {{ evidence.contractId ?? 'Workspace CrossLink' }}</b><p>{{ evidence.from ?? relation.source }} → {{ evidence.to ?? relation.target }}</p><code>{{ evidence.matchType ?? 'VERIFIED' }} · 置信度 {{ evidence.confidence ?? '—' }}</code></article>
+      <article v-for="source in relation?.evidenceSources ?? []" :key="source" class="evidence"><b>✓ {{ source }}</b><p>来源于当前冻结快照；具体文件路径尚未由现有接口返回。</p><code>{{ relation?.label }}</code></article>
+      <article v-if="impactRelation" class="evidence"><b>✓ GitNexus verified edge</b><p>{{ impactRelation.evidence?.source ?? 'GITNEXUS' }} · 原始方向 {{ impactRelation.source }} → {{ impactRelation.target }}</p><code>confidence {{ impactRelation.confidence ?? '—' }} · path propagation</code></article>
+      <article v-for="(evidence, index) in relation?.evidence ?? []" :key="`${evidence.contractId ?? 'evidence'}-${index}`" class="evidence"><b>✓ {{ evidence.contractId ?? 'Workspace CrossLink' }}</b><p>{{ evidence.from ?? relation?.source }} → {{ evidence.to ?? relation?.target }}</p><code>{{ evidence.matchType ?? 'VERIFIED' }} · 置信度 {{ evidence.confidence ?? '—' }}</code></article>
       <p class="caution">只有后端返回的契约或依赖证据才会绘制为跨仓连线。</p>
     </template>
 

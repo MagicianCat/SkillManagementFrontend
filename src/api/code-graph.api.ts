@@ -12,7 +12,7 @@ import type {
 const unwrap = <T extends object>(data: T | { data: T }): T => ('data' in data && data.data ? data.data : data) as T
 const graphPath = (runId: string | number) => `/workflow-runs/${encodeURIComponent(String(runId))}/code-graph`
 const resultData = <T extends object>(data: T | { data: T }): T => unwrap(data)
-const selector = (nodeId: string) => ({ uid: nodeId })
+const selector = (nodeId: string, kind?: string) => ({ uid: nodeId, ...(kind ? { kind } : {}) })
 function normalizeNode(raw: any): CodeGraphNode {
   const node = raw?.target ?? raw?.symbol ?? raw
   const id = String(node?.uid ?? node?.id ?? node?.name ?? '')
@@ -32,9 +32,30 @@ function normalizeSubgraph(raw: any): CodeGraphSubgraph {
     return { nodes: nodes.filter((node, index, all) => all.findIndex((item) => item.id === node.id) === index), relations, truncated: raw.truncated }
   }
   const nodes = (raw?.symbols ?? raw?.nodes ?? []).map(normalizeNode)
-  const relations = (raw?.relations ?? raw?.edges ?? []).map((edge: any, index: number) => ({ id: edge.id ?? String(index), source: String(edge.fromUid ?? edge.source ?? edge.from ?? ''), target: String(edge.toUid ?? edge.target ?? edge.to ?? ''), kind: edge.type ?? edge.kind ?? 'RELATED', label: edge.type ?? edge.kind ?? null }))
+  const relations = (raw?.relations ?? raw?.edges ?? []).map((edge: any, index: number) => ({ id: edge.id ?? String(index), source: String(edge.fromNodeId ?? edge.fromUid ?? edge.source ?? edge.from ?? ''), target: String(edge.toNodeId ?? edge.toUid ?? edge.target ?? edge.to ?? ''), kind: edge.type ?? edge.kind ?? 'RELATED', label: edge.type ?? edge.kind ?? null, confidence: edge.confidence ?? null, evidence: edge.evidence ?? undefined }))
   if (raw?.target) nodes.unshift(normalizeNode(raw))
-  return { nodes: nodes.filter((node: CodeGraphNode, index: number, all: CodeGraphNode[]) => all.findIndex((item) => item.id === node.id) === index), relations, truncated: raw?.truncated }
+  return {
+    nodes: nodes.filter((node: CodeGraphNode, index: number, all: CodeGraphNode[]) => all.findIndex((item) => item.id === node.id) === index),
+    relations,
+    truncated: raw?.truncated,
+    analysisStatus: raw?.analysisStatus,
+    analysisSource: raw?.analysisSource,
+    relationProfile: raw?.relationProfile,
+    relationTypes: raw?.relationTypes,
+    impactedCount: raw?.impactedCount,
+    directCount: raw?.directCount,
+    edgesVerified: raw?.edgesVerified,
+    epistemic: raw?.epistemic,
+    truncationReason: raw?.truncationReason,
+    paths: (raw?.paths ?? []).map((path: any, index: number) => ({
+      id: path.id ?? `path-${index}`,
+      orderedNodeIds: path.orderedNodeIds ?? path.nodeIds ?? [],
+      edgeIds: path.edgeIds ?? [],
+      depth: path.depth ?? 0,
+      endpointType: path.endpointType ?? null,
+      entrypoint: path.entrypoint ?? null,
+    })),
+  }
 }
 
 /**
@@ -148,8 +169,8 @@ export async function getCodeGraphContext(runId: string | number, nodeId?: strin
   return { facts, graph: normalizeSubgraph(raw), truncated: raw?.truncated } satisfies CodeGraphContextResult
 }
 
-export async function getCodeGraphImpact(runId: string | number, nodeId: string, depth = 2, direction: 'UPSTREAM' | 'DOWNSTREAM' = 'DOWNSTREAM') {
-  const { data } = await http.post<{ data: any }>(`${graphPath(runId)}/impact`, { target: selector(nodeId), direction, depth, limit: 100 })
+export async function getCodeGraphImpact(runId: string | number, nodeId: string, depth = 5, direction: 'UPSTREAM' | 'DOWNSTREAM' = 'DOWNSTREAM', kind?: string) {
+  const { data } = await http.post<{ data: any }>(`${graphPath(runId)}/impact`, { schemaVersion: 2, target: selector(nodeId, kind), direction, mode: 'CALL_CHAIN', maxDepth: depth, maxNodes: 200, maxEdges: 500, maxPaths: 20 })
   return normalizeSubgraph(resultData(data))
 }
 

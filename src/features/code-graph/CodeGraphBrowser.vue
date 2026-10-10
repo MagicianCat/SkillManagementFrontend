@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { getCodeGraphContext, getCodeGraphImpact, getCodeGraphNode, getCodeGraphOverview, getCodeGraphRouteMap, searchCodeGraph } from '../../api/code-graph.api'
-import type { CodeGraphContextResult, CodeGraphNode, CodeGraphOverview, CodeGraphSubgraph } from '../../types/code-graph'
+import type { CodeGraphContextResult, CodeGraphNode, CodeGraphOverview, CodeGraphRelation, CodeGraphSubgraph } from '../../types/code-graph'
 import GraphInspector from './GraphInspector.vue'
 import GraphSummaryBar from './GraphSummaryBar.vue'
 import GraphWorkbench from './GraphWorkbench.vue'
@@ -19,12 +19,15 @@ const level = ref<ExplorerLevel>(['overview', 'files', 'impact'].includes(String
 const selectedRepository = ref(String(route.query.repoKey ?? ''))
 const selectedId = ref(String(route.query.selectedId ?? ''))
 const selectedRelation = ref<RepositoryRelationViewModel | null>(null)
+const selectedImpactRelation = ref<CodeGraphRelation | null>(null)
 const selectedSymbol = ref<CodeGraphNode | null>(null)
 const context = ref<CodeGraphContextResult | null>(null)
 const graph = ref<CodeGraphSubgraph>({ nodes: [], relations: [] })
 const searchQuery = ref('')
 const searchResults = ref<CodeGraphNode[]>([])
 const showEvidence = ref(true)
+const impactDirection = ref<'UPSTREAM' | 'DOWNSTREAM'>('UPSTREAM')
+const impactDepth = ref(5)
 const loading = ref(true)
 const busy = ref(false)
 const error = ref('')
@@ -60,6 +63,7 @@ function selectRepository(repository: RepositoryViewModel) {
   selectedRepository.value = repository.queryKey
   selectedId.value = repository.queryKey
   selectedRelation.value = null
+  selectedImpactRelation.value = null
   selectedSymbol.value = null
   context.value = null
   if (level.value === 'impact') level.value = 'overview'
@@ -71,6 +75,7 @@ function selectRepositoryById(id: string) {
 }
 function selectRelationById(id: string) {
   selectedRelation.value = topology.value.relations.find((relation) => relation.id === id) ?? null
+  selectedImpactRelation.value = selectedRelation.value ? null : graph.value.relations.find((relation) => relation.id === id) ?? null
   selectedSymbol.value = null
   selectedId.value = id
   void syncUrl()
@@ -90,6 +95,7 @@ async function selectSymbol(node: CodeGraphNode, targetLevel: ExplorerLevel = le
   level.value = targetLevel
   selectedId.value = node.id
   selectedRelation.value = null
+  selectedImpactRelation.value = null
   selectedRepository.value = node.repository || selectedRepository.value
   try {
     const [detail, contextValue] = await Promise.all([
@@ -101,7 +107,7 @@ async function selectSymbol(node: CodeGraphNode, targetLevel: ExplorerLevel = le
     // UPSTREAM impact is a separate question and can legitimately contain only
     // the target when no callers are resolved.
     const graphValue = targetLevel === 'impact'
-      ? await getCodeGraphImpact(props.runId, node.id, 2, 'UPSTREAM')
+      ? await getCodeGraphImpact(props.runId, node.id, impactDepth.value, impactDirection.value || 'UPSTREAM', node.kind)
       : (contextValue.graph ?? { nodes: [detail], relations: [] })
     selectedSymbol.value = detail
     context.value = contextValue
@@ -122,6 +128,7 @@ function selectSearchResult(node: CodeGraphNode) {
 function changeLevel(value: ExplorerLevel) {
   level.value = value
   selectedRelation.value = null
+  selectedImpactRelation.value = null
   if (value === 'overview') {
     graph.value = { nodes: [], relations: [] }
     selectedSymbol.value = null
@@ -134,6 +141,10 @@ function drillRepository() {
   else changeLevel('files')
 }
 function analyzeImpact() { if (selectedSymbol.value) void selectSymbol(selectedSymbol.value, 'impact') }
+function changeImpactDirection(direction: 'UPSTREAM' | 'DOWNSTREAM') {
+  impactDirection.value = direction
+  if (selectedSymbol.value && level.value === 'impact') void selectSymbol(selectedSymbol.value, 'impact')
+}
 
 watch(() => props.runId, () => void load())
 onMounted(load)
@@ -152,10 +163,17 @@ onMounted(load)
       <nav class="level-tabs" aria-label="图谱层级">
         <button v-for="tab in tabs" :key="tab.value" type="button" :class="{ active: level === tab.value }" @click="changeLevel(tab.value)"><strong>{{ tab.label }}</strong><small>{{ tab.description }}</small></button>
       </nav>
+      <div v-if="level === 'impact'" class="impact-toolbar" data-testid="impact-v2-toolbar">
+        <span class="impact-title">影响分析 V2</span>
+        <button type="button" :class="{ active: impactDirection === 'UPSTREAM' }" @click="changeImpactDirection('UPSTREAM')">上游影响</button>
+        <button type="button" :class="{ active: impactDirection === 'DOWNSTREAM' }" @click="changeImpactDirection('DOWNSTREAM')">下游依赖</button>
+        <label>深度 <input v-model.number="impactDepth" type="number" min="1" max="10" @change="selectedSymbol && selectSymbol(selectedSymbol, 'impact')" /></label>
+        <span class="impact-mode">调用链模式 · 真实边逐跳展开</span>
+      </div>
       <div class="explorer-grid">
         <RepositoryNavigator :repositories="topology.repositories" :selected-repository="selectedRepository" :search-query="searchQuery" :search-results="searchResults" :searching="busy" :show-evidence="showEvidence" @select-repository="selectRepository" @update-search="searchQuery = $event" @search="runSearch" @select-result="selectSearchResult" @update-show-evidence="showEvidence = $event" />
         <GraphWorkbench :level="level" :repositories="topology.repositories" :repository-relations="topology.relations" :symbol-graph="graph" :selected-id="selectedId" :show-evidence="showEvidence" :busy="busy" @select-repository="selectRepositoryById" @select-relation="selectRelationById" @select-symbol="selectSymbolById" />
-        <GraphInspector :level="level" :repository="currentRepository" :relation="selectedRelation" :symbol="selectedSymbol" :context="context" :relation-count="graph.relations.length" @drill="drillRepository" @impact="analyzeImpact" @overview="changeLevel('overview')" />
+        <GraphInspector :level="level" :repository="currentRepository" :relation="selectedRelation" :impact-relation="selectedImpactRelation" :symbol="selectedSymbol" :context="context" :relation-count="graph.relations.length" @drill="drillRepository" @impact="analyzeImpact" @overview="changeLevel('overview')" />
       </div>
     </template>
   </section>
@@ -163,4 +181,5 @@ onMounted(load)
 
 <style scoped>
 .explorer{display:grid;gap:16px;margin-top:20px}.explorer-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px}.eyebrow{margin:0 0 6px;color:var(--text-3);font:700 9px var(--font-mono);letter-spacing:.16em}.explorer-head h2{margin:0;font-size:22px;letter-spacing:-.02em}.explorer-head p:not(.eyebrow){margin:7px 0 0;color:var(--text-3);font-size:11px}.reset,.page-state button{border:1px solid var(--border-2);border-radius:8px;background:var(--surface-1);padding:9px 13px;color:var(--text-2);cursor:pointer}.level-tabs{display:flex;gap:24px;border-bottom:1px solid var(--border-1)}.level-tabs button{display:grid;gap:2px;padding:10px 3px 11px;border:0;border-bottom:3px solid transparent;background:transparent;text-align:left;color:var(--text-3);cursor:pointer}.level-tabs button.active{border-bottom-color:var(--accent-500);color:var(--accent-500)}.level-tabs strong{font-size:12px}.level-tabs small{font-size:9px}.explorer-grid{display:grid;grid-template-columns:220px minmax(0,1fr) 275px;gap:12px;min-height:620px;height:calc(100vh - 330px);max-height:820px}.page-state{display:grid;min-height:360px;place-content:center;justify-items:center;color:var(--text-3)}.page-state.error{color:var(--error)}.page-state p{max-width:520px}@media(max-width:1180px){.explorer-grid{grid-template-columns:200px minmax(0,1fr);height:auto;max-height:none}.explorer-grid>*:last-child{grid-column:1/-1;min-height:300px}}@media(max-width:760px){.explorer-head{align-items:flex-start;flex-direction:column}.reset{width:100%}.level-tabs{gap:8px;overflow:auto}.level-tabs button{min-width:130px}.explorer-grid{grid-template-columns:1fr}.explorer-grid>*:last-child{grid-column:auto}}
+.impact-toolbar{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--border-1);border-radius:9px;background:var(--surface-1);font-size:10px;color:var(--text-3)}.impact-title{margin-right:6px;color:var(--text-1);font-weight:700}.impact-toolbar button{border:1px solid var(--border-2);border-radius:6px;background:transparent;padding:6px 9px;color:var(--text-2);cursor:pointer}.impact-toolbar button.active{border-color:var(--accent-500);background:var(--accent-softer);color:var(--accent-600)}.impact-toolbar label{display:flex;align-items:center;gap:4px;margin-left:5px}.impact-toolbar input{width:42px;border:1px solid var(--border-2);border-radius:5px;padding:5px;color:var(--text-2);background:var(--surface-1)}.impact-mode{margin-left:auto}
 </style>

@@ -128,6 +128,8 @@ export interface CodeGraphRelation {
   target: string
   kind: string
   label?: string | null
+  confidence?: number | null
+  evidence?: Record<string, unknown>
 }
 
 export interface CodeGraphOverview {
@@ -161,6 +163,25 @@ export interface CodeGraphSubgraph {
   nodes: CodeGraphNode[]
   relations: CodeGraphRelation[]
   truncated?: boolean
+  analysisStatus?: 'COMPLETE' | 'PARTIAL' | 'UNDETERMINED' | 'ERROR' | string
+  analysisSource?: string | null
+  relationProfile?: string | null
+  relationTypes?: string[]
+  impactedCount?: number | null
+  directCount?: number | null
+  edgesVerified?: boolean
+  epistemic?: 'exact' | 'lower-bound' | string | null
+  truncationReason?: string | null
+  paths?: CodeGraphImpactPath[]
+}
+
+export interface CodeGraphImpactPath {
+  id?: string
+  orderedNodeIds: string[]
+  edgeIds: string[]
+  depth: number
+  endpointType?: string | null
+  entrypoint?: Record<string, unknown> | null
 }
 
 export interface CodeGraphSearchResult { items: CodeGraphNode[]; total?: number; truncated?: boolean }

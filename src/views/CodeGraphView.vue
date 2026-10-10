@@ -31,7 +31,11 @@ const ready = computed(() => state.value === 'READY_TO_START')
 // endpoint when the debug rebuild flag is retired.
 const debugRebuildEnabled = computed(() => import.meta.env.DEV || import.meta.env.VITE_CODE_GRAPH_DEBUG_REBUILD === 'true')
 const failed = computed(() => state.value === 'CODE_GRAPH_PREPARATION_FAILED' || state.value === 'FAILED' || status.value?.job?.status === 'FAILED')
-const browseable = computed(() => ['READY_TO_START', 'RUNNING', 'COMPLETED'].includes(state.value) && Boolean(status.value?.binding ?? status.value?.activeBinding))
+// The status endpoint is authoritative for readiness. Older backend snapshots
+// may omit the binding summary even though the run has a usable frozen graph;
+// do not hide the explorer in that case—let the run-scoped overview endpoint
+// report the precise binding error inside the explorer.
+const browseable = computed(() => ['READY_TO_START', 'RUNNING', 'COMPLETED'].includes(state.value))
 const stateLabel = computed(() => ({
   CREATED: '已创建',
   PREPARING_CODE_GRAPH: '正在准备代码图谱',

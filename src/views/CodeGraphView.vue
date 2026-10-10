@@ -3,9 +3,10 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { activateWorkflowRun } from '../api/workflow.api'
-import { getCodeGraphStatus, retryCodeGraphPreparation, retryCodeGraphUpdate } from '../api/code-graph.api'
+import { debugRebuildCodeGraph, getCodeGraphStatus, retryCodeGraphPreparation, retryCodeGraphUpdate } from '../api/code-graph.api'
 import type { CodeGraphStatus } from '../types/code-graph'
 import CodeGraphBrowser from '../features/code-graph/CodeGraphBrowser.vue'
+import { repositoryDisplayName } from '../features/code-graph/codeGraphViewModel'
 import { useRuntimeEventStore } from '../stores/runtimeEvent'
 
 const route = useRoute()
@@ -16,6 +17,7 @@ const runId = computed(() => String(route.query.runId ?? ''))
 const status = ref<CodeGraphStatus | null>(null)
 const loading = ref(true)
 const retrying = ref(false)
+const rebuilding = ref(false)
 const retryingUpdate = ref(false)
 const activating = ref(false)
 const error = ref('')
@@ -25,6 +27,9 @@ const state = computed(() => String(status.value?.status ?? ''))
 const progress = computed(() => Math.max(0, Math.min(100, Number(status.value?.progress ?? status.value?.job?.progress ?? 0))))
 const preparing = computed(() => ['CREATED', 'PREPARING_CODE_GRAPH'].includes(state.value))
 const ready = computed(() => state.value === 'READY_TO_START')
+// Temporary debug affordance. Remove this computed/button and the backend
+// endpoint when the debug rebuild flag is retired.
+const debugRebuildEnabled = computed(() => import.meta.env.DEV || import.meta.env.VITE_CODE_GRAPH_DEBUG_REBUILD === 'true')
 const failed = computed(() => state.value === 'CODE_GRAPH_PREPARATION_FAILED' || state.value === 'FAILED' || status.value?.job?.status === 'FAILED')
 const browseable = computed(() => ['READY_TO_START', 'RUNNING', 'COMPLETED'].includes(state.value) && Boolean(status.value?.binding ?? status.value?.activeBinding))
 const stateLabel = computed(() => ({
@@ -61,6 +66,16 @@ async function retry() {
     MessagePlugin.success('已重新提交代码图谱准备任务')
   } catch (cause) { MessagePlugin.error(cause instanceof Error ? cause.message : '重试失败') }
   finally { retrying.value = false }
+}
+
+async function debugRebuild() {
+  if (rebuilding.value || !ready.value) return
+  rebuilding.value = true
+  try {
+    status.value = await debugRebuildCodeGraph(runId.value)
+    MessagePlugin.success('已提交调试重建任务，代码图谱正在重新生成')
+  } catch (cause) { MessagePlugin.error(cause instanceof Error ? cause.message : '重新构建失败') }
+  finally { rebuilding.value = false }
 }
 
 /** M7: retry a FAILED REPO_APPEND update; only that target version is rebuilt. */
@@ -131,12 +146,13 @@ onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
         <div v-if="ready" class="ready-block"><strong>代码图谱已准备完成</strong><p>图谱将作为所有 Agent 阶段的系统级代码上下文。</p></div>
         <div v-if="status?.repositories?.length" class="repo-list" aria-label="代码仓库图谱进度">
           <div v-for="repo in status.repositories" :key="repo.name" class="repo-row">
-            <div><strong>{{ repo.name }}</strong><small>{{ repo.reuseDecision === 'REUSE_EXACT' ? '复用已有图谱' : '构建完整图谱' }}</small></div>
+            <div><strong>{{ repositoryDisplayName(repo.repositoryKey || repo.name) }}</strong><small>{{ repo.reuseDecision === 'REUSE_EXACT' ? '复用已有图谱' : '构建完整图谱' }}</small></div>
             <span :class="`repo-state state-${String(repo.status).toLowerCase()}`">{{ repo.status }}</span>
           </div>
         </div>
         <div class="actions">
           <button v-if="failed" type="button" class="secondary" :disabled="retrying" @click="retry">{{ retrying ? '重试中…' : '重试代码图谱' }}</button>
+          <button v-if="ready && debugRebuildEnabled" type="button" class="secondary" :disabled="rebuilding" @click="debugRebuild">{{ rebuilding ? '重建中…' : '重新构建代码图谱（调试）' }}</button>
           <button v-if="ready" type="button" class="primary" :disabled="activating" @click="activate">{{ activating ? '启动中…' : '正式开始工作流' }}</button>
         </div>
       </template>

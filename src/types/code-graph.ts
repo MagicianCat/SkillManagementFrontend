@@ -77,6 +77,7 @@ export interface CodeGraphStatus {
   frozenCommitCount?: number | null
   repositories?: Array<{
     name: string
+    repositoryKey?: string | null
     reuseDecision: 'REUSE_EXACT' | 'INCREMENTAL' | 'FULL_REQUIRED' | string
     status: 'REUSED' | 'BUILDING' | 'READY' | 'FAILED' | string
   }>
@@ -134,6 +135,26 @@ export interface CodeGraphOverview {
   repositories: Array<{ name?: string | null; alias?: string | null; logicalName?: string | null; logicalRepositoryKey?: string | null; displayName?: string | null; moduleCount?: number | null; fileCount?: number | null; symbolCount?: number | null; nodeCount?: number | null; edgeCount?: number | null }>
   modules?: Array<{ id: string; name: string; repository?: string | null; fileCount?: number | null }>
   counts?: { repositories?: number; modules?: number; files?: number; symbols?: number; relations?: number }
+  group?: {
+    engineCrossLinkCount?: number
+    workspaceCrossLinkCount?: number
+    repositoryDependencyCount?: number
+    repositoryDependencies?: Array<{
+      from?: string | null
+      to?: string | null
+      type?: string | null
+      source?: string | null
+      evidenceCount?: number
+      evidence?: Array<{
+        id?: string | null
+        contractId?: string | null
+        matchType?: string | null
+        confidence?: number | null
+        from?: { repository?: string | null; symbolUid?: string | null; symbolRef?: { name?: string | null; filePath?: string | null } | null } | null
+        to?: { repository?: string | null; symbolUid?: string | null; symbolRef?: { name?: string | null; filePath?: string | null } | null } | null
+      }>
+    }>
+  } | null
 }
 
 export interface CodeGraphSubgraph {

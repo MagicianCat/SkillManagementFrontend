@@ -66,6 +66,14 @@ export async function retryCodeGraphPreparation(runId: string | number) {
   return unwrap(data)
 }
 
+/** Temporary debug-only rebuild. The backend feature flag and READY_TO_START gate remain authoritative. */
+export async function debugRebuildCodeGraph(runId: string | number) {
+  const { data } = await http.post<CodeGraphStatus | { data: CodeGraphStatus }>(
+    `/workflow-runs/${encodeURIComponent(String(runId))}/code-graph:debug-rebuild`,
+  )
+  return unwrap(data)
+}
+
 /**
  * M7: retry a FAILED REPO_APPEND update request. Only the failed target version is
  * rebuilt; the current ACTIVE binding keeps serving traffic throughout.
@@ -85,6 +93,8 @@ export async function getCodeGraphOverview(runId: string | number) {
   const repositories = (raw.repositories ?? []).map((repo: any) => ({
     name: repo.name ?? repo.logicalName ?? repo.alias ?? repo.repository_alias ?? repo.logicalRepositoryKey,
     displayName: repo.displayName ?? repo.logicalRepositoryKey ?? repo.alias,
+    logicalRepositoryKey: repo.logicalRepositoryKey ?? repo.repositoryKey ?? null,
+    alias: repo.alias ?? repo.repository_alias ?? repo.logicalName ?? null,
     fileCount: repo.fileCount ?? engineRepositories.find((item: any) => item.logicalName === (repo.alias ?? repo.logicalRepositoryKey))?.fileCount ?? null,
     symbolCount: repo.symbolCount ?? engineRepositories.find((item: any) => item.logicalName === (repo.alias ?? repo.logicalRepositoryKey))?.nodeCount ?? null,
     edgeCount: repo.edgeCount ?? engineRepositories.find((item: any) => item.logicalName === (repo.alias ?? repo.logicalRepositoryKey))?.edgeCount ?? null,
@@ -96,7 +106,11 @@ export async function getCodeGraphOverview(runId: string | number) {
     files: rawCounts.files ?? repositories.reduce((sum: number, repo: any) => sum + (repo.fileCount ?? 0), 0),
     symbols: rawCounts.symbols ?? symbols,
     relations: rawCounts.relations ?? repositories.reduce((sum: number, repo: any) => sum + (repo.edgeCount ?? 0), 0),
-  } } as CodeGraphOverview
+  },
+  // The backend wraps the worker response under `graph`; expose the group
+  // dependency evidence at the view-model level consumed by repositoryTopology.
+  group: raw.group ?? raw.graph?.group ?? null,
+  } as CodeGraphOverview
 }
 
 export async function searchCodeGraph(runId: string | number, params: { query: string; kind?: string; repository?: string; limit?: number }) {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
 import { Background } from '@vue-flow/background'
-import { Handle, Position, VueFlow, useVueFlow } from '@vue-flow/core'
+import { Handle, MarkerType, Position, VueFlow, useVueFlow } from '@vue-flow/core'
 import type { CodeGraphSubgraph } from '../../types/code-graph'
 import { layoutGraph } from '../workbench/dagLayout'
 import type { ExplorerLevel, RepositoryRelationViewModel, RepositoryViewModel } from './codeGraphViewModel'
@@ -20,7 +20,7 @@ const props = defineProps<{
 const emit = defineEmits<{ selectRepository: [id: string]; selectRelation: [id: string]; selectSymbol: [id: string] }>()
 
 interface FlowNode { id: string; type: string; position: { x: number; y: number }; data: RepositoryViewModel | CodeGraphSubgraph['nodes'][number] }
-interface FlowEdge { id: string; source: string; target: string; label?: string; type?: string; animated?: boolean; data?: RepositoryRelationViewModel | CodeGraphSubgraph['relations'][number]; class?: string }
+interface FlowEdge { id: string; source: string; target: string; label?: string; type?: string; animated?: boolean; markerEnd?: MarkerType | { type: MarkerType; color?: string }; data?: RepositoryRelationViewModel | CodeGraphSubgraph['relations'][number]; class?: string }
 const nodes = ref<FlowNode[]>([])
 const edges = ref<FlowEdge[]>([])
 const flowId = 'code-graph-explorer-flow'
@@ -32,8 +32,8 @@ async function render() {
     ? props.repositories.map((repository) => ({ id: repository.queryKey, width: 228, height: 126, type: 'repository', data: repository }))
     : props.symbolGraph.nodes.map((node) => ({ id: node.id, width: 196, height: 78, type: 'symbol', data: node }))
   const sourceEdges = repositoryMode
-    ? props.repositoryRelations.map((relation) => ({ id: relation.id, source: relation.source, target: relation.target, label: props.showEvidence ? relation.type : undefined, data: relation }))
-    : props.symbolGraph.relations.filter((relation) => relation.source && relation.target).map((relation, index) => ({ id: relation.id || `relation-${index}`, source: relation.source, target: relation.target, label: props.showEvidence ? (relation.label || relation.kind) : undefined, data: relation }))
+    ? props.repositoryRelations.map((relation) => ({ id: relation.id, source: relation.source, target: relation.target, label: props.showEvidence ? relation.type : undefined, markerEnd: MarkerType.ArrowClosed, data: relation }))
+    : props.symbolGraph.relations.filter((relation) => relation.source && relation.target).map((relation, index) => ({ id: relation.id || `relation-${index}`, source: relation.source, target: relation.target, label: props.showEvidence ? (relation.label || relation.kind) : undefined, markerEnd: MarkerType.ArrowClosed, data: relation }))
   const positions = await layoutGraph(sourceNodes.map(({ id, width, height }) => ({ id, width, height })), sourceEdges, { layerGap: 105, nodeGap: 55, padding: 35 })
   nodes.value = sourceNodes.map((node) => ({ id: node.id, type: node.type, position: positions[node.id] ?? { x: 0, y: 0 }, data: node.data }))
   edges.value = sourceEdges.map((edge) => ({ ...edge, type: 'default', animated: false, class: props.selectedId === edge.id ? 'is-selected' : '' }))

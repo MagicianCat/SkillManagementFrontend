@@ -23,6 +23,7 @@ const emit = defineEmits<{ drill: []; impact: []; overview: [] }>()
       <div class="stats"><div><span>证据数量</span><strong>{{ relation.evidenceCount }}</strong></div><div><span>关系类型</span><strong class="small">{{ relation.type }}</strong></div></div>
       <div class="divider" /><h3>关系证据</h3>
       <article v-for="source in relation.evidenceSources" :key="source" class="evidence"><b>✓ {{ source }}</b><p>来源于当前冻结快照；具体文件路径尚未由现有接口返回。</p><code>{{ relation.label }}</code></article>
+      <article v-for="(evidence, index) in relation.evidence ?? []" :key="`${evidence.contractId ?? 'evidence'}-${index}`" class="evidence"><b>✓ {{ evidence.contractId ?? 'Workspace CrossLink' }}</b><p>{{ evidence.from ?? relation.source }} → {{ evidence.to ?? relation.target }}</p><code>{{ evidence.matchType ?? 'VERIFIED' }} · 置信度 {{ evidence.confidence ?? '—' }}</code></article>
       <p class="caution">只有后端返回的契约或依赖证据才会绘制为跨仓连线。</p>
     </template>
 

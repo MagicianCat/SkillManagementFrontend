@@ -43,3 +43,20 @@ test('file exploration renders exact context relations while impact remains upst
   assert.match(browser, /selectSearchResult[\s\S]*selectSymbol\(node, 'files'\)/)
   assert.match(workbench, /未解析到上游影响路径/)
 })
+
+test('repository topology includes persisted Maven workspace dependencies', async () => {
+  const viewModel = await read('src/features/code-graph/codeGraphViewModel.ts')
+  const types = await read('src/types/code-graph.ts')
+  assert.match(viewModel, /repositoryDependencies/)
+  assert.match(viewModel, /DEPENDS_ON/)
+  assert.match(viewModel, /GITNEXUS_WORKSPACE/)
+  assert.match(types, /repositoryDependencyCount/)
+})
+
+test('debug code graph rebuild is gated to development UI', async () => {
+  const api = await read('src/api/code-graph.api.ts')
+  const view = await read('src/views/CodeGraphView.vue')
+  assert.match(api, /code-graph:debug-rebuild/)
+  assert.match(view, /VITE_CODE_GRAPH_DEBUG_REBUILD/)
+  assert.match(view, /重新构建代码图谱（调试）/)
+})

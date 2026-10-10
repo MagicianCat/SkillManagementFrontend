@@ -4,6 +4,7 @@ import { MessagePlugin } from 'tdesign-vue-next'
 import { useRouter } from 'vue-router'
 import { createProject, listProjectMembers, listProjects, putProjectMember, searchProjectUsers, validateFeishuPublishTarget, type Project, type ProjectMember, type ProjectUser } from '../api/projects.api'
 import { getCurrentWorkflowRun } from '../api/workflow.api'
+import { getCodeGraphStatus } from '../api/code-graph.api'
 
 const router = useRouter()
 const projects = ref<Project[]>([])
@@ -78,6 +79,19 @@ async function enterWorkspace(project: Project) {
   enteringProjectKey.value = project.projectKey
   try {
     const run = await getCurrentWorkflowRun(project.projectKey)
+    // A current run may still be waiting for its frozen code graph. In that
+    // state there is no Agent stage workspace yet; return to the preparation
+    // page so the owner can observe/retry/activate the graph build.
+    try {
+      const graph = await getCodeGraphStatus(run.id)
+      if (['CREATED', 'PREPARING_CODE_GRAPH', 'CODE_GRAPH_PREPARATION_FAILED', 'READY_TO_START'].includes(String(graph.status))) {
+        await router.push({ name: 'project-code-graph', params: { projectKey: project.projectKey }, query: { runId: String(run.id) } })
+        return
+      }
+    } catch {
+      // Keep the workflow fallback for older deployments that do not expose
+      // the code-graph status endpoint yet.
+    }
     await router.push({ name: 'project-workspace', params: { projectId: project.projectKey, runId: String(run.id) } })
   } catch (error) {
     const status = (error as any)?.response?.status

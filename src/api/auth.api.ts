@@ -4,6 +4,7 @@ import type {
   IdeAuthorizationDetails,
   TokenResult,
   BrowserAuthResult,
+  AuthUser,
 } from '../types/auth'
 
 export async function getFeishuAuthorizeUrl(redirectPath: string): Promise<string> {
@@ -16,6 +17,10 @@ export async function feishuCallback(code: string, state: string): Promise<Brows
 }
 export async function restoreBrowserSession(): Promise<BrowserAuthResult> {
   const { data } = await http.get<BrowserAuthResult>('/auth/session')
+  return data
+}
+export async function getCurrentUser(): Promise<AuthUser> {
+  const { data } = await http.get<AuthUser>('/auth/me')
   return data
 }
 

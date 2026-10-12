@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { feishuCallback, getFeishuDocumentAccess, logout, restoreBrowserSession } from '../api/auth.api'
+import { feishuCallback, getCurrentUser, getFeishuDocumentAccess, logout, restoreBrowserSession } from '../api/auth.api'
 import { setAccessToken } from '../api/http'
 import type { AuthUser } from '../types/auth'
 
@@ -12,6 +12,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() =>
     Boolean(accessToken.value && user.value),
   )
+  let userRefresh: Promise<void> | undefined
 
   function setSession(
     nextAccessToken: string,
@@ -26,6 +27,16 @@ export const useAuthStore = defineStore('auth', () => {
     if (!accessToken.value) { feishuDocumentAccess.value = 'NOT_AVAILABLE'; return }
     try { feishuDocumentAccess.value = (await getFeishuDocumentAccess()).status }
     catch { feishuDocumentAccess.value = 'NOT_AVAILABLE' }
+  }
+
+  async function refreshUser() {
+    if (!isAuthenticated.value) return
+    if (!userRefresh) {
+      userRefresh = getCurrentUser().then((current) => {
+        if (user.value?.id === current.id) user.value = current
+      }).finally(() => { userRefresh = undefined })
+    }
+    await userRefresh
   }
 
   function clearSession() {
@@ -70,6 +81,7 @@ export const useAuthStore = defineStore('auth', () => {
     feishuDocumentAccess,
     authenticateFeishu,
     initialize,
+    refreshUser,
     signOut,
     clearSession,
   }

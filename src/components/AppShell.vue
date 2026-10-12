@@ -76,14 +76,13 @@ const navEntries = computed<NavEntry[]>(() => [
     icon: 'chart',
     visible:
       hasPermission(authStore.user?.permissions, 'admin:telemetry') ||
-      hasPermission(authStore.user?.permissions, 'skill:review') ||
       telemetryAccessible.value,
   },
   {
     label: '组织与权限',
     routeName: 'organization',
     icon: 'users',
-    visible: hasPermission(authStore.user?.permissions, 'admin:identity'),
+    visible: hasPermission(authStore.user?.permissions, 'admin:identity') || authStore.user?.roles.includes('TEAM_ADMIN') === true,
   },
   {
     label: '通知中心',
@@ -110,6 +109,11 @@ const notifications = ref<NotificationView[]>([])
 const notificationsLoading = ref(false)
 const notificationWrap = ref<HTMLDivElement | null>(null)
 let pollTimer: ReturnType<typeof setInterval> | undefined
+let rolePollTimer: ReturnType<typeof setInterval> | undefined
+
+function refreshRolePermissions() {
+  if (document.visibilityState === 'visible') void authStore.refreshUser().catch(() => { /* 下次轮询或窗口激活时重试 */ })
+}
 
 async function refreshUnread() {
   await notificationStore.refresh()
@@ -209,10 +213,16 @@ onMounted(() => {
   void refreshUnread()
   void getSkillUsageAccessScope().then(() => { telemetryAccessible.value = true }).catch(() => { /* 非管理员忽略 */ })
   pollTimer = setInterval(() => void refreshUnread(), 30_000)
+  rolePollTimer = setInterval(refreshRolePermissions, 10_000)
+  window.addEventListener('focus', refreshRolePermissions)
+  document.addEventListener('visibilitychange', refreshRolePermissions)
   document.addEventListener('click', onDocumentClick)
 })
 onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer)
+  if (rolePollTimer) clearInterval(rolePollTimer)
+  window.removeEventListener('focus', refreshRolePermissions)
+  document.removeEventListener('visibilitychange', refreshRolePermissions)
   document.removeEventListener('click', onDocumentClick)
 })
 

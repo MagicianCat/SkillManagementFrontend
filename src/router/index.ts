@@ -7,6 +7,7 @@ declare module 'vue-router' {
     title?: string
     requiresAuth?: boolean
     permissions?: Permission[]
+    roles?: string[]
   }
 }
 
@@ -125,7 +126,7 @@ const router = createRouter({
           path: 'organization',
           name: 'organization',
           component: () => import('../views/OrganizationView.vue'),
-          meta: { title: '组织与团队权限', permissions: ['admin:identity', 'skill:review'] },
+          meta: { title: '组织与团队权限', permissions: ['admin:identity'], roles: ['TEAM_ADMIN'] },
         },
         {
           path: 'reviews/:reviewId',
@@ -230,11 +231,12 @@ router.beforeEach(async (to) => {
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
-  if (
-    authStore.isAuthenticated &&
-    to.meta.permissions?.length &&
-    !hasAnyPermission(authStore.user?.permissions, to.meta.permissions)
-  ) {
+  const hasPermissions = Boolean(to.meta.permissions?.length)
+  const hasRoles = Boolean(to.meta.roles?.length)
+  const hasAccess = (!hasPermissions && !hasRoles) ||
+    (hasPermissions && hasAnyPermission(authStore.user?.permissions, to.meta.permissions!)) ||
+    (hasRoles && to.meta.roles!.some((role) => authStore.user?.roles.includes(role)))
+  if (authStore.isAuthenticated && !hasAccess) {
     return { name: 'forbidden' }
   }
   return true

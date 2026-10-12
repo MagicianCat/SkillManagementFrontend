@@ -29,13 +29,9 @@ const canUpload = computed(() =>
 const canEdit = computed(() =>
   hasPermission(authStore.user?.permissions, 'skill:edit'),
 )
-// 管理员（任一 admin:* 权限）可编辑所有 Skill；普通用户仅可编辑自己维护的
+// 只有平台超级管理员可编辑全部 Skill；团队管理员仍须是该 Skill 的维护人。
 const isAdmin = computed(() =>
-  Boolean(
-    authStore.user?.permissions?.some((permission) =>
-      permission.startsWith('admin:'),
-    ),
-  ),
+  hasPermission(authStore.user?.permissions, 'admin:identity'),
 )
 
 function canEditSkill(skill: SkillView): boolean {

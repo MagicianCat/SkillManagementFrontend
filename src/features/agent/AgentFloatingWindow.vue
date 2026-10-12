@@ -125,13 +125,14 @@ function maximize() {
 .agent-floating {
   position: fixed;
   z-index: 50;
-  right: 24px;
-  bottom: 24px;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(12px, env(safe-area-inset-bottom));
   display: flex;
-  /* 视口自适应：以浏览器可视高宽为上限，避免小屏/非全屏时超出边界 */
-  width: min(390px, calc(100vw - 48px));
-  height: min(520px, calc(100dvh - 48px));
-  max-height: calc(100dvh - 48px);
+  /* 同时按视口比例和最大尺寸约束，兼容窄窗口、浏览器缩放和非全屏窗口。 */
+  width: min(390px, max(320px, 34vw), calc(100vw - 24px));
+  height: min(520px, 68vh, calc(100vh - 24px));
+  max-width: calc(100vw - 24px);
+  max-height: min(520px, 68vh, calc(100vh - 24px));
   overflow: hidden;
   flex-direction: column;
   border: 1px solid var(--border-accent);
@@ -139,6 +140,12 @@ function maximize() {
   background: var(--surface-overlay);
   backdrop-filter: blur(20px) saturate(140%);
   box-shadow: var(--shadow-xl), var(--inner-highlight);
+}
+@supports (height: 100dvh) {
+  .agent-floating {
+    height: min(520px, 68dvh, calc(100dvh - 24px));
+    max-height: min(520px, 68dvh, calc(100dvh - 24px));
+  }
 }
 .agent-floating > header {
   display: flex;
@@ -174,9 +181,10 @@ function maximize() {
 }
 @media (max-width: 640px) {
   .agent-floating {
-    inset: 12px;
+    inset: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
     width: auto;
     height: auto;
+    max-width: none;
     max-height: none;
   }
   .agent-launcher {

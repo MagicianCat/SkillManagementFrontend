@@ -79,6 +79,9 @@ export async function getCodeGraphStatus(runId: string | number) {
   )
   return unwrap(data)
 }
+export interface CodeGraphToolUsage { stageRunId: number; stageKey: string; nodeKey: string; toolCallCount: number; preloadQueryCount: number; engineQueryCount: number; cacheHitCount: number; durationMs: number; returnedChars: number; budgetRejectedCount: number }
+export async function getCodeGraphToolUsage(runId: string | number) { return (await http.get<CodeGraphToolUsage[]>(`${graphPath(runId)}/tool-usage`)).data }
+export async function getCodeGraphEvidence(runId: string | number) { return (await http.get<Record<string, any>>(`${graphPath(runId)}/evidence`)).data }
 
 export async function retryCodeGraphPreparation(runId: string | number) {
   const { data } = await http.post<CodeGraphStatus | { data: CodeGraphStatus }>(

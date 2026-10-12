@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { acceptWorkflowStage, answerWorkflowHumanQuestion, designAcceptWorkflowRun, getCurrentWorkflowRun, sendIntervention } from '../api/workflow.api'
-import { prepareWorkflowRun } from '../api/code-graph.api'
+import { prepareWorkflowRun, getCodeGraphToolUsage, getCodeGraphEvidence, type CodeGraphToolUsage } from '../api/code-graph.api'
 import WorkbenchHeader from '../features/workbench/WorkbenchHeader.vue'
 import WorkflowDagPanel from '../features/workbench/WorkflowDagPanel.vue'
 import CurrentStagePanel from '../features/workbench/CurrentStagePanel.vue'
@@ -36,6 +36,9 @@ const answeringQuestion = ref(false)
 const acceptanceRef = ref<InstanceType<typeof AcceptancePanel> | null>(null)
 const artifactRef = ref<InstanceType<typeof ArtifactPanel> | null>(null)
 const timelineRef = ref<InstanceType<typeof ExecutionTimeline> | null>(null)
+const graphUsage = ref<CodeGraphToolUsage[]>([])
+const graphEvidence = ref<Record<string, any>>({})
+async function loadGraphMetrics(id = String(workspace.workflowRun?.id || runId.value)) { if (!id) return; const [usage, evidence] = await Promise.allSettled([getCodeGraphToolUsage(id), getCodeGraphEvidence(id)]); if (usage.status === 'fulfilled') graphUsage.value = usage.value; if (evidence.status === 'fulfilled') graphEvidence.value = evidence.value }
 
 const initialRequest = ref('')
 const starting = ref(false)
@@ -109,17 +112,19 @@ onMounted(async () => {
     resolvingRun.value = false
   }
   await workspace.load(id)
+  await loadGraphMetrics(id)
   selectStageFromQuery()
   if (workspace.workflowRun) { const activeRunId = String(workspace.workflowRun.id); runtime.connect(activeRunId); workspace.startAutoRefresh(activeRunId) }
 })
 watch(runId, async (next, previous) => {
   if (!next || next === previous || String(workspace.workflowRun?.id ?? '') === next) return
   await workspace.load(next)
+  await loadGraphMetrics(next)
   selectStageFromQuery()
   runtime.connect(next)
   workspace.startAutoRefresh(next)
 })
-watch(() => runtime.events.length, () => { const event = runtime.events.at(-1); if (event) workspace.applyEvent(event) })
+watch(() => runtime.events.length, () => { const event = runtime.events.at(-1); if (event) { workspace.applyEvent(event); if (runtime.events.length % 3 === 0) void loadGraphMetrics() } })
 onBeforeUnmount(() => { workspace.stopAutoRefresh(); runtime.close() })
 
 const lastEventAt = computed(() => runtime.events.at(-1)?.createdAt ?? '')
@@ -129,6 +134,7 @@ const artifactSummary = computed(() => artifactRef.value?.summary ?? '')
 const artifactBadge = computed(() => artifactRef.value?.badge ?? '')
 const timelineSummary = computed(() => timelineRef.value?.summary ?? '')
 const timelineLive = computed(() => timelineRef.value?.live ?? runtime.events.length > 0)
+const graphUsageSummary = computed(() => `${graphUsage.value.reduce((n,x)=>n+Number(x.toolCallCount||0),0)} 次调用 · ${graphUsage.value.reduce((n,x)=>n+Number(x.cacheHitCount||0),0)} 次缓存 · ${Number(graphEvidence.value.factCount ?? graphEvidence.value.facts?.length ?? 0)} 条证据`)
 
 /** 干预目标自动取当前阶段与其当前 Agent，无需手填。 */
 const interventionTarget = computed<InterventionTarget>(() => {
@@ -248,7 +254,7 @@ async function externalStageCompleted(){ await workspace.load(String(workspace.w
           :running="selectedStageInteractive && ['RUNNING', 'PROVISIONING'].includes(String(selectedStage?.status))"
           :readonly="stageReadonly"
           :target="interventionTarget"
-          :retryable="Boolean(interventionTarget.failed) && ownerCanRetry"
+          :retryable="Boolean(interventionTarget.failed)"
           :questions="selectedQuestions"
           :disabled="answeringQuestion || !selectedStageInteractive"
           @submit="intervention"
@@ -265,6 +271,15 @@ async function externalStageCompleted(){ await workspace.load(String(workspace.w
       <!-- Agent 执行轨迹：默认折叠，需要时展开。 -->
       <CollapsiblePanel v-if="!gitWatchStage" title="Agent 执行轨迹" :badge="timelineLive ? '实时' : ''" :badge-on="timelineLive" :summary="timelineSummary">
         <ExecutionTimeline ref="timelineRef" :events="runtime.events" />
+      </CollapsiblePanel>
+
+      <CollapsiblePanel v-if="!gitWatchStage" title="代码图谱查询使用情况" :badge="graphUsage.length ? '受控' : '未调用'" :badge-on="graphUsage.length > 0" :summary="graphUsageSummary">
+        <div class="graph-usage">
+          <div class="graph-usage__head"><span>阶段 / Agent</span><span>主动调用</span><span>预加载</span><span>引擎查询</span><span>缓存命中</span><span>累计耗时</span><span>预算拒绝</span></div>
+          <div v-for="item in graphUsage" :key="`${item.stageRunId}/${item.nodeKey}`" class="graph-usage__row"><b>{{ item.stageKey }} / {{ item.nodeKey }}</b><span>{{ item.toolCallCount }}</span><span>{{ item.preloadQueryCount }}</span><span>{{ item.engineQueryCount }}</span><span>{{ item.cacheHitCount }}</span><span>{{ item.durationMs || 0 }} ms</span><span :class="{ warn: item.budgetRejectedCount > 0 }">{{ item.budgetRejectedCount || 0 }}</span></div>
+          <p v-if="!graphUsage.length" class="muted graph-usage__empty">当前尚未发生主动代码图谱查询；角色可以直接使用启动证据完成任务。</p>
+          <footer>Evidence revision {{ graphEvidence.revision || 0 }} · {{ graphEvidence.facts?.length || 0 }} 条可复用事实</footer>
+        </div>
       </CollapsiblePanel>
 
       <AcceptancePanel v-if="waitingAcceptance" ref="acceptanceRef" :accepting="accepting" :stage-name="selectedStage?.displayName || selectedStage?.name" :stage-key="selectedStage?.key" @decide="acceptance" />
@@ -294,6 +309,7 @@ async function externalStageCompleted(){ await workspace.load(String(workspace.w
 .muted { color: var(--text-3); }
 .error-banner { margin: 0; padding: 10px 14px; border: 1px solid rgb(248 113 113 / 40%); border-radius: var(--radius-sm); background: var(--error-soft); color: var(--error); font-size: 13px; }
 .readonly-banner { margin: 0; padding: 10px 14px; border: 1px solid rgb(96 165 250 / 40%); border-radius: var(--radius-sm); background: var(--info-soft); color: var(--info); font-size: 13px; }
+.graph-usage{display:grid;gap:8px;padding:4px}.graph-usage__head,.graph-usage__row{display:grid;grid-template-columns:minmax(190px,1fr) repeat(6,minmax(74px,.42fr));gap:10px;align-items:center;padding:9px 12px}.graph-usage__head{color:var(--text-3);font-size:11px;border-bottom:1px solid var(--border-1)}.graph-usage__row{border:1px solid var(--border-1);border-radius:var(--radius-sm);background:var(--surface-2);font-size:12px}.graph-usage__row b{color:var(--text-1)}.graph-usage__row span{color:var(--text-2)}.graph-usage__row .warn{color:var(--warning);font-weight:700}.graph-usage__empty{padding:12px}.graph-usage footer{color:var(--text-3);font-size:11px;padding:6px 12px}
 /* 工作流 → 配置页：嵌入页头操作区，与配置页「返回工作流」按钮同源的描边辉光样式 */
 .setup-link { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border: 1px solid var(--border-accent); border-radius: var(--radius-sm); background: var(--accent-softer); color: var(--accent-300); font-size: 13px; font-weight: 600; text-decoration: none; transition: border-color var(--duration-fast), box-shadow var(--duration-fast), background var(--duration-fast), color var(--duration-fast); }
 .setup-link svg { width: 13px; height: 13px; transition: transform var(--duration-fast) var(--ease-out); }

@@ -178,17 +178,16 @@ test('profile view derives latest version from descending versions', async () =>
   assert.match(source, /: versions\?\.\[0\]/)
 })
 
-test('project creation validates optional Feishu publish root before submit', async () => {
+test('project creation stays independent from Feishu publish root configuration', async () => {
   const projects = await readFile(new URL('../src/views/ProjectsView.vue', import.meta.url), 'utf8')
   const setup = await readFile(new URL('../src/views/ProjectAgentSetupView.vue', import.meta.url), 'utf8')
   const api = await readFile(new URL('../src/api/projects.api.ts', import.meta.url), 'utf8')
-  assert.match(projects, /feishuWikiRootUrl/)
-  assert.match(projects, /validateFeishuRoot/)
+  assert.doesNotMatch(projects, /feishuWikiRootUrl/)
+  assert.doesNotMatch(projects, /validateFeishuRoot/)
   assert.match(api, /feishu-publish-target:validate/)
-  assert.match(api, /feishuWikiRootUrl/)
   assert.match(setup, /getFeishuPublishTarget/)
   assert.match(setup, /updateFeishuPublishTarget/)
-  assert.match(setup, /feishu-publish-target/)
+  assert.doesNotMatch(setup, /await validateFeishuPublishTarget\(url\)/)
 })
 
 test('workspace exposes Feishu publication status, owner retry, and stageRunId deep-link selection', async () => {

@@ -21,6 +21,18 @@ export interface ProjectAgentNodeDraft {
   skills?: AgentSkillBinding[]; tools?: AgentToolPermission[]
   modified?: boolean
 }
+export type CodeGraphTool = 'overview' | 'query' | 'context' | 'impact' | 'trace' | 'route-map'
+export interface CodeGraphNodePolicy {
+  version?: number; enabled: boolean; allowedTools: CodeGraphTool[]; softToolCalls: number
+  maxDepth: number; maxNodes: number; maxPaths: number; maxResultChars: number
+  maxPreloadQueries: number; evidenceMode?: 'REUSE_FIRST' | string; stopInstruction?: string
+  stageMaxToolCalls?: number; stageMaxEngineQueries?: number
+}
+export interface CodeGraphPolicyView {
+  stageKey: string; nodeKey: string; policy: CodeGraphNodePolicy
+  policySource: 'ROLE_DEFAULT' | 'PROJECT_NODE' | 'RUN_SNAPSHOT' | string
+  platformLimits: { maxDepth: number; maxNodes: number; maxPaths: number; maxResultChars: number }
+}
 export interface ProjectAgentContext {
   kind: 'PLATFORM_WIKI' | 'FEISHU'; id: string | number; title: string; revisionNo?: number
   documentType?: string; docType?: string; readable?: boolean; url?: string

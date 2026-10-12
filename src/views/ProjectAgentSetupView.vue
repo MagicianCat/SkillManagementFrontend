@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { listAgentLibrary, listTeamPresets, getProjectAgentNode, saveProjectAgentNodeDraft, getProjectAgentContexts, saveProjectAgentContexts, appendProjectAgentContexts, reviseProjectAgentConfiguration, resolveProjectFeishuWiki } from '../api/agent-library.api'
+import { listAgentLibrary, listTeamPresets, getProjectAgentNode, saveProjectAgentNodeDraft, getProjectAgentContexts, saveProjectAgentContexts, appendProjectAgentContexts, reviseProjectAgentConfiguration, resolveProjectFeishuWiki, getProjectAgentNodeGraphPolicy, saveProjectAgentNodeGraphPolicy, resetProjectAgentNodeGraphPolicy } from '../api/agent-library.api'
 import { getCurrentWorkflowRun } from '../api/workflow.api'
 import { prepareWorkflowRun } from '../api/code-graph.api'
 // Legacy contract marker: actual launch moved to prepareWorkflowRun; old clients used startWorkflowRun(projectKey, ...).
@@ -12,9 +12,9 @@ import { MessagePlugin } from 'tdesign-vue-next'
 import { Button as TButton, Tag as TTag, Select as TSelect, Input as TInput, InputNumber as TInputNumber, Textarea as TTextarea, RadioGroup as TRadioGroup, RadioButton as TRadioButton, Collapse as TCollapse, CollapsePanel as TCollapsePanel, Pagination as TPagination, CheckboxGroup as TCheckboxGroup, Checkbox as TCheckbox, DialogPlugin } from 'tdesign-vue-next'
 import { LockOnIcon, InfoCircleFilledIcon, EditIcon, ChevronRightIcon, AddIcon, CloudUploadIcon, SearchIcon, CodeIcon, FileIcon, SecuredIcon, GitBranchIcon } from 'tdesign-icons-vue-next'
 import type { SkillCategory, SkillView } from '../types/skill'
-import type { AgentLibraryProfile, AgentTeamBinding, AgentTeamPreset, ProjectAgentContext, ProjectAgentContexts, ProjectAgentNodeDraft } from '../types/agent-library'
+import type { AgentLibraryProfile, AgentTeamBinding, AgentTeamPreset, ProjectAgentContext, ProjectAgentContexts, ProjectAgentNodeDraft, CodeGraphPolicyView, CodeGraphTool } from '../types/agent-library'
 import { useProjectSetupStore } from '../stores/projectSetup'
-import { getFeishuPublishTarget, updateFeishuPublishTarget, validateFeishuPublishTarget, type FeishuPublishTarget } from '../api/projects.api'
+import { getFeishuPublishTarget, updateFeishuPublishTarget, type FeishuPublishTarget } from '../api/projects.api'
 import { appendProjectGitRepository, getProjectGitRepositories, resolveGitRepository, saveProjectGitRepositories, type GitRepositoryResolution, type ProjectGitRepository, type ProjectGitRepositoryInput } from '../api/git.api'
 
 const route = useRoute(); const router = useRouter(); const setup = useProjectSetupStore(); const projectKey = String(route.params.projectKey)
@@ -22,6 +22,12 @@ const profiles = ref<AgentLibraryProfile[]>([]); const presets = ref<AgentTeamPr
 const workflowStarted = ref(false)
 const currentRunId = ref<string|number|null>(null)
 const currentRunStatus = ref<string>('')
+const graphPolicy = ref<CodeGraphPolicyView | null>(null)
+const graphPolicyMode = ref<'DEFAULT'|'CUSTOM'>('DEFAULT')
+const graphToolOptions: Array<{ value: CodeGraphTool; label: string }> = [
+  { value: 'overview', label: 'Overview' }, { value: 'query', label: 'Query' }, { value: 'context', label: 'Context' },
+  { value: 'impact', label: 'Impact' }, { value: 'trace', label: 'Trace' }, { value: 'route-map', label: 'Route Map' },
+]
 const persistedContextKeys = ref(new Set<string>())
 /* ===== 05 代码仓库：识别 → 选分支与绑定阶段 → 追加/保存 ===== */
 const repositories = ref<ProjectGitRepository[]>([])
@@ -48,7 +54,7 @@ const groupedNodes = computed(() => {
   }
   return [...groups.values()]
 })
-async function loadNode() { if (!selectedNode.value) return; try { selectedDraft.value = await getProjectAgentNode(projectKey, selectedNode.value.stageKey, selectedNode.value.nodeKey) } catch (e) { message.value = e instanceof Error ? e.message : 'Agent 草稿加载失败' } }
+async function loadNode() { if (!selectedNode.value) return; try { const [draft, policy] = await Promise.all([getProjectAgentNode(projectKey, selectedNode.value.stageKey, selectedNode.value.nodeKey), getProjectAgentNodeGraphPolicy(projectKey, selectedNode.value.stageKey, selectedNode.value.nodeKey)]); selectedDraft.value = draft; graphPolicy.value = policy; graphPolicyMode.value = policy.policySource === 'PROJECT_NODE' ? 'CUSTOM' : 'DEFAULT' } catch (e) { message.value = e instanceof Error ? e.message : 'Agent 草稿加载失败' } }
 function removeSkill(skillKey: string) { if (!selectedDraft.value) return; selectedDraft.value.skills = (selectedDraft.value.skills ?? []).filter(skill => skill.skillKey !== skillKey).map((skill, index) => ({ ...skill, versionPolicy: 'LATEST_PUBLISHED', fixedSkillVersionId: undefined, required: true, sortOrder: index })) }
 function selectedSkill(skillKey: string) { return selectedDraft.value?.skills?.some(skill => skill.skillKey === skillKey) ?? false }
 async function searchSkills() { skillSearching.value = true; skillSearched.value = true; try { const page = await getSkills({ keyword: skillQuery.value.trim() || undefined, status: 'ACTIVE', page: 0, size: 20, sort: 'skillKey,asc' }); skillResults.value = page.items.filter(skill => Boolean(skill.latestPublishedVersion) && (!skill.scopeType || skill.scopeType === 'PLATFORM')); skillCategoryFilter.value = null; cacheSkillMeta(skillResults.value) } catch (e) { MessagePlugin.error(e instanceof Error ? e.message : 'Skill 搜索失败') } finally { skillSearching.value = false } }
@@ -136,7 +142,7 @@ function goWorkspace() {
 function confirmApplySource(action: () => Promise<void>, label: string) { if (workflowStarted.value) return; const dialog = DialogPlugin.confirm({ header: '确认应用配置来源？', body: `${label} 将覆盖当前所有 Node 的草稿配置，且不可恢复。`, confirmBtn: '确认应用', cancelBtn: '取消', theme: 'warning', onConfirm: async () => { dialog.destroy(); busy.value = true; try { setup.clearValidation(); await action(); setup.selectedNodeKey = setup.configuration?.nodes[0] ? `${setup.configuration.nodes[0].stageKey}/${setup.configuration.nodes[0].nodeKey}` : ''; await loadNode() } catch (e) { message.value = e instanceof Error ? e.message : '配置来源应用失败' } finally { busy.value = false } }, onClose: () => dialog.destroy() }) }
 function applySource() { if (source.value === 'SYSTEM_PRESET' && selectedPreset.value != null) confirmApplySource(() => setup.usePreset(projectKey, selectedPreset.value!), '应用系统方案'); else if (source.value === 'PROJECT_COPY' && sourceProjectKey.value) confirmApplySource(() => setup.copyFrom(projectKey, sourceProjectKey.value), '复制历史项目配置') }
 function parseJsonObject(value: unknown, label: string) { try { const parsed = typeof value === 'string' ? JSON.parse(value || '{}') : (value ?? {}); if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') throw new Error(`${label}必须是 JSON 对象`); return JSON.stringify(parsed) } catch (e) { throw new Error(`${label}格式无效：${e instanceof Error ? e.message : '请填写合法 JSON'}`) } }
-async function saveNode() { if (!selectedNode.value || !selectedDraft.value) return; saving.value = true; try { const skills = (selectedDraft.value.skills ?? []).map((skill, index) => ({ ...skill, versionPolicy: 'LATEST_PUBLISHED' as const, fixedSkillVersionId: undefined, required: true, sortOrder: index })); selectedDraft.value.skills = skills; const outputSchemaJson = parseJsonObject(selectedDraft.value.outputSchemaJson, 'Output Schema'); const runtimeConfigJson = parseJsonObject(selectedDraft.value.runtimeConfigJson, 'Runtime Config'); await saveProjectAgentNodeDraft(projectKey, selectedNode.value.stageKey, selectedNode.value.nodeKey, { systemPrompt: selectedDraft.value.systemPrompt, modelCode: selectedDraft.value.modelCode, temperature: selectedDraft.value.temperature, maxIterationPerRun: selectedDraft.value.maxIterationPerRun, timeoutSeconds: selectedDraft.value.timeoutSeconds, outputSchemaJson, runtimeConfigJson, skills }); setup.clearValidation(); MessagePlugin.success('当前 Node 草稿已保存') } catch (e) { MessagePlugin.error(e instanceof Error ? e.message : '草稿保存失败') } finally { saving.value = false } }
+async function saveNode() { if (!selectedNode.value || !selectedDraft.value) return; saving.value = true; try { const skills = (selectedDraft.value.skills ?? []).map((skill, index) => ({ ...skill, versionPolicy: 'LATEST_PUBLISHED' as const, fixedSkillVersionId: undefined, required: true, sortOrder: index })); selectedDraft.value.skills = skills; const outputSchemaJson = parseJsonObject(selectedDraft.value.outputSchemaJson, 'Output Schema'); const runtimeConfigJson = parseJsonObject(selectedDraft.value.runtimeConfigJson, 'Runtime Config'); await saveProjectAgentNodeDraft(projectKey, selectedNode.value.stageKey, selectedNode.value.nodeKey, { systemPrompt: selectedDraft.value.systemPrompt, modelCode: selectedDraft.value.modelCode, temperature: selectedDraft.value.temperature, maxIterationPerRun: selectedDraft.value.maxIterationPerRun, timeoutSeconds: selectedDraft.value.timeoutSeconds, outputSchemaJson, runtimeConfigJson, skills }); if (graphPolicyMode.value === 'CUSTOM' && graphPolicy.value) graphPolicy.value = await saveProjectAgentNodeGraphPolicy(projectKey, selectedNode.value.stageKey, selectedNode.value.nodeKey, graphPolicy.value.policy); else if (graphPolicy.value?.policySource === 'PROJECT_NODE') graphPolicy.value = await resetProjectAgentNodeGraphPolicy(projectKey, selectedNode.value.stageKey, selectedNode.value.nodeKey); setup.clearValidation(); MessagePlugin.success('当前 Node 草稿与代码图谱策略已保存') } catch (e) { MessagePlugin.error(e instanceof Error ? e.message : '草稿保存失败') } finally { saving.value = false } }
 async function saveContexts() { try { contexts.value = workflowStarted.value ? await appendProjectAgentContexts(projectKey, pendingContexts.value) : await saveProjectAgentContexts(projectKey, contexts.value); rememberPersisted(contexts.value); setup.clearValidation(); MessagePlugin.success(workflowStarted.value ? '上下文已追加并对当前工作流生效' : '启动上下文已保存') } catch (e) { MessagePlugin.error(e instanceof Error ? e.message : '上下文保存失败') } }
 async function revise() { try { setup.configuration = await reviseProjectAgentConfiguration(projectKey); setup.clearValidation(); MessagePlugin.success('已创建可编辑配置修订') } catch (e) { MessagePlugin.error(e instanceof Error ? e.message : '创建修订失败') } }
 async function validate() { if (validating.value) return; validating.value = true; try { const result = await setup.validate(projectKey); if (result.valid) MessagePlugin.success('配置校验通过'); else MessagePlugin.warning(`配置校验未通过：${result.issues.length} 个问题`); } catch (e) { MessagePlugin.error(e instanceof Error ? e.message : '配置校验失败') } finally { validating.value = false } }
@@ -166,7 +172,7 @@ function remove(kind: 'platformWiki'|'feishu', item: ProjectAgentContext) { if (
 function apiErrorMessage(error: any, fallback: string) { return error?.response?.data?.message || error?.response?.data?.code || (error instanceof Error ? error.message : fallback) }
 async function searchContext() { if (feishuResolving.value) return; try { if (contextTab.value === 'PLATFORM_WIKI') { const page = await getWikiDocuments({ keyword: wikiQuery.value.trim() || undefined, page: 0, size: 10 }); wikiResults.value = page.items.filter(x => x.platformVisible && x.active).map(x => ({ kind: 'PLATFORM_WIKI', id: x.id, title: x.title, revisionNo: x.revisionNo })) } else { const query = feishuQuery.value.trim(); const documentUrl = /^https:\/\/[A-Za-z0-9.-]+\.feishu\.cn\/(?:wiki|docx|docs)\/[A-Za-z0-9_-]+(?:[?#].*)?$/i.test(query); if (documentUrl) { feishuResolving.value = true; const resolved = await resolveProjectFeishuWiki(projectKey, query); if (resolved.readable === false) throw new Error(resolved.message || '暂不支持该类型文件'); const item = { kind: 'FEISHU' as const, id: resolved.nodeToken || resolved.docId, title: resolved.title || resolved.nodeToken || resolved.docId, docType: resolved.docType, url: resolved.sourceUrl || query, readable: true }; feishuResults.value = [item, ...feishuResults.value.filter(x => String(x.id) !== String(item.id))]; addContext(item); MessagePlugin.success('飞书文档解析成功，已加入启动上下文'); return } const raw = await searchDocumentAgentFeishu(query); const data = Array.isArray(raw) ? raw : (raw as any).result ?? raw; const items = (data as any).files ?? (data as any).items ?? (data as any).docs ?? []; feishuResults.value = items.filter((x: any) => x.readable !== false).map((x: any) => ({ kind: 'FEISHU', id: x.docId, title: x.title || x.docId, docType: x.docType, url: x.open_url })) } } catch (e) { const text = apiErrorMessage(e, '上下文搜索失败'); message.value = text; MessagePlugin.error(text) } finally { feishuResolving.value = false } }
 function addContext(item: ProjectAgentContext) { const key = item.kind === 'PLATFORM_WIKI' ? 'platformWiki' : 'feishu'; const index = contexts.value[key].findIndex(x => contextKey(x) === contextKey(item)); if (index >= 0) { if (!contextLocked(contexts.value[key][index])) contexts.value[key] = contexts.value[key].map((value, current) => current === index ? item : value); return } if (contexts.value[key].length >= 10) return; contexts.value[key] = [...contexts.value[key], item] }
-async function saveFeishuTarget() { const url = feishuTargetUrl.value.trim(); if (!url || feishuTargetBusy.value) return; feishuTargetBusy.value = true; feishuTargetMessage.value = ''; try { await validateFeishuPublishTarget(url); feishuTarget.value = await updateFeishuPublishTarget(projectKey, url); feishuTargetUrl.value = feishuTarget.value.url || url; feishuTargetMessage.value = '飞书发布目录已校验并保存' } catch (e) { feishuTargetMessage.value = apiErrorMessage(e, '飞书发布目录校验失败') } finally { feishuTargetBusy.value = false } }
+async function saveFeishuTarget() { const url = feishuTargetUrl.value.trim(); if (!url || feishuTargetBusy.value) return; feishuTargetBusy.value = true; feishuTargetMessage.value = ''; try { feishuTarget.value = await updateFeishuPublishTarget(projectKey, url); feishuTargetUrl.value = feishuTarget.value.url || url; feishuTargetMessage.value = '飞书发布目录已校验并保存' } catch (e) { feishuTargetMessage.value = apiErrorMessage(e, '飞书发布目录校验失败') } finally { feishuTargetBusy.value = false } }
 function repositoryInputs(extra?: ProjectGitRepositoryInput) { const current = repositories.value.map(item => ({ url: item.remoteUrl, displayName: item.displayName, branch: item.trackedBranch, stageKeys: item.stageKeys })); return extra ? [...current, extra] : current }
 async function addGitRepository() { if (!repoResolution.value || !repoBranch.value || !repoStages.value.length || repoSaving.value) return; repoSaving.value = true; repoError.value = ''; const input = { url: repoUrl.value.trim(), branch: repoBranch.value, stageKeys: [...repoStages.value] }; try { repositories.value = workflowStarted.value ? await appendProjectGitRepository(projectKey, input) : await saveProjectGitRepositories(projectKey, repositoryInputs(input)); repoUrl.value = ''; repoResolution.value = null; repoBranch.value = ''; repoStages.value = []; MessagePlugin.success(workflowStarted.value ? '仓库已冻结，代码图谱正在后台更新，完成后新版本将自动生效' : '代码仓库已保存') } catch (e) { repoError.value = apiErrorMessage(e, '代码仓库保存失败') } finally { repoSaving.value = false } }
 async function removeGitRepository(id: number) { if (workflowStarted.value || repoSaving.value) return; repoSaving.value = true; repoError.value = ''; try { repositories.value = await saveProjectGitRepositories(projectKey, repositories.value.filter(item => item.id !== id).map(item => ({ url: item.remoteUrl, displayName: item.displayName, branch: item.trackedBranch, stageKeys: item.stageKeys }))); MessagePlugin.success('代码仓库已移除') } catch (e) { repoError.value = apiErrorMessage(e, '代码仓库移除失败') } finally { repoSaving.value = false } }
@@ -231,6 +237,29 @@ async function removeGitRepository(id: number) { if (workflowStarted.value || re
             <label class="field-label">Timeout（秒）<TInputNumber v-model="selectedDraft.timeoutSeconds" :min="0" :disabled="!draftMode" suffix="sec" theme="normal" align="left" /></label>
           </div>
           <p class="hint"><InfoCircleFilledIcon class="hint-icon" />Model 与采样参数由平台统一调度，暂不开放自定义。</p>
+          <details v-if="graphPolicy" open class="graph-policy-details">
+            <summary>代码图谱使用策略<span class="hint-inline">按角色限制可见能力、查询深度和上下文体积，优先复用已有证据。</span><TTag size="small" theme="primary" variant="light">{{ graphPolicy.policySource === 'PROJECT_NODE' ? '项目自定义' : '角色推荐' }}</TTag></summary>
+            <div class="graph-policy-body">
+              <TRadioGroup v-model="graphPolicyMode" :disabled="!draftMode">
+                <TRadioButton value="DEFAULT">使用阶段推荐策略</TRadioButton>
+                <TRadioButton value="CUSTOM">自定义当前 Agent</TRadioButton>
+              </TRadioGroup>
+              <label class="field-label">允许的图谱工具</label>
+              <TCheckboxGroup v-model="graphPolicy.policy.allowedTools" class="graph-tool-grid" :disabled="!draftMode || graphPolicyMode !== 'CUSTOM'">
+                <TCheckbox v-for="tool in graphToolOptions" :key="tool.value" :value="tool.value">{{ tool.label }}</TCheckbox>
+              </TCheckboxGroup>
+              <div class="graph-policy-grid">
+                <label class="field-label">主动调用预算<TInputNumber v-model="graphPolicy.policy.softToolCalls" :min="0" :max="graphPolicy.policy.stageMaxToolCalls || 20" :disabled="!draftMode || graphPolicyMode !== 'CUSTOM'" suffix="次" /></label>
+                <label class="field-label">最大查询深度<TInputNumber v-model="graphPolicy.policy.maxDepth" :min="1" :max="graphPolicy.platformLimits.maxDepth" :disabled="!draftMode || graphPolicyMode !== 'CUSTOM'" /></label>
+                <label class="field-label">单次最多节点<TInputNumber v-model="graphPolicy.policy.maxNodes" :min="1" :max="graphPolicy.platformLimits.maxNodes" :disabled="!draftMode || graphPolicyMode !== 'CUSTOM'" /></label>
+                <label class="field-label">结果字符上限<TInputNumber v-model="graphPolicy.policy.maxResultChars" :min="500" :max="graphPolicy.platformLimits.maxResultChars" :step="500" :disabled="!draftMode || graphPolicyMode !== 'CUSTOM'" /></label>
+                <label class="field-label">启动预加载<TInputNumber v-model="graphPolicy.policy.maxPreloadQueries" :min="0" :max="2" :disabled="!draftMode || graphPolicyMode !== 'CUSTOM'" suffix="次" /></label>
+                <label class="field-label">阶段共享硬预算<TInputNumber :model-value="graphPolicy.policy.stageMaxToolCalls" disabled suffix="次" /></label>
+              </div>
+              <p class="graph-policy-impact"><b>预估影响：</b>{{ graphPolicy.policy.maxDepth >= 3 || graphPolicy.policy.softToolCalls >= 5 ? '高' : graphPolicy.policy.softToolCalls >= 2 ? '中' : '低' }} · Evidence 优先复用 · 缓存命中仍计主动调用次数</p>
+              <p class="hint">{{ graphPolicy.policy.stopInstruction }}</p>
+            </div>
+          </details>
           <details open class="skills-details"><summary>Skills 配置与挂载<span class="hint-inline">为当前 Agent 注入专项能力，支持多轮调试搜索并跨类别组合挂载。</span><span class="skill-head-meta"><TTag size="small" theme="primary" variant="light">已挂载 {{ (selectedDraft.skills || []).length }} / 上限 10</TTag><button type="button" class="link-btn" :disabled="!draftMode || !(selectedDraft.skills || []).length" @click="clearSkills">清空全部</button></span></summary>
             <div class="skill-picker" data-testid="project-agent-skill-picker">
               <div v-if="(selectedDraft.skills || []).length" class="mounted-list">
@@ -386,6 +415,15 @@ h2,h3{margin:4px 0}
 .locked-protocol[open] summary::before{transform:rotate(90deg)}
 .locked-protocol pre{white-space:pre-wrap;max-height:260px;overflow:auto;margin:12px 0;padding:12px;border-radius:var(--radius-sm);background:var(--surface-2);color:var(--text-2);font:12px/1.6 var(--font-mono)}
 .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.graph-policy-details{padding:12px 14px;border:1px solid var(--border-1);border-radius:var(--radius-md);background:var(--surface-2)}
+.graph-policy-details>summary{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:650;list-style:none}
+.graph-policy-details>summary::before{content:"▸";color:var(--text-3)}
+.graph-policy-details[open]>summary::before{transform:rotate(90deg)}
+.graph-policy-details>summary .t-tag{margin-left:auto}
+.graph-policy-body{display:grid;gap:13px;padding-top:14px}
+.graph-tool-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.graph-policy-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.graph-policy-impact{margin:0;padding:9px 11px;border-radius:var(--radius-sm);background:var(--accent-softer);color:var(--text-2);font-size:12px}
 .skills-details>summary{display:flex;align-items:baseline;gap:10px;cursor:pointer;font-weight:650;color:var(--text-1);list-style:none}
 .skills-details>summary::before{content:"▸";color:var(--text-3)}
 .skills-details[open]>summary::before{transform:rotate(90deg)}
@@ -472,5 +510,5 @@ h2,h3{margin:4px 0}
 .workspace-return{margin-top:16px;display:flex;justify-content:flex-end}
 .notice{padding:10px 14px;border:1px solid var(--border-accent);border-radius:var(--radius-sm);background:var(--accent-softer);color:var(--accent-300)}
 .empty{padding:40px;color:var(--text-2)}
-@media(max-width:760px){.hero,.section-head{display:block}.editor-grid{grid-template-columns:1fr}.form-grid,.results,.skill-results{grid-template-columns:1fr}.status-stack{margin-top:12px}.source-select{min-width:0;width:100%}}
+@media(max-width:760px){.hero,.section-head{display:block}.editor-grid{grid-template-columns:1fr}.form-grid,.results,.skill-results,.graph-policy-grid,.graph-tool-grid{grid-template-columns:1fr}.status-stack{margin-top:12px}.source-select{min-width:0;width:100%}}
 </style>

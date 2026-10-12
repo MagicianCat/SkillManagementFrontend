@@ -128,8 +128,10 @@ function maximize() {
   right: 24px;
   bottom: 24px;
   display: flex;
-  width: 390px;
-  height: 520px;
+  /* 视口自适应：以浏览器可视高宽为上限，避免小屏/非全屏时超出边界 */
+  width: min(390px, calc(100vw - 48px));
+  height: min(520px, calc(100dvh - 48px));
+  max-height: calc(100dvh - 48px);
   overflow: hidden;
   flex-direction: column;
   border: 1px solid var(--border-accent);
@@ -175,10 +177,13 @@ function maximize() {
     inset: 12px;
     width: auto;
     height: auto;
+    max-height: none;
   }
   .agent-launcher {
     right: 16px;
     bottom: 16px;
+    width: 56px;
+    height: 56px;
   }
 }
 </style>

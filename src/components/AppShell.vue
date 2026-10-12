@@ -53,7 +53,8 @@ const navEntries = computed<NavEntry[]>(() => [
     label: '虚拟项目组',
     routeName: 'projects',
     icon: 'folder-open',
-    visible: true,
+    // 临时发布策略：虚拟项目组仅向超级管理员开放。
+    visible: hasPermission(authStore.user?.permissions, 'admin:identity'),
   },
   {
     label: '审核中心',

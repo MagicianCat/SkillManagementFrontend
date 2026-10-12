@@ -25,3 +25,13 @@ test('Agent setup saves the Feishu publication target through the single validat
   assert.match(setup, /updateFeishuPublishTarget\(projectKey, url\)/)
   assert.doesNotMatch(setup, /await validateFeishuPublishTarget\(url\)/)
 })
+
+test('virtual project group is temporarily restricted to super administrators', async () => {
+  const shell = await read('src/components/AppShell.vue')
+  const router = await read('src/router/index.ts')
+
+  const projectsEntry = shell.slice(shell.indexOf("label: '虚拟项目组'"), shell.indexOf("label: '审核中心'"))
+  assert.match(projectsEntry, /hasPermission\(authStore\.user\?\.permissions, 'admin:identity'\)/)
+  assert.match(router, /name: 'projects',[\s\S]*?permissions: \['admin:identity'\]/)
+  assert.match(router, /title: '项目工作台', permissions: \['admin:identity'\]/)
+})

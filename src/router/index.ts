@@ -177,6 +177,30 @@ const router = createRouter({
           meta: { title: '虚拟项目组', permissions: ['admin:identity'] },
         },
         {
+          path: 'collab-projects',
+          name: 'collab-projects',
+          component: () => import('../views/CollabProjectsView.vue'),
+          meta: { title: '项目组' },
+        },
+        {
+          path: 'collab-projects/:projectKey',
+          name: 'collab-project-detail',
+          component: () => import('../views/CollabProjectDetailView.vue'),
+          meta: { title: '项目组详情' },
+        },
+        {
+          path: 'collab-projects/:projectKey/stages/:stageKey',
+          name: 'collab-stage',
+          component: () => import('../views/CollabStageView.vue'),
+          meta: { title: '项目阶段' },
+        },
+        {
+          path: 'collab-projects/:projectKey/history',
+          name: 'collab-project-history',
+          component: () => import('../views/CollabProjectHistoryView.vue'),
+          meta: { title: '项目历史' },
+        },
+        {
           path: 'projects/:projectKey/documents/:documentId',
           name: 'project-document',
           component: () => import('../views/ProjectDocumentView.vue'),

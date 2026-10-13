@@ -57,6 +57,12 @@ const navEntries = computed<NavEntry[]>(() => [
     visible: hasPermission(authStore.user?.permissions, 'admin:identity'),
   },
   {
+    label: '项目组',
+    routeName: 'collab-projects',
+    icon: 'folder-open',
+    visible: true,
+  },
+  {
     label: '审核中心',
     routeName: 'reviews',
     icon: 'review',
@@ -250,7 +256,8 @@ async function signOut() {
               (entry.routeName === 'skills' &&
                 (route.name === 'skill-detail' ||
                   route.name === 'skill-draft' ||
-                  route.name === 'skill-create')),
+                  route.name === 'skill-create')) ||
+              (entry.routeName === 'collab-projects' && String(route.name || '').startsWith('collab-')),
           }"
           :to="{ name: entry.routeName }"
           ><span class="workspace-nav__icon" aria-hidden="true"

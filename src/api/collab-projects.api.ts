@@ -50,7 +50,7 @@ export async function getCollabCreationOptions() { return (await http.get<{ team
 export async function searchCollabUsers(q: string) { const data = (await http.get<Page<CollabUser> | CollabUser[]>(`${root}/users:search`, { params: { q } })).data; return Array.isArray(data) ? data : data.items }
 export async function createCollabProject(payload: {
   homeTeamId: number; name: string; description: string; approvalLevel: ApprovalLevel
-  stageAssignments: { stageKey: string; ownerUserId: number; reviewerUserId: number | null }[]; memberUserIds: number[]
+  stageAssignments: { stageKey: string; ownerUserId: number; reviewerUserId: number | null }[]; memberUserIds: number[]; includedStageKeys: string[]
 }) { return (await http.post<CollabProject>(root, payload)).data }
 export async function getCollabProject(projectKey: string) { return (await http.get<CollabProject>(`${root}/${key(projectKey)}`)).data }
 export async function getCollabFeishuBinding(projectKey: string) { return (await http.get<CollabFeishuBinding>(`${root}/${key(projectKey)}/feishu`)).data }
@@ -73,6 +73,9 @@ export async function decideCollabSubmission(projectKey: string, submissionId: n
 }
 export async function updateCollabStageAssignment(projectKey: string, stageKey: string, payload: { ownerUserId: number; reviewerUserId: number | null; additionalReviewerUserIds: number[] }) {
   return (await http.put<CollabStage>(`${root}/${key(projectKey)}/stages/${stageKey}/assignment`, payload)).data
+}
+export async function updateCollabStageInclusion(projectKey: string, stageKey: string, included: boolean) {
+  return (await http.put<CollabStage>(`${root}/${key(projectKey)}/stages/${stageKey}/inclusion`, { included })).data
 }
 export async function updateCollabProject(projectKey: string, payload: { name: string; description: string; approvalLevel: ApprovalLevel; expectedVersion: number }) {
   return (await http.patch<CollabProject>(`${root}/${key(projectKey)}`, payload)).data

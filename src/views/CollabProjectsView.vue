@@ -21,6 +21,7 @@ const users = ref<CollabUser[]>([])
 const selected = ref<CollabUser[]>([])
 const ownerIds = ref<Record<string, number>>({})
 const reviewerIds = ref<Record<string, number | null>>({})
+const includedStages = ref<Record<string, boolean>>(Object.fromEntries(COLLAB_STAGES.map(stage => [stage.key, true])))
 
 const currentUserId = computed(() => auth.user?.id ?? 0)
 const memberOptions = computed(() => {
@@ -49,18 +50,21 @@ function toggleUser(user: CollabUser) {
   selected.value = selected.value.some(u => userId(u) === id) ? selected.value.filter(u => userId(u) !== id) : [...selected.value, user]
 }
 function prepareCreate() {
-  name.value = ''; description.value = ''; selected.value = []; ownerIds.value = {}; reviewerIds.value = Object.fromEntries(COLLAB_STAGES.map(stage => [stage.key, currentUserId.value]))
+  name.value = ''; description.value = ''; selected.value = []; ownerIds.value = {}; includedStages.value = Object.fromEntries(COLLAB_STAGES.map(stage => [stage.key, true])); reviewerIds.value = Object.fromEntries(COLLAB_STAGES.map(stage => [stage.key, currentUserId.value]))
   homeTeamId.value = teams.value[0]?.id; approvalLevel.value = 'L1'; showCreate.value = true
 }
+function onApprovalChange(level: ApprovalLevel) { approvalLevel.value = level; if (level === 'L1') includedStages.value = Object.fromEntries(COLLAB_STAGES.map(stage => [stage.key, true])) }
 async function create() {
   if (!homeTeamId.value || !name.value.trim()) { error.value = '请选择归属团队并填写项目名称'; return }
   const members = memberOptions.value
-  const assignments = COLLAB_STAGES.map((s, i) => ({ stageKey: s.key, ownerUserId: ownerIds.value[s.key] || (i === 0 ? currentUserId.value : members[0] ? userId(members[0]) : currentUserId.value), reviewerUserId: manualStages.value.some(x => x.key === s.key) ? reviewerIds.value[s.key] ?? null : null }))
+  const included = COLLAB_STAGES.filter(s => includedStages.value[s.key])
+  if (!included.length) { error.value = '请至少保留一个项目阶段'; return }
+  const assignments = included.map((s, i) => ({ stageKey: s.key, ownerUserId: ownerIds.value[s.key] || (i === 0 ? currentUserId.value : members[0] ? userId(members[0]) : currentUserId.value), reviewerUserId: manualStages.value.some(x => x.key === s.key) ? reviewerIds.value[s.key] ?? null : null }))
   if (members.length < 1 || assignments.some(a => !a.ownerUserId)) { error.value = '请至少选择一名成员并为每个阶段指定负责人'; return }
   if (assignments.some(a => manualStages.value.some(s => s.key === a.stageKey) && !a.reviewerUserId)) { error.value = '请为每个人工审批阶段指定项目成员作为审批人'; return }
   saving.value = true; error.value = ''
   try {
-    const project = await createCollabProject({ homeTeamId: homeTeamId.value, name: name.value.trim(), description: description.value.trim(), approvalLevel: approvalLevel.value, stageAssignments: assignments, memberUserIds: members.map(userId) })
+    const project = await createCollabProject({ homeTeamId: homeTeamId.value, name: name.value.trim(), description: description.value.trim(), approvalLevel: approvalLevel.value, stageAssignments: assignments, memberUserIds: members.map(userId), includedStageKeys: included.map(stage => stage.key) })
     showCreate.value = false; await router.push({ name: 'collab-project-detail', params: { projectKey: project.projectKey } })
   } catch (e) { error.value = message(e) } finally { saving.value = false }
 }
@@ -83,11 +87,11 @@ onMounted(load)
       <label>项目名称<input v-model="name" maxlength="120" placeholder="例如：知识库智能检索" /></label>
       <label>归属团队<t-select class="team-select" v-model="homeTeamId" filterable :options="teamOptions" placeholder="搜索并选择有项目创建权限的团队" /></label>
       <label>项目说明<textarea v-model="description" rows="3" placeholder="项目目标、背景和范围" /></label>
-      <fieldset><legend>审批策略</legend><div class="level-options"><label v-for="level in (['L1','L2','L3'] as ApprovalLevel[])" :key="level" class="level-option" :class="{ selected: approvalLevel === level }"><input v-model="approvalLevel" type="radio" :value="level" /><strong>{{ level }}</strong><span>{{ level === 'L1' ? '每阶段由指定审批人确认' : level === 'L2' ? '产品、前端和后端阶段人工审批' : '有效提交后自动推进' }}</span></label></div></fieldset>
+      <fieldset><legend>审批策略</legend><div class="level-options"><label v-for="level in (['L1','L2','L3'] as ApprovalLevel[])" :key="level" class="level-option" :class="{ selected: approvalLevel === level }"><input :checked="approvalLevel === level" type="radio" :value="level" @change="onApprovalChange(level)" /><strong>{{ level }}</strong><span>{{ level === 'L1' ? '每阶段由指定审批人确认' : level === 'L2' ? '产品、前端和后端阶段人工审批' : '有效提交后自动推进' }}</span></label></div></fieldset>
       <label>添加成员 <div class="search-row"><input v-model="query" placeholder="按姓名或账号搜索 IAM 用户" @keydown.enter.prevent="findUsers" /><button class="secondary" @click="findUsers">搜索</button></div></label>
       <div v-if="users.length" class="user-results"><button v-for="u in users" :key="userId(u)" :class="{ picked: selected.some(s => userId(s) === userId(u)) }" @click="toggleUser(u)"><span class="avatar">{{ u.displayName.slice(0,1) }}</span><span>{{ u.displayName }}<small>{{ u.username }}</small></span><b>{{ selected.some(s => userId(s) === userId(u)) ? '已添加' : '＋' }}</b></button></div>
       <div class="selected-members"><strong>项目成员 · {{ memberOptions.length }}</strong><span v-for="u in memberOptions" :key="userId(u)" class="member-chip">{{ u.displayName }}<em v-if="userId(u) === currentUserId">Owner</em><button v-else aria-label="移除成员" @click="toggleUser(u)">×</button></span></div>
-      <fieldset><legend>八阶段负责人及审批人</legend><div v-for="(stage, i) in COLLAB_STAGES" :key="stage.key" class="assignment-row"><span class="stage-index">{{ String(i+1).padStart(2,'0') }}</span><strong>{{ stage.title }}</strong><select v-model.number="ownerIds[stage.key]" :aria-label="`${stage.title}负责人`"><option :value="undefined">选择负责人（默认第一位成员）</option><option v-for="u in memberOptions" :key="userId(u)" :value="userId(u)">{{ u.displayName }}</option></select><select v-if="manualStages.some(s => s.key === stage.key)" v-model.number="reviewerIds[stage.key]" :aria-label="`${stage.title}审批人`"><option :value="null">选择审批人</option><option v-for="u in memberOptions" :key="userId(u)" :value="userId(u)">{{ u.displayName }}{{ userId(u) === currentUserId ? '（Owner）' : '' }}</option></select><span v-else class="auto-label">自动完成</span></div></fieldset>
+      <fieldset><legend>项目阶段及负责人</legend><p class="stage-selection-hint">L2、L3 项目可以省略不需要的阶段。阶段按原顺序推进，架构与 UI、前端与后端仍可并行。</p><div v-for="(stage, i) in COLLAB_STAGES" :key="stage.key" class="assignment-row" :class="{ omitted: !includedStages[stage.key] }"><span class="stage-index">{{ String(i+1).padStart(2,'0') }}</span><strong>{{ stage.title }}</strong><label class="stage-include"><input v-model="includedStages[stage.key]" type="checkbox" :disabled="approvalLevel === 'L1'" />纳入流程</label><template v-if="includedStages[stage.key]"><select v-model.number="ownerIds[stage.key]" :aria-label="`${stage.title}负责人`"><option :value="undefined">选择负责人（默认第一位成员）</option><option v-for="u in memberOptions" :key="userId(u)" :value="userId(u)">{{ u.displayName }}</option></select><select v-if="manualStages.some(s => s.key === stage.key)" v-model.number="reviewerIds[stage.key]" :aria-label="`${stage.title}审批人`"><option :value="null">选择审批人</option><option v-for="u in memberOptions" :key="userId(u)" :value="userId(u)">{{ u.displayName }}{{ userId(u) === currentUserId ? '（Owner）' : '' }}</option></select><span v-else class="auto-label">自动流转</span></template><span v-else class="omitted-label">创建时跳过</span></div></fieldset>
     </div><footer><button class="quiet" @click="showCreate = false">取消</button><button class="primary" :disabled="saving" @click="create">{{ saving ? '创建中…' : '创建项目组' }}</button></footer></section></div>
   </main>
 </template>
@@ -158,12 +162,17 @@ onMounted(load)
 .member-chip{background:var(--surface-3);border-radius:var(--radius-xs);padding:5px 8px;color:var(--text-1)}
 .member-chip em{font-style:normal;color:var(--accent-300);font-size:10px;margin-left:5px}
 .member-chip button{border:0;background:none;color:var(--text-2);cursor:pointer}
-.assignment-row{display:grid;grid-template-columns:32px 95px minmax(140px,1fr) minmax(140px,1fr);gap:9px;align-items:center;margin:7px 0}
+.assignment-row{display:grid;grid-template-columns:32px 95px 100px minmax(130px,1fr) minmax(130px,1fr);gap:9px;align-items:center;margin:7px 0}
+.stage-selection-hint{margin:0 0 12px;color:var(--text-3);font-size:12px;line-height:1.6}
+.stage-include{display:flex;align-items:center;gap:6px;color:var(--text-3);font-size:11px;white-space:nowrap}
+.stage-include input{accent-color:var(--accent-500)}
+.assignment-row.omitted{opacity:.58}
+.omitted-label{grid-column:4/6;color:var(--text-3);font-size:12px}
 .stage-index{font:11px var(--font-mono);color:var(--accent-400)}
 .assignment-row strong{font-size:12px;color:var(--text-1)}
 .assignment-row select{font-size:12px!important;padding:8px!important}
 .auto-label{color:var(--text-3);font-size:12px}
 .assignment-row .auto-label{grid-column:4}
 .create-modal fieldset:last-child{margin-bottom:2px}
-@media(max-width:700px){.collab-page{padding:26px 16px}.collab-heading{align-items:flex-start;gap:15px}.collab-heading h1{font-size:25px}.collab-heading>.primary{padding:10px}.level-options{grid-template-columns:1fr}.user-results{grid-template-columns:1fr}.assignment-row{grid-template-columns:28px 78px 1fr}.assignment-row select:nth-of-type(2){grid-column:3}.assignment-row .auto-label{grid-column:3}.create-modal{max-height:96vh}}
+@media(max-width:700px){.collab-page{padding:26px 16px}.collab-heading{align-items:flex-start;gap:15px}.collab-heading h1{font-size:25px}.collab-heading>.primary{padding:10px}.level-options{grid-template-columns:1fr}.user-results{grid-template-columns:1fr}.assignment-row{grid-template-columns:28px 78px 1fr}.assignment-row select:nth-of-type(2){grid-column:3}.assignment-row .auto-label{grid-column:3}.stage-include{grid-column:3}.omitted-label{grid-column:3}.create-modal{max-height:96vh}}
 </style>

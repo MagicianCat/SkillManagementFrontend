@@ -14,6 +14,7 @@ const showCreate = ref(false)
 const saving = ref(false)
 const name = ref('')
 const description = ref('')
+const wikiRootUrl = ref('')
 const homeTeamId = ref<number | undefined>()
 const approvalLevel = ref<ApprovalLevel>('L1')
 const query = ref('')
@@ -50,12 +51,13 @@ function toggleUser(user: CollabUser) {
   selected.value = selected.value.some(u => userId(u) === id) ? selected.value.filter(u => userId(u) !== id) : [...selected.value, user]
 }
 function prepareCreate() {
-  name.value = ''; description.value = ''; selected.value = []; ownerIds.value = {}; includedStages.value = Object.fromEntries(COLLAB_STAGES.map(stage => [stage.key, true])); reviewerIds.value = Object.fromEntries(COLLAB_STAGES.map(stage => [stage.key, currentUserId.value]))
+  name.value = ''; description.value = ''; wikiRootUrl.value = ''; selected.value = []; ownerIds.value = {}; includedStages.value = Object.fromEntries(COLLAB_STAGES.map(stage => [stage.key, true])); reviewerIds.value = Object.fromEntries(COLLAB_STAGES.map(stage => [stage.key, currentUserId.value]))
   homeTeamId.value = teams.value[0]?.id; approvalLevel.value = 'L1'; showCreate.value = true
 }
 function onApprovalChange(level: ApprovalLevel) { approvalLevel.value = level; if (level === 'L1') includedStages.value = Object.fromEntries(COLLAB_STAGES.map(stage => [stage.key, true])) }
 async function create() {
   if (!homeTeamId.value || !name.value.trim()) { error.value = '请选择归属团队并填写项目名称'; return }
+  if (!wikiRootUrl.value.trim()) { error.value = '请配置飞书 Wiki 根节点后再创建项目'; return }
   const members = memberOptions.value
   const included = COLLAB_STAGES.filter(s => includedStages.value[s.key])
   if (!included.length) { error.value = '请至少保留一个项目阶段'; return }
@@ -64,7 +66,7 @@ async function create() {
   if (assignments.some(a => manualStages.value.some(s => s.key === a.stageKey) && !a.reviewerUserId)) { error.value = '请为每个人工审批阶段指定项目成员作为审批人'; return }
   saving.value = true; error.value = ''
   try {
-    const project = await createCollabProject({ homeTeamId: homeTeamId.value, name: name.value.trim(), description: description.value.trim(), approvalLevel: approvalLevel.value, stageAssignments: assignments, memberUserIds: members.map(userId), includedStageKeys: included.map(stage => stage.key) })
+    const project = await createCollabProject({ homeTeamId: homeTeamId.value, name: name.value.trim(), description: description.value.trim(), approvalLevel: approvalLevel.value, wikiRootUrl: wikiRootUrl.value.trim(), stageAssignments: assignments, memberUserIds: members.map(userId), includedStageKeys: included.map(stage => stage.key) })
     showCreate.value = false; await router.push({ name: 'collab-project-detail', params: { projectKey: project.projectKey } })
   } catch (e) { error.value = message(e) } finally { saving.value = false }
 }
@@ -87,6 +89,7 @@ onMounted(load)
       <label>项目名称<input v-model="name" maxlength="120" placeholder="例如：知识库智能检索" /></label>
       <label>归属团队<t-select class="team-select" v-model="homeTeamId" filterable :options="teamOptions" placeholder="搜索并选择有项目创建权限的团队" /></label>
       <label>项目说明<textarea v-model="description" rows="3" placeholder="项目目标、背景和范围" /></label>
+      <label>飞书 Wiki 发布根节点 <span class="required-mark">必填</span><input v-model="wikiRootUrl" required type="url" maxlength="2048" placeholder="粘贴可创建项目子目录的飞书 Wiki 链接" /><small class="field-help">创建前会校验链接权限，并在该 Wiki 下创建项目目录；后续阶段产物将发布到此处。</small></label>
       <fieldset><legend>审批策略</legend><div class="level-options"><label v-for="level in (['L1','L2','L3'] as ApprovalLevel[])" :key="level" class="level-option" :class="{ selected: approvalLevel === level }"><input :checked="approvalLevel === level" type="radio" :value="level" @change="onApprovalChange(level)" /><strong>{{ level }}</strong><span>{{ level === 'L1' ? '每阶段由指定审批人确认' : level === 'L2' ? '产品、前端和后端阶段人工审批' : '有效提交后自动推进' }}</span></label></div></fieldset>
       <label>添加成员 <div class="search-row"><input v-model="query" placeholder="按姓名或账号搜索 IAM 用户" @keydown.enter.prevent="findUsers" /><button class="secondary" @click="findUsers">搜索</button></div></label>
       <div v-if="users.length" class="user-results"><button v-for="u in users" :key="userId(u)" :class="{ picked: selected.some(s => userId(s) === userId(u)) }" @click="toggleUser(u)"><span class="avatar">{{ u.displayName.slice(0,1) }}</span><span>{{ u.displayName }}<small>{{ u.username }}</small></span><b>{{ selected.some(s => userId(s) === userId(u)) ? '已添加' : '＋' }}</b></button></div>
@@ -137,6 +140,7 @@ onMounted(load)
 .icon-button{font-size:22px;padding:4px 10px;background:transparent;color:var(--text-2)}
 .form-scroll{overflow:auto;padding:21px 24px;display:grid;gap:17px}
 .form-scroll>label{display:grid;gap:8px;font-size:13px;font-weight:650;color:var(--text-2)}
+.required-mark{display:inline;color:var(--error);font-size:11px;font-weight:600}.field-help{color:var(--text-3);font-size:11px;font-weight:400;line-height:1.5}
 .form-scroll input:not([type=radio]),.form-scroll select,.form-scroll textarea{width:100%;box-sizing:border-box;border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:10px 12px;background:var(--surface-2);color:var(--text-1);font:inherit}
 .form-scroll input::placeholder,.form-scroll textarea::placeholder{color:var(--text-4)}
 .form-scroll input:focus,.form-scroll select:focus,.form-scroll textarea:focus{outline:none;border-color:var(--border-accent);box-shadow:0 0 0 3px var(--accent-glow)}

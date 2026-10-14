@@ -49,7 +49,7 @@ export async function listCollabProjects() { const data = (await http.get<Page<C
 export async function getCollabCreationOptions() { return (await http.get<{ teams: CollabTeam[] }>(`${root}/creation-options`)).data }
 export async function searchCollabUsers(q: string) { const data = (await http.get<Page<CollabUser> | CollabUser[]>(`${root}/users:search`, { params: { q } })).data; return Array.isArray(data) ? data : data.items }
 export async function createCollabProject(payload: {
-  homeTeamId: number; name: string; description: string; approvalLevel: ApprovalLevel
+  homeTeamId: number; name: string; description: string; approvalLevel: ApprovalLevel; wikiRootUrl: string
   stageAssignments: { stageKey: string; ownerUserId: number; reviewerUserId: number | null }[]; memberUserIds: number[]; includedStageKeys: string[]
 }) { return (await http.post<CollabProject>(root, payload)).data }
 export async function getCollabProject(projectKey: string) { return (await http.get<CollabProject>(`${root}/${key(projectKey)}`)).data }

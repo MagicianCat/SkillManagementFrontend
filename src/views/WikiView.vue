@@ -83,6 +83,7 @@ function onFileChange(event: Event) { const file = (event.target as HTMLInputEle
 async function save() {
   if (selected.value && !selected.value.canEdit) { errorMessage.value = '当前文档不可编辑'; return }
   if (!title.value.trim() || !content.value.trim()) { errorMessage.value = '标题和 Markdown 正文不能为空'; return }
+  if (!selected.value && type.value === 'SKILL_GUIDE' && !selectedSkillIds.value.length) { errorMessage.value = '请选择至少一个关联 Skill'; return }
   saving.value = true; errorMessage.value = ''
   try {
     const value = selected.value
@@ -100,7 +101,32 @@ async function submitPromotion() {
   catch (error: unknown) { errorMessage.value = axios.isAxiosError(error) ? String(error.response?.data?.message ?? '提交平台审核失败') : '提交平台审核失败' }
   finally { promoting.value = false }
 }
-onMounted(async () => { await searchTeams(); await loadSkills(); await loadDocuments() })
+async function applyExternalDraft() {
+  const token = typeof route.query.externalDraft === 'string' ? route.query.externalDraft : ''
+  if (!token) return
+  const key = `external-wiki-draft:${token}`
+  try {
+    const raw = sessionStorage.getItem(key)
+    if (!raw) throw new Error('外部文档草稿已失效，请返回外部资源页重新打开')
+    const draft = JSON.parse(raw) as { title?: string; markdownContent?: string; teamId?: number; teamName?: string }
+    if (!draft.title || !draft.markdownContent || !draft.teamId) throw new Error('外部文档草稿内容不完整')
+    beginCreate()
+    type.value = 'SKILL_GUIDE'
+    title.value = draft.title
+    content.value = draft.markdownContent
+    selectedTeamId.value = draft.teamId
+    if (!teams.value.some((team) => team.id === draft.teamId)) {
+      teams.value = [{ id: draft.teamId, name: draft.teamName || `团队 ${draft.teamId}`, parentId: null }, ...teams.value]
+    }
+    errorMessage.value = '文档内容已填入草稿。请选择关联 Skill 后保存。'
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '读取外部文档草稿失败'
+  } finally {
+    sessionStorage.removeItem(key)
+    await router.replace({ query: { ...route.query, externalDraft: undefined, documentId: undefined } })
+  }
+}
+onMounted(async () => { await searchTeams(); await loadSkills(); await loadDocuments(); await applyExternalDraft() })
 watch(() => route.query.documentId, () => { const id = Number(route.query.documentId); if (id) void selectDocument(id) })
 watch(type, (next, previous) => { if (next === 'SKILL_README' && previous === 'SKILL_GUIDE' && selectedSkillIds.value.length > 1) { selectedSkillIds.value = selectedSkillIds.value.slice(0, 1); errorMessage.value = 'README 只能关联一个 Skill，已保留第一个关联项' } })
 </script>

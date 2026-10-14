@@ -91,6 +91,12 @@ const navEntries = computed<NavEntry[]>(() => [
     visible: hasPermission(authStore.user?.permissions, 'admin:identity') || authStore.user?.roles.includes('TEAM_ADMIN') === true,
   },
   {
+    label: '外部资源接入',
+    routeName: 'external-resources',
+    icon: 'box',
+    visible: hasPermission(authStore.user?.permissions, 'admin:identity'),
+  },
+  {
     label: '通知中心',
     routeName: 'notifications',
     icon: 'bell',

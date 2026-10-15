@@ -19,6 +19,7 @@ import {
   getOfflineImpact,
   submitReview,
   takeVersionOffline,
+  pushToCompany,
   validateVersion,
 } from '../api/versions.api'
 import {
@@ -81,6 +82,11 @@ const cancelling = ref(false)
 const zipInput = ref<HTMLInputElement | null>(null)
 const reuploading = ref(false)
 const offlining = ref(false)
+const showPlatformPromotionDialog = ref(false)
+const platformPromotionComment = ref('')
+const promotingToPlatform = ref(false)
+const platformPromotionNotice = ref('')
+const platformPromotionSubmitted = ref(false)
 
 const canOffline = computed(() =>
   hasPermission(authStore.user?.permissions, 'skill:offline'),
@@ -88,6 +94,18 @@ const canOffline = computed(() =>
 const publishedVersion = computed(() =>
   versions.value.find((item) =>
     ['PUBLISHED', 'DEPRECATED'].includes(item.lifecycleStatus),
+  ),
+)
+const platformPromotionVersion = computed(() =>
+  versions.value.find((item) => item.lifecycleStatus === 'PUBLISHED') ?? null,
+)
+const canRequestPlatformPromotion = computed(() =>
+  Boolean(
+    skill.value?.scopeType === 'TEAM' &&
+    platformPromotionVersion.value &&
+    (hasPermission(authStore.user?.permissions, 'skill:edit') ||
+      hasPermission(authStore.user?.permissions, 'skill:review') ||
+      hasPermission(authStore.user?.permissions, 'admin:identity')),
   ),
 )
 
@@ -174,6 +192,32 @@ async function takeOffline() {
       : '下架失败'
   } finally {
     offlining.value = false
+  }
+}
+
+async function openPlatformPromotion() {
+  if (!canRequestPlatformPromotion.value || !skill.value) return
+  platformPromotionComment.value = ''
+  platformPromotionNotice.value = ''
+  showPlatformPromotionDialog.value = true
+}
+
+async function submitPlatformPromotion() {
+  const version = platformPromotionVersion.value
+  if (!version || !platformPromotionComment.value.trim() || promotingToPlatform.value) return
+  promotingToPlatform.value = true
+  actionError.value = ''
+  try {
+    await pushToCompany(version.id, { comment: platformPromotionComment.value.trim() })
+    showPlatformPromotionDialog.value = false
+    platformPromotionSubmitted.value = true
+    platformPromotionNotice.value = '已提交 Skill 全平台推广审核；关联 Wiki 需在 Wiki 页面单独提交推广审核。'
+  } catch (error: unknown) {
+    actionError.value = axios.isAxiosError(error)
+      ? String(error.response?.data?.message ?? '提交全平台推广审核失败')
+      : '提交全平台推广审核失败'
+  } finally {
+    promotingToPlatform.value = false
   }
 }
 
@@ -394,6 +438,16 @@ onBeforeUnmount(() => {
     <!-- 无活动草稿空态 -->
     <div v-else-if="!draft" class="result-state">
       <p>当前没有活动草稿</p>
+      <p v-if="platformPromotionNotice" class="inline-success" role="status">{{ platformPromotionNotice }}</p>
+      <button
+        v-if="canRequestPlatformPromotion"
+        class="btn-primary"
+        style="margin-top: 14px"
+        :disabled="promotingToPlatform || platformPromotionSubmitted"
+        @click="openPlatformPromotion"
+      >
+        {{ platformPromotionSubmitted ? '已提交平台审核' : '推送到全平台' }}
+      </button>
       <button
         v-if="canOffline && publishedVersion"
         class="btn-danger"
@@ -460,6 +514,14 @@ onBeforeUnmount(() => {
         </div>
         <div class="draft-header__actions">
           <button
+            v-if="canRequestPlatformPromotion"
+            class="btn-primary"
+            :disabled="promotingToPlatform || platformPromotionSubmitted"
+            @click="openPlatformPromotion"
+          >
+            {{ platformPromotionSubmitted ? '已提交平台审核' : '推送到全平台' }}
+          </button>
+          <button
             v-if="canOffline && publishedVersion"
             class="btn-danger"
             :disabled="offlining"
@@ -502,6 +564,9 @@ onBeforeUnmount(() => {
       </header>
       <p v-if="actionError" class="inline-error" role="alert">
         {{ actionError }}
+      </p>
+      <p v-if="platformPromotionNotice" class="inline-success" role="status">
+        {{ platformPromotionNotice }}
       </p>
 
       <main class="draft-layout">
@@ -668,6 +733,24 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
+    <div v-if="showPlatformPromotionDialog" class="modal-mask">
+      <div class="modal" role="dialog" aria-labelledby="platform-promotion-title" aria-modal="true">
+        <h2 id="platform-promotion-title">推送到全平台</h2>
+        <p class="modal-desc">提交后由平台管理员单独审核此 Skill。关联 Wiki 不会随 Skill 一起推送；如需推广，请在 Wiki 页面单独提交，届时关联 Skill 会自动纳入该 Wiki 的审核。</p>
+        <label class="modal-field">
+          推广说明 <em style="color: var(--error)">*</em>
+          <textarea v-model="platformPromotionComment" rows="4" placeholder="说明该 Skill 面向全平台开放的原因"></textarea>
+        </label>
+        <p v-if="actionError" class="inline-error" role="alert">{{ actionError }}</p>
+        <div class="modal-actions">
+          <button class="btn-secondary" :disabled="promotingToPlatform" @click="showPlatformPromotionDialog = false">取消</button>
+          <button class="btn-primary" :disabled="promotingToPlatform || !platformPromotionComment.trim()" @click="submitPlatformPromotion">
+            {{ promotingToPlatform ? '提交中…' : '提交管理员审核' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <input
       ref="zipInput"
       type="file"
@@ -705,6 +788,11 @@ onBeforeUnmount(() => {
 .readonly-note {
   color: var(--warning);
   font-size: 12px;
+}
+.inline-success {
+  margin: 0;
+  color: var(--success, #16825d);
+  font-size: 13px;
 }
 .draft-header__actions {
   display: flex;

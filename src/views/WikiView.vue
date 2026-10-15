@@ -144,7 +144,7 @@ watch(type, (next, previous) => { if (next === 'SKILL_README' && previous === 'S
         <div v-else class="wiki-empty wiki-empty--large">选择左侧文档开始阅读</div>
       </main>
     </div>
-    <div v-if="showPromotionDialog" class="promotion-mask"><div class="promotion-dialog" role="dialog" aria-modal="true"><h2>推送到全平台</h2><p>审核通过后，所有用户都可以查看此 Wiki；后续团队编辑会继续同步到全平台。</p><textarea v-model="promotionComment" rows="5" placeholder="请填写推送理由（必填）"></textarea><div class="promotion-actions"><t-button variant="outline" :disabled="promoting" @click="showPromotionDialog = false">取消</t-button><t-button theme="primary" :loading="promoting" :disabled="!promotionComment.trim()" @click="submitPromotion">提交审核</t-button></div></div></div>
+    <div v-if="showPromotionDialog" class="promotion-mask"><div class="promotion-dialog" role="dialog" aria-modal="true"><h2>推送到全平台</h2><p>审核通过后，所有用户都可以查看此 Wiki；关联的团队 Skill 也会自动纳入本次审核，并在通过后同步开放。后续团队编辑会继续同步到全平台。</p><div v-if="selected?.skills.length" class="promotion-linked-skills"><span>本次关联 Skill：</span><strong v-for="skill in selected.skills" :key="skill.id">{{ skill.displayName }}</strong></div><textarea v-model="promotionComment" rows="5" placeholder="请填写推送理由（必填）"></textarea><div class="promotion-actions"><t-button variant="outline" :disabled="promoting" @click="showPromotionDialog = false">取消</t-button><t-button theme="primary" :loading="promoting" :disabled="!promotionComment.trim()" @click="submitPromotion">提交审核</t-button></div></div></div>
   </div>
 </template>
 

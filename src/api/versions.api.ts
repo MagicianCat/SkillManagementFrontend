@@ -32,6 +32,17 @@ export async function submitReview(
   return data
 }
 
+export async function pushToCompany(
+  versionId: number,
+  payload: { comment: string },
+) {
+  const { data } = await http.post(
+    `/skill-versions/${versionId}:push-to-company`,
+    payload,
+  )
+  return data
+}
+
 export async function getOfflineImpact(versionId: number) {
   const { data } = await http.post<OfflineImpact>(
     `/skill-versions/${versionId}:offline-impact`,

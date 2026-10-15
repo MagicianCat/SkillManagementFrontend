@@ -63,6 +63,7 @@ const skillBarRef = ref<HTMLElement | null>(null)
 const fileTypeRef = ref<HTMLElement | null>(null)
 const tokenPieRef = ref<HTMLElement | null>(null)
 const chartInstances = new Set<echarts.ECharts>()
+let chartResizeObserver: ResizeObserver | undefined
 
 const trendMetricOptions = [
   { key: 'linesAdded', label: 'AI代码量' },
@@ -277,6 +278,11 @@ watch(selectedTeamId, () => { void loadMembers() })
 onMounted(async () => {
   applyPreset('30d')
   window.addEventListener('resize', onResize)
+  if (typeof ResizeObserver !== 'undefined') {
+    chartResizeObserver = new ResizeObserver(() => onResize())
+    const dashboardElement = document.querySelector<HTMLElement>('.usage-page')
+    if (dashboardElement) chartResizeObserver.observe(dashboardElement)
+  }
   try {
     scope.value = await getSkillUsageAccessScope()
     teams.value = scope.value.teams
@@ -287,6 +293,8 @@ onMounted(async () => {
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
+  chartResizeObserver?.disconnect()
+  chartResizeObserver = undefined
   chartInstances.forEach((chart) => chart.dispose())
   chartInstances.clear()
 })
@@ -438,7 +446,7 @@ onBeforeUnmount(() => {
 .usage-filters .t-select{width:172px}
 
 /* ---------- 指标卡：突出大数字 ---------- */
-.summary-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.usage-page{min-width:0;container:usage-dashboard / inline-size}.summary-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:14px}
 .metric-card{position:relative;display:grid;align-content:start;gap:7px;min-height:112px;padding:16px 18px 14px;border:1px solid var(--border-1);border-radius:12px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px);overflow:hidden;transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease;cursor:help}
 .metric-card::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:99px;background:var(--metric,var(--accent-500));opacity:.85}
 .metric-card:hover{border-color:var(--border-3);box-shadow:var(--shadow-md);transform:translateY(-2px)}
@@ -485,4 +493,7 @@ onBeforeUnmount(() => {
 .lines-deleted{color:var(--error);font-weight:600}
 @media(max-width:1100px){.summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.dimension-grid{grid-template-columns:1fr}.usage-heading__main{flex-direction:column}.usage-filters{min-width:0;width:100%}.filter-row{justify-content:flex-start}}
 @media(max-width:760px){.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.usage-heading__title h1{font-size:23px}}
+@container usage-dashboard (max-width: 1050px){.summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@container usage-dashboard (max-width: 620px){.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container usage-dashboard (max-width: 380px){.summary-grid{grid-template-columns:minmax(0,1fr)}}
 </style>

@@ -97,6 +97,13 @@
   --header-height: 56px;
   --sidebar-width: 240px;
 
+  /* 响应式页面布局 */
+  --layout-page-padding-inline: 32px;
+  --layout-page-padding-block: 28px;
+  --layout-gap: 16px;
+  --layout-field-min: 0px;
+  --layout-action-min: 120px;
+
   /* ===== 动画 ===== */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --duration-fast: 0.15s;
@@ -116,6 +123,13 @@
   --color-border: var(--border-1);
   --color-success: var(--success);
   --shadow-panel: var(--shadow-md);
+}
+
+@media (max-width: 900px) {
+  :root { --layout-page-padding-inline: 20px; }
+}
+@media (max-width: 640px) {
+  :root { --layout-page-padding-inline: 12px; }
 }
 
 /* ============================================================

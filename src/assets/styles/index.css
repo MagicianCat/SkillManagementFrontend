@@ -368,7 +368,7 @@ a {
   min-width: 0; /* 防止内部宽内容（表格/代码）撑破 flex 容器 */
   overflow-y: auto;
   overflow-x: hidden; /* 横向溢出由各卡片内部的滚动容器承担，不整页横滚 */
-  padding: 28px 32px 48px;
+  padding: var(--layout-page-padding-block) var(--layout-page-padding-inline) 48px;
 }
 
 /* ============ 页面骨架 ============ */

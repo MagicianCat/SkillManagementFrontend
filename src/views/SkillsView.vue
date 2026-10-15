@@ -412,11 +412,13 @@ onMounted(() => {
   font-size: 12px;
 }
 .market-body {
+  min-width: 0;
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr);
   gap: 24px;
   align-items: start;
 }
+.market-page { min-width: 0; container: skills-market / inline-size; }
 .stage-filter {
   padding: 8px;
   border: 1px solid var(--border-1);
@@ -491,6 +493,9 @@ onMounted(() => {
     width: auto;
     white-space: nowrap;
   }
+}
+@container skills-market (max-width: 760px) {
+  .market-body { grid-template-columns: minmax(0, 1fr); }
 }
 .skill-card__badges {
   display: flex;

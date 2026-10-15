@@ -168,7 +168,7 @@ onMounted(load)
 .member-chip{background:var(--surface-3);border-radius:var(--radius-xs);padding:5px 8px;color:var(--text-1)}
 .member-chip em{font-style:normal;color:var(--accent-300);font-size:10px;margin-left:5px}
 .member-chip button{border:0;background:none;color:var(--text-2);cursor:pointer}
-.assignment-row{display:grid;grid-template-columns:32px 95px 100px minmax(130px,1fr) minmax(130px,1fr);gap:9px;align-items:center;margin:7px 0}
+.collab-page{min-width:0;container:collab-projects / inline-size}.assignment-row{display:grid;grid-template-columns:32px 95px 100px minmax(130px,1fr) minmax(130px,1fr);gap:9px;align-items:center;margin:7px 0}.assignment-row>*{min-width:0}
 .assignment-field{display:grid;gap:4px;color:var(--text-3);font-size:10px;font-weight:600}.assignment-field>span{display:flex;align-items:center;gap:4px}.assignment-field b{display:inline;color:var(--error);font-size:10px}.assignment-field select{width:100%}
 .stage-selection-hint{margin:0 0 12px;color:var(--text-3);font-size:12px;line-height:1.6}
 .stage-include{display:flex;align-items:center;gap:6px;color:var(--text-3);font-size:11px;white-space:nowrap}
@@ -182,4 +182,5 @@ onMounted(load)
 .assignment-row .auto-label{grid-column:5}
 .create-modal fieldset:last-child{margin-bottom:2px}
 @media(max-width:700px){.collab-page{padding:26px 16px}.collab-heading{align-items:flex-start;gap:15px}.collab-heading h1{font-size:25px}.collab-heading>.primary{padding:10px}.level-options{grid-template-columns:1fr}.user-results{grid-template-columns:1fr}.assignment-row{grid-template-columns:28px 78px 1fr}.assignment-field,.assignment-row .auto-label{grid-column:3}.stage-include{grid-column:3}.omitted-label{grid-column:3}.create-modal{max-height:96vh}}
+@container collab-projects (max-width: 760px){.assignment-row{grid-template-columns:28px 78px minmax(0,1fr)}.assignment-field,.assignment-row .auto-label,.stage-include,.omitted-label{grid-column:3}}
 </style>

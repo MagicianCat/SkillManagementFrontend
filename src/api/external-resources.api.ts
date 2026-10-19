@@ -1,6 +1,6 @@
 import { http } from './http'
 
-export interface ExternalRole { id: number; sourceSystem: string; externalRoleId: string; roleName: string }
+export interface ExternalRole { id: number; sourceSystem: string; externalRoleId: string; roleName: string; status: 'ACTIVE' | 'INACTIVE' }
 export interface ExternalResource { id: number; roleId: number; sourceSystem: string; externalResourceId: string; resourceType: 'SKILL' | 'DOCUMENT'; name: string; description?: string; currentVersionId: number; externalVersion?: string; sizeBytes: number; receivedAt: string }
 export interface ExternalVersion { id: number; externalVersion?: string; fileName: string; sizeBytes: number; sha256: string; receivedAt: string }
 export interface ExternalImport { id: number; entryPath?: string; targetType: string; targetId: number; result: string; createdAt: string }

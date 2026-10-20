@@ -11,11 +11,11 @@ const loading = ref(true)
 const showCreate = ref(false)
 const saving = ref(false)
 const error = ref('')
-const name = ref(''); const description = ref(''); const gitlabRootUrl = ref(''); const homeTeamId = ref<number | undefined>()
+const name = ref(''); const description = ref(''); const asdmRepositoryUrl = ref(''); const homeTeamId = ref<number | undefined>()
 function msg(e: unknown) { return (e as {response?:{data?:{message?:string}}})?.response?.data?.message || (e as Error)?.message || '请求失败' }
 async function load() { loading.value=true; error.value=''; try { const [list,opts]=await Promise.all([listCollabGroups(),getGroupCreationOptions()]); groups.value=list; teams.value=opts.teams } catch(e){error.value=msg(e)} finally{loading.value=false} }
-function openCreate() { name.value=''; description.value=''; gitlabRootUrl.value=''; homeTeamId.value=teams.value[0]?.id; showCreate.value=true }
-async function create() { if(!name.value.trim()||!homeTeamId.value||!gitlabRootUrl.value.trim()){error.value='请填写项目组名称、归属团队和 GitLab 根目录';return} saving.value=true;error.value='';try{const g=await createCollabGroup({name:name.value.trim(),description:description.value.trim(),homeTeamId:homeTeamId.value,gitlabRootUrl:gitlabRootUrl.value.trim()});showCreate.value=false;await router.push({name:'collab-group-detail',params:{groupKey:g.groupKey}})}catch(e){error.value=msg(e)}finally{saving.value=false} }
+function openCreate() { name.value=''; description.value=''; asdmRepositoryUrl.value=''; homeTeamId.value=teams.value[0]?.id; showCreate.value=true }
+async function create() { if(!name.value.trim()||!homeTeamId.value){error.value='请填写项目组名称和归属团队';return} saving.value=true;error.value='';try{const g=await createCollabGroup({name:name.value.trim(),description:description.value.trim(),homeTeamId:homeTeamId.value,asdmRepositoryUrl:asdmRepositoryUrl.value.trim()||null});showCreate.value=false;await router.push({name:'collab-group-detail',params:{groupKey:g.groupKey}})}catch(e){error.value=msg(e)}finally{saving.value=false} }
 function label(status:string){return ({DRAFT:'草稿 · 仅 Owner 可见',PUBLISHED:'已推送',ARCHIVED:'已归档'} as Record<string,string>)[status]||status}
 onMounted(load)
 </script>
@@ -32,7 +32,7 @@ onMounted(load)
     <div v-if="showCreate" class="backdrop" @click.self="showCreate=false"><section class="modal"><header><div><span class="eyebrow">NEW GROUP</span><h2>新建项目组</h2></div><button class="close" @click="showCreate=false">×</button></header><form id="group-create" @submit.prevent="create">
       <label>项目组名称 <b>*</b><input v-model="name" required maxlength="120" placeholder="例如：理赔平台研发组"></label>
       <label>归属团队 <b>*</b><t-select v-model="homeTeamId" filterable :options="teams.map(t=>({label:t.name,value:t.id}))" placeholder="搜索并选择有创建权限的团队" /></label>
-      <label>GitLab 根目录 <b>*</b><input v-model="gitlabRootUrl" type="url" required maxlength="2048" placeholder="https://gitlab.it.taikang.com/group/subgroup"></label><small>填写 GitLab group/subgroup 地址，后续需求从此项目组继承。</small>
+      <label>ASDM GitLab 仓库地址（选填）<input v-model="asdmRepositoryUrl" type="url" maxlength="2048" placeholder="https://jihulab.com/tk4/pfss-asdm"></label><small>填写具体仓库地址。留空时项目组使用 Skill 提交模式；仓库凭证可在创建后配置。</small>
       <label>项目组说明<input v-model="description" maxlength="2000" placeholder="项目目标、范围等（选填）"></label>
     </form><footer><button class="quiet" @click="showCreate=false">取消</button><button class="primary" form="group-create" :disabled="saving">{{saving?'创建中…':'创建草稿'}}</button></footer></section></div>
   </main>

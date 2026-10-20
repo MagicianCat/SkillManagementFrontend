@@ -17,7 +17,7 @@ export interface CollabTeam { id: number; name: string; permissionSource?: strin
 export interface CollabUser { userId: number; id?: number; username: string; displayName: string; teamName?: string | null }
 export interface CollabProject {
   projectKey: string; name: string; description?: string | null; status: string; role?: string
-  requirementKey?: string; groupKey?: string; groupName?: string; inheritedTemplateVersion?: number; gitlabRootSnapshot?: string | null
+  requirementKey?: string; groupKey?: string; groupName?: string; inheritedTemplateVersion?: number; gitlabRootSnapshot?: string | null; asdmBranch?: string; asdmBindingStatus?: string
   approvalLevel: ApprovalLevel; versionNo: number; currentStageOrder?: number; homeTeamId?: number; homeTeamName?: string
   ownerUserId?: number; ownerName?: string; currentStage?: { stageKey: string; title?: string; status?: string } | null
   progress?: number; feishuBindingStatus?: string; createdAt?: string
@@ -81,6 +81,9 @@ export async function submitCollabStage(projectKey: string, stageKey: string, pa
 }
 export async function decideCollabSubmission(projectKey: string, submissionId: number, payload: { decision: 'APPROVE' | 'REJECT'; comment: string; expectedVersion: number }) {
   return (await http.post<CollabSubmission>(`${requirementRoot}/${key(projectKey)}/submissions/${submissionId}/decision`, payload)).data
+}
+export async function retryCollabFeishuPublication(projectKey: string, submissionId: number) {
+  return (await http.post<CollabSubmission>(`${requirementRoot}/${key(projectKey)}/submissions/${submissionId}/feishu:retry`)).data
 }
 export async function updateCollabStageAssignment(projectKey: string, stageKey: string, payload: { ownerUserId: number; reviewerUserId: number | null; additionalReviewerUserIds: number[] }) {
   return (await http.put<CollabStage>(`${requirementRoot}/${key(projectKey)}/stages/${stageKey}/assignment`, payload)).data

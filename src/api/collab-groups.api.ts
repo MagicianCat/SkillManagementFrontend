@@ -6,12 +6,16 @@ export interface GroupRole { roleKey: string; roleName: string; name?: string; u
 export interface GroupStageTemplate { stageKey: string; title?: string; included: boolean; ownerRoleKey?: string | null; ownerRoleName?: string | null; ownerUserIds?: number[]; reviewerRoleKey?: string | null; reviewerRoleName?: string | null; reviewerRoleKeys?: string[]; reviewerRoleNames?: string[]; reviewerUserIds?: number[]; status?: string; stageOrder?: number; order?: number; versionNo?: number }
 export interface CollabGroup {
   groupKey: string; name: string; description?: string | null; homeTeamId: number; homeTeamName?: string
-  ownerUserId: number; ownerName?: string; gitlabRootUrl: string; status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+  ownerUserId: number; ownerName?: string; asdmRepositoryUrl?: string | null; gitlabRootUrl?: string | null; status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
   templateVersion: number; versionNo: number; legacyImport?: boolean; publishedAt?: string | null
   members?: GroupMember[]; roles?: GroupRole[]; stages?: GroupStageTemplate[]; wikiRootUrl?: string | null; feishuStatus?: string
   requirementCount?: number
 }
-export interface RequirementSummary { requirementKey: string; groupKey: string; name: string; description?: string | null; approvalLevel: ApprovalLevel; inheritedTemplateVersion?: number; currentStageOrder?: number; status?: string; progress?: number }
+export interface RequirementSummary { requirementKey: string; groupKey: string; name: string; description?: string | null; approvalLevel: ApprovalLevel; inheritedTemplateVersion?: number; currentStageOrder?: number; status?: string; progress?: number; asdmBranch?: string; asdmBindingStatus?: string }
+export interface AsdmCredentialView { configured: boolean; status: string; gitlabProjectId?: number | null; lastValidatedAt?: string | null; expiresAt?: string | null; versionNo?: number; lastErrorCode?: string | null }
+export interface AsdmGroupView { enabled: boolean; repositoryUrl?: string | null; credentialStatus?: string; configured?: boolean; lastValidatedAt?: string | null; monitoringStatus?: string; gitlabProjectId?: number | null; versionNo?: number; lastErrorCode?: string | null }
+export interface AsdmRequirementView { enabled: boolean; branch?: string; requirementPath?: string | null; bindingStatus?: string; lastScannedCommitSha?: string | null; latestCandidate?: { candidateId: number; revision: number; status: string; filePath: string; commitSha: string; notifyAfter?: string | null } | null; versionNo?: number; lastErrorCode?: string | null }
+export interface AsdmDirectoryCandidate { path: string; name?: string; commitSha?: string }
 export interface GroupOptions { teams: CollabTeam[] }
 const root = '/collab-groups'
 const enc = (value: string) => encodeURIComponent(value)
@@ -22,8 +26,12 @@ export async function getGroupCreationOptions() {
   return Array.isArray(data)?{teams:data}:data
 }
 export async function listCollabGroups() { return items((await http.get<CollabGroup[] | {items: CollabGroup[]}>(root)).data) }
-export async function createCollabGroup(payload: { name: string; description: string; homeTeamId: number; gitlabRootUrl: string }) { return (await http.post<CollabGroup>(root, payload)).data }
+export async function createCollabGroup(payload: { name: string; description: string; homeTeamId: number; asdmRepositoryUrl?: string | null }) { return (await http.post<CollabGroup>(root, payload)).data }
 export async function getCollabGroup(groupKey: string) { return (await http.get<CollabGroup>(`${root}/${enc(groupKey)}`)).data }
+export async function getGroupAsdm(groupKey: string) { return (await http.get<AsdmGroupView>(`${root}/${enc(groupKey)}/asdm`)).data }
+export async function updateGroupAsdmRepository(groupKey: string, repositoryUrl: string | null, expectedVersion: number) { return (await http.put<AsdmGroupView>(`${root}/${enc(groupKey)}/asdm/repository`, { repositoryUrl, expectedVersion })).data }
+export async function saveGroupAsdmCredential(groupKey: string, projectAccessToken: string, expectedVersion: number) { return (await http.put<AsdmCredentialView>(`${root}/${enc(groupKey)}/asdm/credential`, { projectAccessToken, expectedVersion })).data }
+export async function revalidateGroupAsdmCredential(groupKey: string) { return (await http.post<AsdmCredentialView>(`${root}/${enc(groupKey)}/asdm/credential:revalidate`)).data }
 export async function updateCollabGroup(groupKey: string, payload: { name: string; description: string; expectedVersion: number }) { return (await http.patch<CollabGroup>(`${root}/${enc(groupKey)}`, payload)).data }
 export async function addGroupMember(groupKey: string, userId: number) { return (await http.post(`${root}/${enc(groupKey)}/members`, { userId })).data }
 export async function removeGroupMember(groupKey: string, userId: number) { return (await http.delete(`${root}/${enc(groupKey)}/members/${userId}`)).data }
@@ -34,6 +42,11 @@ export async function updateGroupStageTemplate(groupKey: string, stageKey: strin
 export async function publishCollabGroup(groupKey: string, expectedVersion: number) { return (await http.post<CollabGroup>(`${root}/${enc(groupKey)}:publish`, { expectedVersion }, { headers: { 'Idempotency-Key': `publish-${groupKey}-${expectedVersion}` } })).data }
 export async function getGroupTemplatePreview(groupKey: string) { return (await http.get<{ valid: boolean; issues: { stageKey: string; duty?: string; code?: string; message: string }[]; warnings: { stageKey: string; duty?: string; code?: string; message: string }[] }>(`${root}/${enc(groupKey)}/template-preview`)).data }
 export async function getGroupRequirements(groupKey: string) { return items((await http.get<RequirementSummary[] | {items: RequirementSummary[]}>(`${root}/${enc(groupKey)}/requirements`)).data) }
-export async function createGroupRequirement(groupKey: string, payload: { name: string; description: string; approvalLevel: ApprovalLevel; includedStageKeys: string[]; stagesWithoutApproval?: string[]; expectedTemplateVersion: number }) { return (await http.post<RequirementSummary>(`${root}/${enc(groupKey)}/requirements`, payload)).data }
+export async function createGroupRequirement(groupKey: string, payload: { name: string; description: string; approvalLevel: ApprovalLevel; includedStageKeys: string[]; stagesWithoutApproval?: string[]; expectedTemplateVersion: number; asdmBranch?: string }) { return (await http.post<RequirementSummary>(`${root}/${enc(groupKey)}/requirements`, payload)).data }
 export async function configureGroupWikiRoot(groupKey: string, url: string) { return (await http.put(`${root}/${enc(groupKey)}/feishu-binding`, { url })).data }
+const requirementRoot = '/collab-requirements'
+export async function getRequirementAsdm(requirementKey: string) { return (await http.get<AsdmRequirementView>(`${requirementRoot}/${enc(requirementKey)}/asdm`)).data }
+export async function scanRequirementAsdm(requirementKey: string) { return (await http.post(`${requirementRoot}/${enc(requirementKey)}/asdm:scan-now`)).data }
+export async function getRequirementAsdmDirectoryCandidates(requirementKey: string) { const data=(await http.get<AsdmDirectoryCandidate[] | {items: AsdmDirectoryCandidate[]}>(`${requirementRoot}/${enc(requirementKey)}/asdm/directories:candidates`)).data; return items(data) }
+export async function bindRequirementAsdmDirectory(requirementKey: string, path: string, expectedVersion: number) { return (await http.post<AsdmRequirementView>(`${requirementRoot}/${enc(requirementKey)}/asdm/directory:bind`, { path, expectedVersion })).data }
 export type { CollabUser }

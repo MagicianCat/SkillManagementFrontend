@@ -47,6 +47,29 @@ export interface AsdmPackageView {
   docxPublished?: number; docxTotal?: number; attachmentPublished?: number; attachmentTotal?: number
 }
 export interface AsdmStagesView { enabled?: boolean; stages?: AsdmStageView[]; items?: AsdmStageView[] }
+export interface AsdmRuleStage {
+  stageKey: string; title?: string; enabled: boolean
+  defaultRules?: { includeGlobs?: string[]; excludeGlobs?: string[]; markerGlobs?: string[]; markerGroups?: string[][]; relativeBase?: string | null }
+  overrides?: { addIncludeGlobs?: string[]; excludeGlobs?: string[]; disabledIncludeGlobs?: string[]; addMarkerGlobs?: string[]; markerGroups?: string[][]; relativeBase?: string | null }
+}
+export interface AsdmGroupRulesView { defaultVersion: string; revision: number; updatedBy?: string | null; stages: AsdmRuleStage[] | Record<string, AsdmRuleStage> }
+export interface AsdmRequirementRuleBinding { groupRevision?: number; defaultVersion?: string; rules?: unknown; effectiveHash?: string }
+export interface AsdmRequirementRulesView {
+  inUse?: AsdmRequirementRuleBinding; latestGroupRules?: AsdmRequirementRuleBinding
+  effectiveRuleHash?: string; ruleVersion?: string; groupRevision?: number; latestGroupRevision?: number
+  inSync?: boolean; differsFromLatestGroupRules?: boolean; defaultVersion?: string
+}
+export interface AsdmSyncFileResult { path?: string; sourcePath?: string; syncAction?: string; publishStatus?: string; feishuUrl?: string | null; lastErrorCode?: string | null }
+export interface AsdmSyncStageResult {
+  stageKey: string; stageStatusSnapshot?: string; action?: string; status?: string
+  foundCount?: number; newCount?: number; updatedCount?: number; uncertainCount?: number; skippedCount?: number
+  publishedCount?: number; failedCount?: number; supplementalIndexUrl?: string | null; lastErrorCode?: string | null
+  candidateId?: number | null; candidateStatus?: string | null; notifyAfter?: string | null; files?: AsdmSyncFileResult[]
+}
+export interface AsdmSyncJobView {
+  syncJobId: number; status: string; headSha?: string | null; ruleVersion?: string | null; ruleHash?: string | null
+  message?: string | null; lastErrorCode?: string | null; stages?: AsdmSyncStageResult[]; items?: AsdmSyncStageResult[]
+}
 export interface GroupOptions { teams: CollabTeam[] }
 const root = '/collab-groups'
 const enc = (value: string) => encodeURIComponent(value)
@@ -60,6 +83,10 @@ export async function listCollabGroups() { return items((await http.get<CollabGr
 export async function createCollabGroup(payload: { name: string; description: string; homeTeamId: number; asdmRepositoryUrl?: string | null }) { return (await http.post<CollabGroup>(root, payload)).data }
 export async function getCollabGroup(groupKey: string) { return (await http.get<CollabGroup>(`${root}/${enc(groupKey)}`)).data }
 export async function getGroupAsdm(groupKey: string) { return (await http.get<AsdmGroupView>(`${root}/${enc(groupKey)}/asdm`)).data }
+export async function getGroupAsdmRules(groupKey: string) { return (await http.get<AsdmGroupRulesView>(`${root}/${enc(groupKey)}/asdm/rules`)).data }
+export async function saveGroupAsdmRules(groupKey: string, payload: { expectedRevision: number; stages: Record<string, { enabled: boolean; addIncludeGlobs?: string[]; excludeGlobs?: string[]; disabledIncludeGlobs?: string[]; addMarkerGlobs?: string[]; markerGroups?: string[][]; relativeBase?: string | null }> }) { return (await http.put<AsdmGroupRulesView>(`${root}/${enc(groupKey)}/asdm/rules`, payload)).data }
+export async function resetGroupAsdmRuleStage(groupKey: string, stageKey: string, expectedRevision: number) { return (await http.post<AsdmGroupRulesView>(`${root}/${enc(groupKey)}/asdm/rules:reset-stage`, { stageKey, expectedRevision })).data }
+export async function previewGroupAsdmRules(groupKey: string, payload: { stageKey: string; requirementKey: string; overrides?: { enabled: boolean; addIncludeGlobs?: string[]; excludeGlobs?: string[]; disabledIncludeGlobs?: string[]; addMarkerGlobs?: string[]; markerGroups?: string[][]; relativeBase?: string | null } }) { return (await http.post<{ stageKey: string; headSha?: string; matchedPaths?: string[]; unmatchedPaths?: string[] }>(`${root}/${enc(groupKey)}/asdm/rules:preview`, payload)).data }
 export async function updateGroupAsdmRepository(groupKey: string, repositoryUrl: string | null, expectedVersion: number) { return (await http.put<AsdmGroupView>(`${root}/${enc(groupKey)}/asdm/repository`, { repositoryUrl, expectedVersion })).data }
 export async function saveGroupAsdmCredential(groupKey: string, projectAccessToken: string, expectedVersion: number) { return (await http.put<AsdmCredentialView>(`${root}/${enc(groupKey)}/asdm/credential`, { projectAccessToken, expectedVersion })).data }
 export async function revalidateGroupAsdmCredential(groupKey: string) { return (await http.post<AsdmCredentialView>(`${root}/${enc(groupKey)}/asdm/credential:revalidate`)).data }
@@ -77,6 +104,10 @@ export async function createGroupRequirement(groupKey: string, payload: { name: 
 export async function configureGroupWikiRoot(groupKey: string, url: string) { return (await http.put(`${root}/${enc(groupKey)}/feishu-binding`, { url })).data }
 const requirementRoot = '/collab-requirements'
 export async function getRequirementAsdm(requirementKey: string) { return (await http.get<AsdmRequirementView>(`${requirementRoot}/${enc(requirementKey)}/asdm`)).data }
+export async function getRequirementAsdmRules(requirementKey: string) { return (await http.get<AsdmRequirementRulesView>(`${requirementRoot}/${enc(requirementKey)}/asdm/rules`)).data }
+export async function startRequirementAsdmSync(requirementKey: string, idempotencyKey: string) { return (await http.post<AsdmSyncJobView>(`${requirementRoot}/${enc(requirementKey)}/asdm/sync`, { applyLatestGroupRules: true, scope: 'ALL_STAGES', includeCompletedStages: true }, { headers: { 'Idempotency-Key': idempotencyKey } })).data }
+export async function getRequirementAsdmSyncJob(requirementKey: string, jobId: number) { return (await http.get<AsdmSyncJobView>(`${requirementRoot}/${enc(requirementKey)}/asdm/sync-jobs/${jobId}`)).data }
+export async function retryRequirementAsdmSyncJob(requirementKey: string, jobId: number) { return (await http.post<AsdmSyncJobView>(`${requirementRoot}/${enc(requirementKey)}/asdm/sync-jobs/${jobId}/retry`)).data }
 export async function scanRequirementAsdm(requirementKey: string) { return (await http.post(`${requirementRoot}/${enc(requirementKey)}/asdm:scan-now`)).data }
 export async function getRequirementAsdmDirectoryCandidates(requirementKey: string) { const data=(await http.get<AsdmDirectoryCandidate[] | {items: AsdmDirectoryCandidate[]}>(`${requirementRoot}/${enc(requirementKey)}/asdm/directories:candidates`)).data; return items(data) }
 export async function bindRequirementAsdmDirectory(requirementKey: string, path: string, expectedVersion: number) { return (await http.post<AsdmRequirementView>(`${requirementRoot}/${enc(requirementKey)}/asdm/directory:bind`, { path, expectedVersion })).data }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { getCollabGroup, type CollabGroup } from '../api/collab-groups.api'
@@ -9,6 +9,7 @@ import CollabRequirementWorkflow from './CollabRequirementWorkflow.vue'
 const props=defineProps<{embedded?:boolean;projectKey?:string}>();const emit=defineEmits<{updated:[]}>()
 const route=useRoute();const router=useRouter();const auth=useAuthStore();const requirementKey=computed(()=>String(props.projectKey||route.params.requirementKey));const requirement=ref<CollabProject|null>(null);const roles=ref<RequirementRolesResponse|null>(null);const group=ref<CollabGroup|null>(null);const loading=ref(true);const busy=ref('');const error=ref('')
 const groupMembers=computed(()=>group.value?.members||[]);const stages=computed(()=>roles.value?.stages||[])
+let liveRefreshTimer:number|undefined
 const canManage=computed(()=>auth.user?.id===requirement.value?.ownerUserId||auth.user?.id===group.value?.ownerUserId)
 const canManageFlow=computed(()=>auth.user?.id===requirement.value?.ownerUserId)
 const autoApproval=computed(()=>requirement.value?.approvalLevel==='L3')
@@ -28,15 +29,17 @@ function stageStateLabel(stage:CollabStage){if(stage.status==='COMPLETED')return
 function unavailableReason(stage:CollabStage){if(stage.status==='COMPLETED')return'已归档';if(['IN_PROGRESS','PENDING_APPROVAL','REJECTED'].includes(stage.status))return'阶段已开始';if(stageOrder(stage)<(requirement.value?.currentStageOrder||1))return'早于当前位置';if(!['L2','L3'].includes(requirement.value?.approvalLevel||''))return'当前策略锁定';return'不可调整'}
 function applyStageActors(updated:RequirementStageActorsResponse){if(!roles.value)return;roles.value={...roles.value,stages:roles.value.stages.map(stage=>stage.stageKey===updated.stageKey?{...stage,...updated}:stage)}}
 function displaySyncDiff(duties:Awaited<ReturnType<typeof getRequirementStageSyncPreview>>['duties']){return duties.map(duty=>{const added=duty.addedUserIds.map(id=>groupMembers.value.find(m=>m.userId===id)?.displayName||`用户 ${id}`);const removed=duty.removedUserIds.map(id=>groupMembers.value.find(m=>m.userId===id)?.displayName||`用户 ${id}`);return `${duty.roleName||duty.roleKey||duty.duty}：${added.length?`新增 ${added.join('、')}`:'无新增'}；${removed.length?`移除 ${removed.join('、')}`:'无移除'}`}).join('\n')||'人员配置没有变化。'}
-function mergeRoleStages(roleData:RequirementRolesResponse,workflowStages:CollabStage[]):RequirementRolesResponse{const roleByKey=new Map(roleData.stages.map(stage=>[stage.stageKey,stage]));return{...roleData,stages:workflowStages.map(stage=>({...stage,...roleByKey.get(stage.stageKey)}))}}
+function mergeRoleStages(roleData:RequirementRolesResponse,workflowStages:CollabStage[]):RequirementRolesResponse{const roleByKey=new Map(roleData.stages.map(stage=>[stage.stageKey,stage]));return{...roleData,stages:workflowStages.map(stage=>{const actors=roleByKey.get(stage.stageKey);return{...stage,...actors,status:stage.status,versionNo:stage.versionNo,stageOrder:stage.stageOrder,order:stage.order,attemptNo:stage.attemptNo,submissionId:stage.submissionId,submissionStatus:stage.submissionStatus,artifactVersionId:stage.artifactVersionId,approvalState:stage.approvalState}})}}
 async function refreshRoles(){const [r,w]=await Promise.all([getRequirementRoles(requirementKey.value),getCollabWorkflow(requirementKey.value)]);roles.value=mergeRoleStages(r,w.stages)}
 async function load(){loading.value=true;error.value='';try{const p=await getCollabProject(requirementKey.value);requirement.value=p;const [r,w,g]=await Promise.all([getRequirementRoles(requirementKey.value),getCollabWorkflow(requirementKey.value),p.groupKey?getCollabGroup(p.groupKey):Promise.resolve(null)]);roles.value=mergeRoleStages(r,w.stages);group.value=g}catch(e){error.value=msg(e)}finally{loading.value=false}}
+async function refreshLiveState(){if(loading.value||busy.value||document.visibilityState!=='visible')return;try{const [p,r,w]=await Promise.all([getCollabProject(requirementKey.value),getRequirementRoles(requirementKey.value),getCollabWorkflow(requirementKey.value)]);const previous=new Map(stages.value.map(stage=>[stage.stageKey,stage.status]));requirement.value=p;roles.value=mergeRoleStages(r,w.stages);if(w.stages.some(stage=>previous.get(stage.stageKey)!==stage.status))emit('updated')}catch{/* Keep the last known state; the next poll will retry. */}}
 async function saveActors(stage:CollabStage,duty:'OWNER'|'REVIEWER',ev:Event,reviewerRoleKey?:string){const input=ev.target as HTMLInputElement;const roleKey=duty==='OWNER'?ownerRole(stage)?.roleKey:reviewerRoleKey;if(!roleKey){error.value=`${duty==='OWNER'?'负责人':'审批人'}角色未配置`;return}const current=duty==='OWNER'?ownerActorIds(stage):roleActorIds(stage,roleKey);const next=new Set(current);input.checked?next.add(Number(input.value)):next.delete(Number(input.value));busy.value=`${stage.stageKey}-${duty}-${roleKey}`;error.value='';try{const updated=await updateRequirementStageActors(requirementKey.value,stage.stageKey,{duty,roleKey,userIds:[...next],expectedStageVersion:stage.versionNo});applyStageActors(updated)}catch(e){error.value=msg(e)}finally{busy.value=''}}
 async function syncLatest(stage:CollabStage){busy.value=stage.stageKey;error.value='';try{const preview=await getRequirementStageSyncPreview(requirementKey.value,stage.stageKey);const diff=displaySyncDiff(preview.duties);if(!window.confirm(`从项目组同步“${stageTitle(stage)}”的人员配置？\n\n${diff}\n\n只更新此未开始阶段；进行中和已完成阶段不可修改。`))return;await syncRequirementStageMembers(requirementKey.value,stage.stageKey,{expectedStageVersion:preview.expectedStageVersion,expectedGroupTemplateVersion:preview.groupTemplateVersion,mode:'REPLACE',confirm:true});await refreshRoles()}catch(e){error.value=msg(e)}finally{busy.value=''}}
 async function changeInclusion(stage:CollabStage){const included=stage.status==='SKIPPED';busy.value=`flow-${stage.stageKey}`;error.value='';try{await updateCollabStageInclusion(requirementKey.value,stage.stageKey,included);await refreshRoles();emit('updated')}catch(e){error.value=msg(e)}finally{busy.value=''}}
 function stageTitle(stage:CollabStage){return stage.title||stage.stageKey}
 function openStage(stageKey:string){router.push({name:'collab-requirement-stage',params:{requirementKey:requirementKey.value,stageKey}})}
-onMounted(load)
+onMounted(async()=>{await load();liveRefreshTimer=window.setInterval(()=>void refreshLiveState(),5000)})
+onUnmounted(()=>{if(liveRefreshTimer!==undefined)window.clearInterval(liveRefreshTimer)})
 </script>
 
 <template>

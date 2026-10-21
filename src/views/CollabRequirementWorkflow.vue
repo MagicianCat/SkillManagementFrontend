@@ -6,6 +6,7 @@ import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import { layoutGraph } from '../features/workbench/dagLayout'
 import { COLLAB_STAGES, type ApprovalLevel, type CollabStage } from '../api/collab-projects.api'
+import { asdmStatusLabel } from '../features/asdm/asdm-view-model.js'
 
 const props=defineProps<{ stages:CollabStage[]; mode?:'requirement'|'template'; approvalLevel?:ApprovalLevel }>()
 const emit=defineEmits<{openStage:[stageKey:string]}>()
@@ -13,7 +14,7 @@ const order=COLLAB_STAGES.map(s=>s.key);const links=[['REQUIREMENT','PRODUCT'],[
 type Node={id:string;position:{x:number;y:number};data:Record<string,unknown>;class?:string};type Edge={id:string;source:string;target:string;type:string;sourceHandle:string;targetHandle:string;class:string}
 const nodes=ref<Node[]>([]);const edges=ref<Edge[]>([]);const byKey=computed(()=>new Map(props.stages.map(s=>[s.stageKey,s])));const {fitView}=useVueFlow()
 function tone(status:string){return status==='COMPLETED'?'success':['IN_PROGRESS','PENDING_APPROVAL','REJECTED','READY_BLOCKED'].includes(status)?'warning':status==='SKIPPED'?'muted':'info'}
-function subtitle(s:CollabStage|undefined){if(!s)return '未纳入模板';if(s.status==='SKIPPED')return '未纳入流程';const reviewerAssigned=s.reviewerRoleActors?s.reviewerRoleActors.some(role=>role.userIds.length>0):Boolean(s.reviewerUserIds?.length||s.reviewerUserId||s.additionalReviewerUserIds?.length);const auto=props.mode!=='template'&&(props.approvalLevel==='L3'||props.approvalLevel==='L2'&&!reviewerAssigned);const roles=`负责人：${s.ownerRoleName||'未配置'} · ${auto?'无需审批 · 自动流转':`审批：${s.reviewerRoleNames?.join('、')||s.reviewerRoleName||'自动流转'}`}`;return s.status==='READY_BLOCKED'?`待补齐人员 · 补齐后自动启动 · ${roles}`:roles}
+function subtitle(s:CollabStage|undefined){if(!s)return '未纳入模板';if(s.status==='SKIPPED')return '未纳入流程';const reviewerAssigned=s.reviewerRoleActors?s.reviewerRoleActors.some(role=>role.userIds.length>0):Boolean(s.reviewerUserIds?.length||s.reviewerUserId||s.additionalReviewerUserIds?.length);const auto=props.mode!=='template'&&(props.approvalLevel==='L3'||props.approvalLevel==='L2'&&!reviewerAssigned);const roles=`负责人：${s.ownerRoleName||'未配置'} · ${auto?'无需审批 · 自动流转':`审批：${s.reviewerRoleNames?.join('、')||s.reviewerRoleName||'自动流转'}`}`;const flow=s.status==='READY_BLOCKED'?`待补齐人员 · 补齐后自动启动 · ${roles}`:roles;return s.asdmStatus?`${flow} · ${asdmStatusLabel(s.asdmStatus)}`:flow}
 async function render(){try{const ns=order.map(id=>({id,width:232,height:92}));const es=links.map((l,i)=>({id:`e${i}`,source:l[0],target:l[1]}));const pos=await layoutGraph(ns,es,{layerGap:64,nodeGap:30,padding:20});nodes.value=order.map((key,i)=>{const s=byKey.value.get(key);return{id:key,position:pos[key]||{x:0,y:0},data:{title:`${String((s?.stageOrder||s?.order||i+1)).padStart(2,'0')} ${s?.title||COLLAB_STAGES[i]?.title||key}`,sub:subtitle(s),tone:tone(s?.status||'SKIPPED')},class:`flow-node flow-${tone(s?.status||'SKIPPED')}`}});edges.value=es.map(e=>({id:e.id,source:e.source,target:e.target,type:'default',sourceHandle:'out',targetHandle:'in',class:'flow-edge'}));await nextTick();await fitView({padding:.12,includeHiddenNodes:true})}catch{nodes.value=[];edges.value=[]}}
 function open(e:{node:{id:string}}){emit('openStage',e.node.id)}
 watch(()=>props.stages,render,{deep:true});onMounted(render)

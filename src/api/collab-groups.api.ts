@@ -16,6 +16,37 @@ export interface AsdmCredentialView { configured: boolean; status: string; gitla
 export interface AsdmGroupView { enabled: boolean; repositoryUrl?: string | null; credentialStatus?: string; configured?: boolean; lastValidatedAt?: string | null; monitoringStatus?: string; gitlabProjectId?: number | null; versionNo?: number; lastErrorCode?: string | null }
 export interface AsdmRequirementView { enabled: boolean; branch?: string; requirementPath?: string | null; bindingStatus?: string; lastScannedCommitSha?: string | null; latestCandidate?: { candidateId: number; revision: number; status: string; filePath: string; commitSha: string; notifyAfter?: string | null } | null; versionNo?: number; lastErrorCode?: string | null }
 export interface AsdmDirectoryCandidate { path: string; name?: string; commitSha?: string }
+export type AsdmAssociation = 'CONFIRMED' | 'LIKELY' | 'UNCERTAIN' | 'EXTERNAL_REF' | 'EXCLUDED' | 'OVERSIZE'
+export type AsdmDeliveryMode = 'DOCX' | 'DRIVE_FILE' | 'LINK_ONLY'
+export interface AsdmCandidateFile {
+  path: string; association: AsdmAssociation; deliverAs?: AsdmDeliveryMode; selected?: boolean
+  reason?: string; sizeBytes?: number; mimeType?: string; blobSha?: string; gitlabUrl?: string
+  toolCategory?: string; publishStatus?: string; lastErrorCode?: string
+}
+export interface AsdmFileCounts { confirmed?: number; likely?: number; uncertain?: number; externalRefs?: number; excluded?: number; oversize?: number }
+export interface AsdmStageCandidate {
+  stageKey: string; attemptNo: number; candidateId: number; revision: number; sourceCommitSha?: string
+  versionNo?: number
+  markerReady?: boolean; notifyAfter?: string | null; status: string; ruleVersion?: string
+  sourceBranch?: string; lastScanTime?: string; markerEvidence?: unknown[]; fileCounts?: AsdmFileCounts
+  files?: AsdmCandidateFile[]
+}
+export interface AsdmStageView {
+  enabled?: boolean; stageKey: string; status?: string; candidateId?: number | null; versionNo?: number; sourceBranch?: string; headSha?: string
+  ruleVersion?: string; lastScanTime?: string; triggerReady?: boolean; markerEvidence?: unknown[]
+  lastErrorCode?: string; candidate?: AsdmStageCandidate | null; latestCandidate?: AsdmStageCandidate | null
+  packageId?: number | null; packageStatus?: string; packageUrl?: string | null; docxPublished?: number
+  docxTotal?: number; attachmentPublished?: number; attachmentTotal?: number
+}
+export interface AsdmPackageFile {
+  path: string; deliveryMode?: AsdmDeliveryMode; publishStatus: string; feishuUrl?: string | null
+  lastErrorCode?: string | null; sourceSizeBytes?: number; sourceBlobSha?: string
+}
+export interface AsdmPackageView {
+  packageId: number; status: string; indexUrl?: string | null; files: AsdmPackageFile[]
+  docxPublished?: number; docxTotal?: number; attachmentPublished?: number; attachmentTotal?: number
+}
+export interface AsdmStagesView { enabled?: boolean; stages?: AsdmStageView[]; items?: AsdmStageView[] }
 export interface GroupOptions { teams: CollabTeam[] }
 const root = '/collab-groups'
 const enc = (value: string) => encodeURIComponent(value)
@@ -49,4 +80,11 @@ export async function getRequirementAsdm(requirementKey: string) { return (await
 export async function scanRequirementAsdm(requirementKey: string) { return (await http.post(`${requirementRoot}/${enc(requirementKey)}/asdm:scan-now`)).data }
 export async function getRequirementAsdmDirectoryCandidates(requirementKey: string) { const data=(await http.get<AsdmDirectoryCandidate[] | {items: AsdmDirectoryCandidate[]}>(`${requirementRoot}/${enc(requirementKey)}/asdm/directories:candidates`)).data; return items(data) }
 export async function bindRequirementAsdmDirectory(requirementKey: string, path: string, expectedVersion: number) { return (await http.post<AsdmRequirementView>(`${requirementRoot}/${enc(requirementKey)}/asdm/directory:bind`, { path, expectedVersion })).data }
+export async function getRequirementAsdmStages(requirementKey: string) { return (await http.get<AsdmStagesView | AsdmStageView[]>(`${requirementRoot}/${enc(requirementKey)}/asdm/stages`)).data }
+export async function getRequirementAsdmStage(requirementKey: string, stageKey: string) { const data=(await http.get<{stage: AsdmStageView; markerEvidence?: unknown[]; packageId?: number | null}>(`${requirementRoot}/${enc(requirementKey)}/asdm/stages/${enc(stageKey)}`)).data; return {...data.stage, markerEvidence: data.markerEvidence, packageId: data.packageId} }
+export async function getRequirementAsdmCandidate(requirementKey: string, stageKey: string) { const data=(await http.get<AsdmStageCandidate & {confirmedCount?: number; likelyCount?: number; uncertainCount?: number; externalRefCount?: number}>(`${requirementRoot}/${enc(requirementKey)}/asdm/stages/${enc(stageKey)}/candidate`)).data; return {...data, fileCounts: {confirmed: data.confirmedCount, likely: data.likelyCount, uncertain: data.uncertainCount, externalRefs: data.externalRefCount}, files: data.files?.map(file => ({...file, sizeBytes: file.sizeBytes ?? (file as AsdmCandidateFile & {size?: number}).size}))} }
+export async function scanRequirementAsdmStage(requirementKey: string, stageKey: string) { return (await http.post(`${requirementRoot}/${enc(requirementKey)}/asdm/stages/${enc(stageKey)}:scan`)).data }
+export async function updateRequirementAsdmAssociation(requirementKey: string, stageKey: string, payload: { candidateId: number; expectedRevision: number; expectedVersion: number; path: string; decision: 'INCLUDE' | 'EXCLUDE' }) { await http.put(`${requirementRoot}/${enc(requirementKey)}/asdm/stages/${enc(stageKey)}/associations`, {expectedRevision: payload.expectedRevision, expectedVersion: payload.expectedVersion, changes: [{path: payload.path, association: payload.decision === 'INCLUDE' ? 'CONFIRMED' : 'EXCLUDED'}]}); return getRequirementAsdmCandidate(requirementKey, stageKey) }
+export async function getRequirementAsdmPackage(requirementKey: string, stageKey: string, packageId: number) { return (await http.get<AsdmPackageView>(`${requirementRoot}/${enc(requirementKey)}/asdm/stages/${enc(stageKey)}/packages/${packageId}`)).data }
+export async function retryRequirementAsdmPackage(requirementKey: string, packageId: number) { return (await http.post(`${requirementRoot}/${enc(requirementKey)}/asdm/packages/${packageId}:retry`)).data }
 export type { CollabUser }

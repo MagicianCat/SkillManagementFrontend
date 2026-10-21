@@ -26,6 +26,7 @@ export interface CollabProject {
 export interface CollabFeishuBinding { status: string; chatId?: string | null; wikiSpaceId?: string | null; wikiParentNodeToken?: string | null; lastError?: string | null; pendingTasks: number }
 export interface CollabStage {
   id?: number; stageId: number; stageKey: string; title?: string; stageOrder?: number; order?: number; status: string
+  asdmStatus?: string
   ownerUserId: number; ownerName?: string; reviewerUserId?: number | null; reviewerName?: string | null; additionalReviewerUserIds?: number[]
   attemptNo: number; versionNo: number; artifactKind?: string; gitRequired?: boolean
   submissionId?: number | null; submissionStatus?: string | null; artifactVersionId?: number | null

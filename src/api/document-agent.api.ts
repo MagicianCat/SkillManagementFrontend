@@ -1,4 +1,5 @@
 import { http } from './http'
+import { clientToken } from '../utils/clientToken'
 
 export type DocumentAgentSession = {
   sessionKey: string
@@ -17,7 +18,7 @@ export type FeishuDocument = { docId: string; docType: string; title?: string; r
 export type WikiContext = { documentId:number; title:string; documentType:string; latestRevisionNo:number }
 export type WikiContextList = { items:WikiContext[]; limit:number }
 
-function key() { return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}` }
+function key() { return clientToken() }
 export async function listDocumentAgentSessions(projectKey?: string) { return (await http.get<DocumentAgentSession[]>('/document-agent/sessions', { params: projectKey ? { projectKey } : undefined })).data }
 export async function createDocumentAgentSession(payload: { projectKey: string; profileKey?: string; stageKey?: string; mode: string; documentId?: number; title?: string }) { return (await http.post<DocumentAgentSession>('/document-agent/sessions', payload, { headers: { 'Idempotency-Key': key() } })).data }
 export async function sendDocumentAgentTurn(sessionKey: string, instruction: string, context: { sourceArtifactIds?: number[]; feishuDocuments?: { docId: string; docType: string; title?: string }[]; turnMode?:TurnMode; targetDocumentId?:number; targetTitle?:string } = {}, idempotencyKey = key()) { return (await http.post<DocumentAgentJob>(`/document-agent/sessions/${sessionKey}/turns`, { instruction, ...context }, { headers: { 'Idempotency-Key': idempotencyKey } })).data }

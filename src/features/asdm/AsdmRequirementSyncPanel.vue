@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { COLLAB_STAGES } from '../../api/collab-projects.api'
 import { getRequirementAsdmRules, getRequirementAsdmSyncJob, retryRequirementAsdmSyncJob, startRequirementAsdmSync, type AsdmRequirementRulesView, type AsdmSyncJobView, type AsdmSyncStageResult } from '../../api/collab-groups.api'
+import { clientToken } from '../../utils/clientToken'
 
 const props = defineProps<{ requirementKey: string; enabled: boolean; requirementStatus?: string }>()
 const rules = ref<AsdmRequirementRulesView | null>(null)
@@ -29,7 +30,7 @@ function msg(e: unknown) { return (e as { response?: { data?: { message?: string
 function schedulePoll() { if (pollTimer) clearTimeout(pollTimer); if (isRunning.value && job.value) pollTimer = setTimeout(poll, 2500) }
 async function poll() { if (!job.value) return; try { job.value = await getRequirementAsdmSyncJob(props.requirementKey, job.value.syncJobId); if (!isRunning.value) await loadRules(); schedulePoll() } catch (e) { error.value = msg(e); if (isRunning.value) pollTimer = setTimeout(poll, 5000) } }
 async function loadRules() { if (!props.enabled) return; try { rules.value = await getRequirementAsdmRules(props.requirementKey) } catch (e) { error.value = msg(e) } }
-async function start() { busy.value = true; error.value = ''; try { const created = await startRequirementAsdmSync(props.requirementKey, `asdm-sync-${props.requirementKey}-${crypto.randomUUID()}`); job.value = created; await loadRules(); schedulePoll() } catch (e) { error.value = msg(e) } finally { busy.value = false } }
+async function start() { busy.value = true; error.value = ''; try { const created = await startRequirementAsdmSync(props.requirementKey, `asdm-sync-${props.requirementKey}-${clientToken()}`); job.value = created; await loadRules(); schedulePoll() } catch (e) { error.value = msg(e) } finally { busy.value = false } }
 async function retry() { if (!job.value) return; busy.value = true; error.value = ''; try { job.value = await retryRequirementAsdmSyncJob(props.requirementKey, job.value.syncJobId); schedulePoll() } catch (e) { error.value = msg(e) } finally { busy.value = false } }
 function stageAction(row: AsdmSyncStageResult) { return ({ ACTIVE_DISCOVERY: '更新活动阶段候选', BACKFILL: '补充归档', PREVIEW: '仅预览', SKIPPED: '跳过' } as Record<string, string>)[row.action || ''] || row.action || statusLabel(row.status) }
 onMounted(loadRules)

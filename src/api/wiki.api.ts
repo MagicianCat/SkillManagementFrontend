@@ -36,7 +36,7 @@ export async function createWikiDocument(request: { title: string; documentType:
   return data
 }
 
-export async function updateWikiDocument(id: number, request: { title: string; markdownContent: string; versionNo: number }) {
+export async function updateWikiDocument(id: number, request: { title: string; markdownContent: string; versionNo: number; skillIds: number[] }) {
   const { data } = await http.put<WikiDocument>(`/wiki/documents/${id}`, request)
   return data
 }

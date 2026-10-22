@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import DOMPurify from 'dompurify'
 import { renderMarkdown } from '../utils/markdown'
+import { clientToken } from '../utils/clientToken'
 import { getSkillCategories } from '../api/skills.api'
 import { searchWikiTeams } from '../api/wiki.api'
 import type { SkillCategory, WikiTeam } from '../types/skill'
@@ -157,7 +158,7 @@ async function importDocuments() {
   try {
     const path = checked.value[0]!
     const markdownContent = await getExternalDocument(versionId.value, path)
-    const token = crypto.randomUUID()
+    const token = clientToken()
     sessionStorage.setItem(`external-wiki-draft:${token}`, JSON.stringify({
       title: path.split('/').pop()!.replace(/\.md$/i, ''), markdownContent, teamId: teamId.value,
       teamName: teams.value.find((team) => team.id === teamId.value)?.name,

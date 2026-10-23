@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import {
   getRequirementAsdmCandidate, getRequirementAsdmPackage, getRequirementAsdmStage,
-  retryRequirementAsdmPackage, scanRequirementAsdmStage, updateRequirementAsdmAssociation,
+  includeRequirementAsdmSuspected, retryRequirementAsdmPackage, scanRequirementAsdmStage, updateRequirementAsdmAssociation,
   type AsdmCandidateFile, type AsdmPackageView, type AsdmStageCandidate, type AsdmStageView,
 } from '../../api/collab-groups.api'
 import { asdmStatusLabel, groupCandidateFiles, isRetryableFile } from './asdm-view-model.js'
@@ -15,10 +15,12 @@ const loading = ref(false)
 const busyPath = ref('')
 const scanning = ref(false)
 const retrying = ref(false)
+const includingSuspected = ref(false)
 const notice = ref('')
 const failure = ref('')
 const packageId = computed(() => stageInfo.value?.packageId ?? null)
 const groupedFiles = computed(() => groupCandidateFiles(candidate.value?.files || []))
+const suspectedFiles = computed(() => (candidate.value?.files || []).filter(file => !file.selected && ['LIKELY', 'UNCERTAIN'].includes(file.association) && file.association !== 'OVERSIZE'))
 const candidateCounts = computed(() => candidate.value?.fileCounts || {})
 const hasCandidate = computed(() => Boolean(candidate.value?.candidateId))
 
@@ -74,10 +76,21 @@ async function decideFile(file: AsdmCandidateFile, decision: 'INCLUDE' | 'EXCLUD
       decision,
     })
     setCandidate(response)
-    notice.value = decision === 'INCLUDE' ? '文件已纳入候选，快照需要重新确认' : '文件已排除'
-    await load()
+    notice.value = decision === 'INCLUDE' ? '纳入选择已保存，正在后台重新扫描；完成后可刷新状态' : '排除选择已保存，正在后台重新扫描；完成后可刷新状态'
   } catch (error) { failure.value = message(error) }
   finally { busyPath.value = '' }
+}
+async function includeAllSuspected() {
+  if (!candidate.value) return
+  includingSuspected.value = true; notice.value = ''; failure.value = ''
+  try {
+    const result = await includeRequirementAsdmSuspected(props.requirementKey, props.stageKey, {
+      candidateId: candidate.value.candidateId,
+      expectedRevision: candidate.value.revision,
+    })
+    notice.value = `已纳入 ${result.includedCount} 份疑似产物，正在后台重新扫描；完成后可刷新状态`
+  } catch (error) { failure.value = message(error) }
+  finally { includingSuspected.value = false }
 }
 async function retryPackage() {
   if (packageId.value == null) return
@@ -133,6 +146,10 @@ onMounted(load)
       <div v-else class="muted">{{ stageInfo.triggerReady ? '标志产物已满足，等待候选快照。' : '尚未满足当前阶段的产物触发条件。' }}</div>
 
       <div v-if="hasCandidate" class="file-groups">
+        <div v-if="canManage && suspectedFiles.length" class="bulk-include">
+          <span>可一键纳入 {{ suspectedFiles.length }} 份疑似产物</span>
+          <button :disabled="includingSuspected || Boolean(busyPath)" @click="includeAllSuspected">{{ includingSuspected ? '正在纳入…' : '一键纳入' }}</button>
+        </div>
         <section v-if="groupedFiles.confirmed.length" class="file-group">
           <h3>自动收录 <span>{{ groupedFiles.confirmed.length }}</span></h3>
           <article v-for="file in groupedFiles.confirmed" :key="file.path" class="file-row">
@@ -176,5 +193,5 @@ onMounted(load)
 </template>
 
 <style scoped>
-.asdm-stage-panel{border-color:var(--border-accent)}.panel-head,.package-progress header{display:flex;align-items:center;justify-content:space-between;gap:14px}.panel-head p{margin:4px 0 0;color:var(--text-3);font-size:11px}.panel-head h2{margin:0}.stage-meta{display:flex;flex-wrap:wrap;gap:8px 15px;padding:10px 0;color:var(--text-3);font-size:11px}.stage-meta code{color:var(--text-2)}.state-pill{display:inline-flex;padding:4px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent-400);font-size:10px}.state-pill[data-status="AUTH_PAUSED"],.state-pill[data-status="ERROR"],.state-pill[data-status="PARTIAL_FAILED"]{background:var(--error-soft);color:var(--error)}.state-pill[data-status="PUBLISHED"],.state-pill[data-status="COMPLETED"]{background:#e9f9f2;color:#16815c}.evidence,.candidate-summary{display:grid;gap:7px;padding:12px;margin:7px 0;border:1px solid var(--border-1);border-radius:9px;background:var(--surface-2);font-size:11px;color:var(--text-2)}.evidence strong,.candidate-summary strong{color:var(--text-1)}.candidate-summary>div:first-child{display:flex;justify-content:space-between;gap:8px}.candidate-summary p{margin:0;color:var(--text-3)}.counts,.progress-counts{display:flex;flex-wrap:wrap;gap:7px}.counts span,.progress-counts span{padding:5px 8px;border-radius:6px;background:var(--surface-1);font-size:10px}.file-groups{display:grid;gap:12px;margin-top:14px}.file-group{padding:12px;border:1px solid var(--border-1);border-radius:9px}.file-group h3,.package-progress h3{margin:0 0 8px;font-size:12px}.file-group h3 span{margin-left:5px;color:var(--text-3);font-weight:400}.file-row{padding:9px 0;border-top:1px solid var(--border-1);font-size:11px}.file-row:first-of-type{border-top:0}.file-title{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.file-title strong,.package-file strong{overflow-wrap:anywhere;color:var(--text-1)}.file-title span,.file-row p,.package-file small{color:var(--text-3)}.file-row p{margin:4px 0}.file-row a,.package-progress>a,.package-file a{color:var(--accent-400);text-decoration:none}.file-actions{display:flex;align-items:center;gap:10px;margin-top:6px}.file-actions button,.refresh{border:0;background:none;color:var(--accent-400);padding:0;cursor:pointer;font:inherit}.file-actions button.quiet{color:var(--text-3)}.file-actions button:disabled,.refresh:disabled{opacity:.5}.excluded-group summary{cursor:pointer;color:var(--text-3);font-size:11px}.package-progress{display:grid;gap:9px;margin-top:16px;padding:12px;border-radius:9px;background:var(--surface-2)}.package-progress header{align-items:flex-start}.package-progress header>div{display:grid;gap:5px}.package-file{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:7px;border-top:1px solid var(--border-1);font-size:10px}.package-file strong{flex:1 1 55%}.error-text{color:var(--error)!important}.callout{padding:9px 11px;border-radius:7px;font-size:11px}.callout.error{background:var(--error-soft);color:var(--error)}.callout.success{background:#e9f9f2;color:#16815c}.muted{color:var(--text-3);font-size:11px;padding:10px 0}.refresh{margin-top:10px;font-size:11px}@media(max-width:650px){.panel-head,.candidate-summary>div:first-child{align-items:flex-start;flex-direction:column}.file-title{flex-direction:column}}
+.asdm-stage-panel{border-color:var(--border-accent)}.panel-head,.package-progress header{display:flex;align-items:center;justify-content:space-between;gap:14px}.panel-head p{margin:4px 0 0;color:var(--text-3);font-size:11px}.panel-head h2{margin:0}.stage-meta{display:flex;flex-wrap:wrap;gap:8px 15px;padding:10px 0;color:var(--text-3);font-size:11px}.stage-meta code{color:var(--text-2)}.state-pill{display:inline-flex;padding:4px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent-400);font-size:10px}.state-pill[data-status="AUTH_PAUSED"],.state-pill[data-status="ERROR"],.state-pill[data-status="PARTIAL_FAILED"]{background:var(--error-soft);color:var(--error)}.state-pill[data-status="PUBLISHED"],.state-pill[data-status="COMPLETED"]{background:#e9f9f2;color:#16815c}.evidence,.candidate-summary{display:grid;gap:7px;padding:12px;margin:7px 0;border:1px solid var(--border-1);border-radius:9px;background:var(--surface-2);font-size:11px;color:var(--text-2)}.evidence strong,.candidate-summary strong{color:var(--text-1)}.candidate-summary>div:first-child{display:flex;justify-content:space-between;gap:8px}.candidate-summary p{margin:0;color:var(--text-3)}.counts,.progress-counts{display:flex;flex-wrap:wrap;gap:7px}.counts span,.progress-counts span{padding:5px 8px;border-radius:6px;background:var(--surface-1);font-size:10px}.file-groups{display:grid;gap:12px;margin-top:14px}.bulk-include{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--border-accent);border-radius:9px;background:var(--surface-2);font-size:11px;color:var(--text-2)}.bulk-include button{border:0;border-radius:6px;padding:7px 12px;background:var(--accent-400);color:white;cursor:pointer;font:inherit}.bulk-include button:disabled{opacity:.5;cursor:default}.file-group{padding:12px;border:1px solid var(--border-1);border-radius:9px}.file-group h3,.package-progress h3{margin:0 0 8px;font-size:12px}.file-group h3 span{margin-left:5px;color:var(--text-3);font-weight:400}.file-row{padding:9px 0;border-top:1px solid var(--border-1);font-size:11px}.file-row:first-of-type{border-top:0}.file-title{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.file-title strong,.package-file strong{overflow-wrap:anywhere;color:var(--text-1)}.file-title span,.file-row p,.package-file small{color:var(--text-3)}.file-row p{margin:4px 0}.file-row a,.package-progress>a,.package-file a{color:var(--accent-400);text-decoration:none}.file-actions{display:flex;align-items:center;gap:10px;margin-top:6px}.file-actions button,.refresh{border:0;background:none;color:var(--accent-400);padding:0;cursor:pointer;font:inherit}.file-actions button.quiet{color:var(--text-3)}.file-actions button:disabled,.refresh:disabled{opacity:.5}.excluded-group summary{cursor:pointer;color:var(--text-3);font-size:11px}.package-progress{display:grid;gap:9px;margin-top:16px;padding:12px;border-radius:9px;background:var(--surface-2)}.package-progress header{align-items:flex-start}.package-progress header>div{display:grid;gap:5px}.package-file{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:7px;border-top:1px solid var(--border-1);font-size:10px}.package-file strong{flex:1 1 55%}.error-text{color:var(--error)!important}.callout{padding:9px 11px;border-radius:7px;font-size:11px}.callout.error{background:var(--error-soft);color:var(--error)}.callout.success{background:#e9f9f2;color:#16815c}.muted{color:var(--text-3);font-size:11px;padding:10px 0}.refresh{margin-top:10px;font-size:11px}@media(max-width:650px){.panel-head,.candidate-summary>div:first-child{align-items:flex-start;flex-direction:column}.file-title{flex-direction:column}}
 </style>

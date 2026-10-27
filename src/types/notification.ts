@@ -13,8 +13,10 @@ export type NotificationType =
   | 'FEISHU_PUBLICATION_FAILED'
   | 'CODE_GRAPH_READY'
   | 'CODE_GRAPH_FAILED'
+  | 'WIKI_INDEX_REBUILD_SUCCEEDED'
+  | 'WIKI_INDEX_REBUILD_FAILED'
 
-export type NotificationTargetType = 'REVIEW' | 'WIKI_REVIEW' | 'WIKI_DOCUMENT' | 'SKILL_VERSION' | 'BUILD_TASK' | 'FEISHU_DIRECTORY' | 'WORKFLOW_STAGE' | 'CODE_GRAPH'
+export type NotificationTargetType = 'REVIEW' | 'WIKI_REVIEW' | 'WIKI_DOCUMENT' | 'WIKI_RECONCILE' | 'SKILL_VERSION' | 'BUILD_TASK' | 'FEISHU_DIRECTORY' | 'WORKFLOW_STAGE' | 'CODE_GRAPH'
 
 export interface NotificationView {
   id: number

@@ -2,13 +2,16 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
+import { useAuthStore } from '../stores/auth'
 import { getSkills } from '../api/skills.api'
+import { rebuildWikiVectors } from '../api/knowledge.api'
 import { createWikiDocument, getWikiDocument, getWikiDocuments, getWikiRevisions, searchWikiTeams, restoreWikiRevision, submitWikiPlatformReview, updateWikiDocument } from '../api/wiki.api'
 import MarkdownView from '../components/MarkdownView.vue'
 import type { SkillView, WikiDocument, WikiDocumentType, WikiRevision, WikiTeam } from '../types/skill'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const teams = ref<WikiTeam[]>([])
 const skills = ref<SkillView[]>([])
 const documents = ref<WikiDocument[]>([])
@@ -25,15 +28,20 @@ const content = ref('')
 const type = ref<WikiDocumentType>('SKILL_GUIDE')
 const selectedSkillIds = ref<number[]>([])
 const selectedTeamId = ref<number | null>(null)
+const externalDraftRequiresSkill = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 const skillLoading = ref(false)
 const showPromotionDialog = ref(false)
 const promotionComment = ref('')
 const promoting = ref(false)
+const rebuildingVectors = ref(false)
+const rebuildNotice = ref('')
+const rebuildNoticeType = ref<'success' | 'warning' | 'error'>('success')
 let teamSearchTimer: ReturnType<typeof setTimeout> | undefined
 let skillSearchTimer: ReturnType<typeof setTimeout> | undefined
 
 const teamOptions = computed(() => teams.value.map((team) => ({ label: team.name, value: team.id })))
+const isSuperAdmin = computed(() => authStore.user?.permissions.includes('admin:identity') ?? false)
 const skillOptions = computed(() => {
   const options = skills.value.map((skill) => ({ label: `${skill.displayName}（${skill.skillKey}）`, value: skill.id }))
   for (const skill of selected.value?.skills ?? []) {
@@ -42,7 +50,8 @@ const skillOptions = computed(() => {
   return options
 })
 const skillSelection = computed<number | number[]>({ get: () => type.value === 'SKILL_GUIDE' ? selectedSkillIds.value : (selectedSkillIds.value[0] ?? undefined) as unknown as number, set: (value) => { selectedSkillIds.value = Array.isArray(value) ? value : typeof value === 'number' ? [value] : [] } })
-const documentTypeLabel = (value: WikiDocumentType) => value === 'SKILL_README' ? 'Skill README' : '团队套组说明'
+const allowsUnlinkedSkills = computed(() => type.value === 'SKILL_GUIDE' && (selected.value?.teamId ?? selectedTeamId.value) !== null && !externalDraftRequiresSkill.value)
+const documentTypeLabel = (value: WikiDocumentType) => value === 'SKILL_README' ? 'Skill README' : '团队知识文档'
 async function searchTeams(keyword = '') { if (teamSearchTimer) clearTimeout(teamSearchTimer); teamSearchTimer = setTimeout(async () => { try { const page = await searchWikiTeams(keyword); const currentIds = new Set([teamId.value, selectedTeamId.value].filter((id): id is number => typeof id === 'number')); teams.value = [...page.items, ...teams.value.filter((team) => currentIds.has(team.id) && !page.items.some((item) => item.id === team.id))] } catch { errorMessage.value = '团队加载失败，请稍后重试' } }, 300) }
 async function loadSkills(keyword = '') {
   skillLoading.value = true
@@ -83,18 +92,19 @@ async function selectDocument(id: number) {
   try { selected.value = await getWikiDocument(id); title.value = selected.value.title; content.value = selected.value.markdownContent; revisions.value = await getWikiRevisions(id); void router.replace({ query: { ...route.query, documentId: String(id) } }) }
   catch (error: unknown) { errorMessage.value = axios.isAxiosError(error) ? String(error.response?.data?.message ?? '文档加载失败') : '文档加载失败' }
 }
-function beginCreate() { selected.value = null; editing.value = true; title.value = ''; content.value = ''; type.value = 'SKILL_GUIDE'; selectedSkillIds.value = []; selectedTeamId.value = teamId.value ?? teams.value[0]?.id ?? null }
-function beginEdit() { if (!selected.value) return; editing.value = true; title.value = selected.value.title; content.value = selected.value.markdownContent; type.value = selected.value.documentType; selectedSkillIds.value = selected.value.skills.map((item) => item.id); selectedTeamId.value = selected.value.teamId }
+function beginCreate() { selected.value = null; externalDraftRequiresSkill.value = false; editing.value = true; title.value = ''; content.value = ''; type.value = 'SKILL_GUIDE'; selectedSkillIds.value = []; selectedTeamId.value = teamId.value ?? teams.value[0]?.id ?? null }
+function beginEdit() { if (!selected.value) return; externalDraftRequiresSkill.value = false; editing.value = true; title.value = selected.value.title; content.value = selected.value.markdownContent; type.value = selected.value.documentType; selectedSkillIds.value = selected.value.skills.map((item) => item.id); selectedTeamId.value = selected.value.teamId }
 function onFileChange(event: Event) { const file = (event.target as HTMLInputElement).files?.[0]; if (!file) return; if (!file.name.toLowerCase().endsWith('.md')) { errorMessage.value = '仅支持 .md 文件'; return } const reader = new globalThis.FileReader(); reader.onload = () => { content.value = String(reader.result ?? ''); if (!title.value) title.value = file.name.replace(/\.md$/i, '') }; reader.readAsText(file); (event.target as HTMLInputElement).value = '' }
 async function save() {
   if (selected.value && !selected.value.canEdit) { errorMessage.value = '当前文档不可编辑'; return }
   if (!title.value.trim() || !content.value.trim()) { errorMessage.value = '标题和 Markdown 正文不能为空'; return }
-  if (!selectedSkillIds.value.length) { errorMessage.value = '请选择至少一个关联 Skill'; return }
+  if (type.value === 'SKILL_README' && selectedSkillIds.value.length !== 1) { errorMessage.value = 'Skill README 必须且只能关联一个 Skill'; return }
+  if (!allowsUnlinkedSkills.value && !selectedSkillIds.value.length) { errorMessage.value = '请选择至少一个关联 Skill'; return }
   saving.value = true; errorMessage.value = ''
   try {
     const value = selected.value
     const result = value ? await updateWikiDocument(value.id, { title: title.value.trim(), markdownContent: content.value, versionNo: value.versionNo, skillIds: selectedSkillIds.value }) : await createWikiDocument({ title: title.value.trim(), documentType: type.value, teamId: type.value === 'SKILL_GUIDE' ? selectedTeamId.value : null, skillIds: selectedSkillIds.value, markdownContent: content.value })
-    editing.value = false; await selectDocument(result.id); await loadDocuments()
+    editing.value = false; externalDraftRequiresSkill.value = false; await selectDocument(result.id); await loadDocuments()
   } catch (error: unknown) { errorMessage.value = axios.isAxiosError(error) ? String(error.response?.data?.message ?? '保存失败') : '保存失败' }
   finally { saving.value = false }
 }
@@ -106,6 +116,21 @@ async function submitPromotion() {
   try { await submitWikiPlatformReview(selected.value.id, { versionNo: selected.value.versionNo, comment: promotionComment.value.trim() }); showPromotionDialog.value = false; await selectDocument(selected.value.id); await loadDocuments() }
   catch (error: unknown) { errorMessage.value = axios.isAxiosError(error) ? String(error.response?.data?.message ?? '提交平台审核失败') : '提交平台审核失败' }
   finally { promoting.value = false }
+}
+async function rebuildVectors() {
+  if (!isSuperAdmin.value || rebuildingVectors.value) return
+  rebuildingVectors.value = true
+  rebuildNotice.value = ''
+  try {
+    const result = await rebuildWikiVectors()
+    rebuildNoticeType.value = result.status === 'ACCEPTED' ? 'success' : 'warning'
+    rebuildNotice.value = result.message
+  } catch (error: unknown) {
+    rebuildNoticeType.value = 'error'
+    rebuildNotice.value = axios.isAxiosError(error) ? String(error.response?.data?.message ?? '向量重建任务提交失败') : '向量重建任务提交失败'
+  } finally {
+    rebuildingVectors.value = false
+  }
 }
 async function applyExternalDraft() {
   const token = typeof route.query.externalDraft === 'string' ? route.query.externalDraft : ''
@@ -124,7 +149,8 @@ async function applyExternalDraft() {
     if (!teams.value.some((team) => team.id === draft.teamId)) {
       teams.value = [{ id: draft.teamId, name: draft.teamName || `团队 ${draft.teamId}`, parentId: null }, ...teams.value]
     }
-    errorMessage.value = '文档内容已填入草稿。请选择关联 Skill 后保存。'
+    externalDraftRequiresSkill.value = true
+    errorMessage.value = '外部资源文档已填入草稿。关联 Skill 仍需按外部资源规则选择后保存。'
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '读取外部文档草稿失败'
   } finally {
@@ -139,14 +165,15 @@ watch(type, (next, previous) => { if (next === 'SKILL_README' && previous === 'S
 
 <template>
   <div class="wiki-page">
-    <header class="wiki-heading"><div><p class="eyebrow">TEAM KNOWLEDGE</p><h1>团队 Wiki</h1><p>沉淀 Skill 使用说明，让团队经验可以被持续复用。</p></div><t-button theme="primary" @click="beginCreate">新建 Markdown 文档</t-button></header>
+    <header class="wiki-heading"><div><p class="eyebrow">TEAM KNOWLEDGE</p><h1>团队 Wiki</h1><p>沉淀 Skill 使用说明，让团队经验可以被持续复用。</p></div><div class="wiki-heading__actions"><t-button v-if="isSuperAdmin" variant="outline" :loading="rebuildingVectors" :disabled="rebuildingVectors" @click="rebuildVectors">一键重建向量</t-button><t-button theme="primary" @click="beginCreate">新建 Markdown 文档</t-button></div></header>
     <div v-if="errorMessage" class="wiki-alert">{{ errorMessage }}</div>
+    <div v-if="rebuildNotice" class="wiki-rebuild-notice" :class="`wiki-rebuild-notice--${rebuildNoticeType}`" role="status" aria-live="polite">{{ rebuildNotice }}</div>
     <div class="wiki-toolbar"><t-select v-model="teamId" clearable filterable placeholder="全部可见范围" :options="teamOptions" @search="searchTeams" @change="loadDocuments" /><t-input v-model="keyword" placeholder="搜索文档标题" clearable @enter="loadDocuments" /><t-button variant="outline" @click="loadDocuments">搜索</t-button></div>
     <div class="wiki-layout">
       <aside class="wiki-list"><div class="wiki-list__head"><strong>文档目录</strong><span>{{ documents.length }}</span></div><div v-if="loading" class="wiki-empty">加载中…</div><button v-for="item in documents" :key="item.id" class="wiki-list-item" :class="{ active: selected?.id === item.id }" @click="selectDocument(item.id)"><strong>{{ item.title }}</strong><small>{{ documentTypeLabel(item.documentType) }} · 修订 {{ item.revisionNo }}</small></button><div v-if="!loading && !documents.length" class="wiki-empty">暂无可见文档</div></aside>
       <main class="wiki-reader">
-        <template v-if="editing"><div class="editor-heading"><div><t-input v-model="title" placeholder="文档标题" /></div><div class="editor-actions"><t-button variant="outline" @click="editing = false">取消</t-button><t-button theme="primary" :loading="saving" @click="save">保存</t-button></div></div><div class="editor-fields"><t-select v-if="!selected" v-model="type" :options="[{ label: '团队套组说明', value: 'SKILL_GUIDE' }, { label: 'Skill README', value: 'SKILL_README' }]" /><t-select v-if="!selected && type === 'SKILL_GUIDE'" v-model="selectedTeamId" filterable :options="teamOptions" placeholder="所属团队" @search="searchTeams" /><t-select v-model="skillSelection" :multiple="type === 'SKILL_GUIDE'" filterable :loading="skillLoading" :options="skillOptions" placeholder="关联 Skill，支持搜索" @search="searchSkills" /></div><div class="upload-row"><t-button variant="outline" @click="fileInput?.click()">导入 .md 文件</t-button><input ref="fileInput" type="file" accept=".md,text/markdown" hidden @change="onFileChange" /><span>仅支持 UTF-8 Markdown，正文最大 1 MiB</span></div><t-textarea v-model="content" :autosize="{ minRows: 22, maxRows: 40 }" placeholder="输入 Markdown 内容" /></template>
-        <template v-else-if="selected"><div class="reader-heading"><div><p class="eyebrow">{{ documentTypeLabel(selected.documentType) }}</p><h2>{{ selected.title }}</h2><p>修订 {{ selected.revisionNo }} · {{ selected.platformVisible ? '全公司可见' : '团队内部可见' }}<span v-if="selected.pendingPlatformReviewId" class="pending-review-badge">平台审核中</span></p></div><div class="reader-actions"><t-button v-if="selected.canEdit && !selected.platformVisible" theme="primary" variant="outline" @click="openPromotionDialog">推送到全平台</t-button><t-button v-if="selected.canEdit" theme="primary" variant="outline" @click="beginEdit">编辑文档</t-button></div></div><div class="reader-links"><RouterLink v-for="skill in selected.skills" :key="skill.id" :to="{ name: 'skill-detail', params: { skillKey: skill.skillKey } }">{{ skill.displayName }}</RouterLink></div><MarkdownView :content="selected.markdownContent" class="markdown-content" /><section v-if="selected.canEdit" class="revision-panel"><div class="revision-heading"><strong>修订历史</strong><span>{{ revisions.length }} 个修订</span></div><div v-for="revision in revisions" :key="revision.id" class="revision-row"><span>修订 {{ revision.revisionNo }} · {{ revision.createdByName }}</span><time>{{ new Date(revision.createdAt).toLocaleString() }}</time><t-button v-if="revision.revisionNo !== selected.revisionNo" size="small" variant="text" @click="restore(revision)">恢复</t-button></div></section></template>
+        <template v-if="editing"><div class="editor-heading"><div><t-input v-model="title" placeholder="文档标题" /></div><div class="editor-actions"><t-button variant="outline" @click="editing = false">取消</t-button><t-button theme="primary" :loading="saving" @click="save">保存</t-button></div></div><div class="editor-fields"><label v-if="!selected" class="wiki-field"><span>文档类型</span><t-select v-model="type" :options="[{ label: '团队知识文档', value: 'SKILL_GUIDE' }, { label: 'Skill README', value: 'SKILL_README' }]" /></label><label v-if="!selected && type === 'SKILL_GUIDE'" class="wiki-field"><span>所属团队</span><t-select v-model="selectedTeamId" filterable :options="teamOptions" placeholder="所属团队" @search="searchTeams" /></label><label class="wiki-field"><span>关联 Skill（{{ allowsUnlinkedSkills ? '选填' : '必选' }}）</span><t-select v-model="skillSelection" :multiple="type === 'SKILL_GUIDE'" filterable :loading="skillLoading" :options="skillOptions" :placeholder="allowsUnlinkedSkills ? '可不选择，创建独立团队知识文档' : '请选择关联 Skill，支持搜索'" @search="searchSkills" /></label></div><div class="upload-row"><t-button variant="outline" @click="fileInput?.click()">导入 .md 文件</t-button><input ref="fileInput" type="file" accept=".md,text/markdown" hidden @change="onFileChange" /><span>仅支持 UTF-8 Markdown，正文最大 1 MiB</span></div><t-textarea v-model="content" :autosize="{ minRows: 22, maxRows: 40 }" placeholder="输入 Markdown 内容" /></template>
+        <template v-else-if="selected"><div class="reader-heading"><div><p class="eyebrow">{{ documentTypeLabel(selected.documentType) }}</p><h2>{{ selected.title }}</h2><p>修订 {{ selected.revisionNo }} · {{ selected.platformVisible ? '全公司可见' : '团队内部可见' }}<span v-if="selected.pendingPlatformReviewId" class="pending-review-badge">平台审核中</span></p></div><div class="reader-actions"><t-button v-if="selected.canEdit && !selected.platformVisible" theme="primary" variant="outline" @click="openPromotionDialog">推送到全平台</t-button><t-button v-if="selected.canEdit" theme="primary" variant="outline" @click="beginEdit">编辑文档</t-button></div></div><div v-if="selected.skills.length" class="reader-links"><RouterLink v-for="skill in selected.skills" :key="skill.id" :to="{ name: 'skill-detail', params: { skillKey: skill.skillKey } }">{{ skill.displayName }}</RouterLink></div><p v-else-if="selected.documentType === 'SKILL_GUIDE' && selected.teamId" class="independent-document">独立团队知识文档</p><MarkdownView :content="selected.markdownContent" class="markdown-content" /><section v-if="selected.canEdit" class="revision-panel"><div class="revision-heading"><strong>修订历史</strong><span>{{ revisions.length }} 个修订</span></div><div v-for="revision in revisions" :key="revision.id" class="revision-row"><span>修订 {{ revision.revisionNo }} · {{ revision.createdByName }}</span><time>{{ new Date(revision.createdAt).toLocaleString() }}</time><t-button v-if="revision.revisionNo !== selected.revisionNo" size="small" variant="text" @click="restore(revision)">恢复</t-button></div></section></template>
         <div v-else class="wiki-empty wiki-empty--large">选择左侧文档开始阅读</div>
       </main>
     </div>
@@ -155,5 +182,11 @@ watch(type, (next, previous) => { if (next === 'SKILL_README' && previous === 'S
 </template>
 
 <style scoped>
-.wiki-page{padding:30px 34px;color:var(--text-1)}.wiki-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}.wiki-heading h1{margin:5px 0 8px;font-size:28px}.wiki-heading p:not(.eyebrow){margin:0;color:var(--text-2);font-size:13px}.wiki-alert{margin:18px 0;padding:12px 14px;border-radius:8px;color:var(--warning);background:var(--warning-soft)}.wiki-toolbar{display:flex;gap:10px;margin:24px 0}.wiki-toolbar .t-select{width:220px}.wiki-toolbar .t-input{width:300px}.wiki-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:18px;min-height:570px}.wiki-list,.wiki-reader{border:1px solid var(--border-1);border-radius:12px;background:var(--surface-1);backdrop-filter:blur(12px)}.wiki-list{padding:12px}.wiki-list__head,.revision-heading,.reader-heading,.editor-heading{display:flex;align-items:center;justify-content:space-between;gap:14px}.wiki-list__head{padding:8px 8px 14px;border-bottom:1px solid var(--border-1)}.wiki-list__head span,.revision-heading span{color:var(--text-3);font-size:12px}.wiki-list-item{display:grid;width:100%;gap:5px;margin-top:6px;padding:12px 10px;border:0;border-radius:8px;color:var(--text-2);background:transparent;text-align:left;cursor:pointer}.wiki-list-item:hover,.wiki-list-item.active{color:var(--accent-400);background:var(--accent-softer)}.wiki-list-item small{color:var(--text-3)}.wiki-empty{padding:30px 10px;color:var(--text-3);font-size:13px;text-align:center}.wiki-empty--large{padding-top:220px}.wiki-reader{padding:26px}.reader-heading h2{margin:5px 0;font-size:24px}.reader-heading p{margin:5px 0;color:var(--text-3);font-size:12px}.reader-actions{display:flex;gap:8px;flex-wrap:wrap}.pending-review-badge{display:inline-block;margin-left:8px;padding:3px 7px;border-radius:5px;color:var(--warning);background:var(--warning-soft)}.reader-links{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.reader-links a{padding:5px 9px;border-radius:5px;color:var(--accent-400);background:var(--accent-softer);font-size:12px;text-decoration:none}.markdown-content{min-height:280px;margin:0;padding:20px;border-radius:8px;color:var(--text-1);background:var(--surface-2);overflow:auto}.revision-panel{margin-top:24px;padding-top:18px;border-top:1px solid var(--border-1)}.revision-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border-1);color:var(--text-2);font-size:12px}.revision-row time{margin-right:auto;color:var(--text-3)}.editor-heading{margin-bottom:16px}.editor-heading .t-input{width:420px}.editor-actions{display:flex;gap:8px}.editor-fields{display:flex;gap:10px;margin-bottom:14px}.editor-fields .t-select{min-width:200px}.upload-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;color:var(--text-3);font-size:12px}.promotion-mask{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:20px;background:var(--mask-bg);backdrop-filter:blur(4px)}.promotion-dialog{width:min(100%,520px);padding:24px;border-radius:14px;background:var(--surface-1);backdrop-filter:blur(12px);box-shadow:var(--shadow-lg)}.promotion-dialog h2{margin:0 0 8px}.promotion-dialog p{margin:0 0 16px;color:var(--text-2);font-size:13px;line-height:1.6}.promotion-dialog textarea{box-sizing:border-box;width:100%;padding:10px;border:1px solid var(--border-1);border-radius:8px;resize:vertical}.promotion-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}@media(max-width:800px){.wiki-page{padding:20px}.wiki-layout{grid-template-columns:1fr}.wiki-toolbar{flex-wrap:wrap}.wiki-toolbar .t-input,.wiki-toolbar .t-select{width:100%}.editor-heading .t-input{width:100%}.editor-heading{align-items:stretch;flex-direction:column}.editor-fields{flex-direction:column}}
+.wiki-page{padding:30px 34px;color:var(--text-1)}.wiki-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}.wiki-heading h1{margin:5px 0 8px;font-size:28px}.wiki-heading p:not(.eyebrow){margin:0;color:var(--text-2);font-size:13px}.wiki-alert{margin:18px 0;padding:12px 14px;border-radius:8px;color:var(--warning);background:var(--warning-soft)}.wiki-toolbar{display:flex;gap:10px;margin:24px 0}.wiki-toolbar .t-select{width:220px}.wiki-toolbar .t-input{width:300px}.wiki-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:18px;min-height:570px}.wiki-list,.wiki-reader{border:1px solid var(--border-1);border-radius:12px;background:var(--surface-1);backdrop-filter:blur(12px)}.wiki-list{padding:12px}.wiki-list__head,.revision-heading,.reader-heading,.editor-heading{display:flex;align-items:center;justify-content:space-between;gap:14px}.wiki-list__head{padding:8px 8px 14px;border-bottom:1px solid var(--border-1)}.wiki-list__head span,.revision-heading span{color:var(--text-3);font-size:12px}.wiki-list-item{display:grid;width:100%;gap:5px;margin-top:6px;padding:12px 10px;border:0;border-radius:8px;color:var(--text-2);background:transparent;text-align:left;cursor:pointer}.wiki-list-item:hover,.wiki-list-item.active{color:var(--accent-400);background:var(--accent-softer)}.wiki-list-item small{color:var(--text-3)}.wiki-empty{padding:30px 10px;color:var(--text-3);font-size:13px;text-align:center}.wiki-empty--large{padding-top:220px}.wiki-reader{padding:26px}.reader-heading h2{margin:5px 0;font-size:24px}.reader-heading p{margin:5px 0;color:var(--text-3);font-size:12px}.reader-actions{display:flex;gap:8px;flex-wrap:wrap}.pending-review-badge{display:inline-block;margin-left:8px;padding:3px 7px;border-radius:5px;color:var(--warning);background:var(--warning-soft)}.reader-links{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.reader-links a{padding:5px 9px;border-radius:5px;color:var(--accent-400);background:var(--accent-softer);font-size:12px;text-decoration:none}.independent-document{margin:18px 0 10px;color:var(--text-3);font-size:12px}.markdown-content{min-height:280px;margin:0;padding:20px;border-radius:8px;color:var(--text-1);background:var(--surface-2);overflow:auto}.revision-panel{margin-top:24px;padding-top:18px;border-top:1px solid var(--border-1)}.revision-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border-1);color:var(--text-2);font-size:12px}.revision-row time{margin-right:auto;color:var(--text-3)}.editor-heading{margin-bottom:16px}.editor-heading .t-input{width:420px}.editor-actions{display:flex;gap:8px}.editor-fields{display:flex;gap:10px;margin-bottom:14px;align-items:flex-end;flex-wrap:wrap}.wiki-field{display:grid;gap:5px;color:var(--text-2);font-size:12px}.editor-fields .t-select{min-width:200px}.upload-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;color:var(--text-3);font-size:12px}.promotion-mask{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:20px;background:var(--mask-bg);backdrop-filter:blur(4px)}.promotion-dialog{width:min(100%,520px);padding:24px;border-radius:14px;background:var(--surface-1);backdrop-filter:blur(12px);box-shadow:var(--shadow-lg)}.promotion-dialog h2{margin:0 0 8px}.promotion-dialog p{margin:0 0 16px;color:var(--text-2);font-size:13px;line-height:1.6}.promotion-dialog textarea{box-sizing:border-box;width:100%;padding:10px;border:1px solid var(--border-1);border-radius:8px;resize:vertical}.promotion-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}@media(max-width:800px){.wiki-page{padding:20px}.wiki-layout{grid-template-columns:1fr}.wiki-toolbar{flex-wrap:wrap}.wiki-toolbar .t-input,.wiki-toolbar .t-select{width:100%}.editor-heading .t-input{width:100%}.editor-heading{align-items:stretch;flex-direction:column}.editor-fields{flex-direction:column}}
+.wiki-heading__actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px}
+.wiki-rebuild-notice{margin:18px 0;padding:12px 14px;border-radius:8px;font-size:13px;line-height:1.5}
+.wiki-rebuild-notice--success{color:var(--success);background:var(--success-soft)}
+.wiki-rebuild-notice--warning{color:var(--warning);background:var(--warning-soft)}
+.wiki-rebuild-notice--error{color:var(--error);background:var(--error-soft)}
+@media(max-width:800px){.wiki-heading{flex-wrap:wrap}.wiki-heading__actions{justify-content:flex-start}}
 </style>

@@ -13,3 +13,4 @@ export async function revokeTeamRole(teamId: number, userId: number, roleKey: st
 export async function grantPlatformMaintainer(userId: number) { const { data } = await http.post<ScopedAssignment>(`/admin/platform-maintainers/${userId}`); return data }
 export async function revokePlatformMaintainer(userId: number) { await http.delete(`/admin/platform-maintainers/${userId}`) }
 export async function syncFeishuDirectory() { const { data } = await http.post<{ status: string; message: string }>('/admin/feishu/sync'); return data }
+export async function backfillFeishuDefaultRoles() { const { data } = await http.post<{ status: string; message: string }>('/admin/feishu/backfill-default-roles'); return data }

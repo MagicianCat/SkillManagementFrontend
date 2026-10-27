@@ -11,6 +11,13 @@ export interface WikiDocumentQuery {
   size?: number
 }
 
+export interface WikiDocumentMatch { id: number; title: string; revisionNo: number; canEdit: boolean }
+
+export async function findWikiDocumentsByTitle(teamId: number, title: string) {
+  const { data } = await http.get<WikiDocumentMatch[]>('/wiki/documents/matches', { params: { teamId, title } })
+  return data
+}
+
 export async function getWikiTeams() {
   const { data } = await http.get<WikiTeam[]>('/wiki/teams')
   return data

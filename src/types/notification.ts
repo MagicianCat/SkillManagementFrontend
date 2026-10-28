@@ -16,7 +16,7 @@ export type NotificationType =
   | 'WIKI_INDEX_REBUILD_SUCCEEDED'
   | 'WIKI_INDEX_REBUILD_FAILED'
 
-export type NotificationTargetType = 'REVIEW' | 'WIKI_REVIEW' | 'WIKI_DOCUMENT' | 'WIKI_RECONCILE' | 'SKILL_VERSION' | 'BUILD_TASK' | 'FEISHU_DIRECTORY' | 'WORKFLOW_STAGE' | 'CODE_GRAPH'
+export type NotificationTargetType = 'REVIEW' | 'WIKI_REVIEW' | 'WIKI_DOCUMENT' | 'WIKI_RECONCILE' | 'SKILL_VERSION' | 'BUILD_TASK' | 'FEISHU_DIRECTORY' | 'WORKFLOW_STAGE' | 'CODE_GRAPH' | 'EXTERNAL_IMPORT_JOB'
 
 export interface NotificationView {
   id: number

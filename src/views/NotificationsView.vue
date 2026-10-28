@@ -180,6 +180,8 @@ async function openNotification(item: NotificationView) {
     } else {
       void router.push({ name: 'wiki-reviews' })
     }
+  } else if (item.targetType === 'EXTERNAL_IMPORT_JOB' && item.targetId) {
+    void router.push({ name: 'external-resources', query: { jobId: String(item.targetId) } })
   } else if (item.targetType === 'WIKI_DOCUMENT' && item.targetId) {
     void router.push({
       name: 'wiki',

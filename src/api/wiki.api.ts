@@ -38,12 +38,12 @@ export async function getWikiDocument(id: number) {
   return data
 }
 
-export async function createWikiDocument(request: { title: string; documentType: WikiDocumentType; teamId?: number | null; skillIds?: number[]; markdownContent: string }) {
+export async function createWikiDocument(request: { title: string; documentType: WikiDocumentType; teamId?: number | null; skillIds?: number[]; markdownContent: string; parentId?: number | null }) {
   const { data } = await http.post<WikiDocument>('/wiki/documents', request)
   return data
 }
 
-export async function updateWikiDocument(id: number, request: { title: string; markdownContent: string; versionNo: number; skillIds?: number[] | null }) {
+export async function updateWikiDocument(id: number, request: { title: string; markdownContent: string; versionNo: number; skillIds?: number[] | null; parentId?: number | null; parentSpecified?: boolean }) {
   const { data } = await http.put<WikiDocument>(`/wiki/documents/${id}`, request)
   return data
 }

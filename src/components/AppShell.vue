@@ -195,6 +195,8 @@ async function openNotification(item: NotificationView) {
   } else if (item.targetType === 'WIKI_REVIEW') {
     if (item.targetId) void router.push({ name: 'wiki-review-detail', params: { reviewId: item.targetId } })
     else void router.push({ name: 'wiki-reviews' })
+  } else if (item.targetType === 'EXTERNAL_IMPORT_JOB' && item.targetId) {
+    void router.push({ name: 'external-resources', query: { jobId: String(item.targetId) } })
   } else if (item.targetType === 'WIKI_DOCUMENT' && item.targetId) {
     void router.push({ name: 'wiki', query: { documentId: String(item.targetId) } })
   } else if (item.skillKey) {

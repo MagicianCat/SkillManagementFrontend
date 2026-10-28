@@ -5,7 +5,7 @@ import axios from 'axios'
 import { useAuthStore } from '../stores/auth'
 import { getSkills } from '../api/skills.api'
 import { rebuildWikiVectors } from '../api/knowledge.api'
-import { createWikiDocument, findWikiDocumentsByTitle, getWikiDocument, getWikiDocuments, getWikiRevisions, searchWikiTeams, restoreWikiRevision, submitWikiPlatformReview, updateWikiDocument, type WikiDocumentMatch } from '../api/wiki.api'
+import { archiveWikiDocument, createWikiDocument, getWikiDocument, getWikiDocuments, getWikiRevisions, searchWikiTeams, restoreWikiRevision, submitWikiPlatformReview, updateWikiDocument } from '../api/wiki.api'
 import MarkdownView from '../components/MarkdownView.vue'
 import type { SkillView, WikiDocument, WikiDocumentType, WikiRevision, WikiTeam } from '../types/skill'
 
@@ -15,6 +15,10 @@ const authStore = useAuthStore()
 const teams = ref<WikiTeam[]>([])
 const skills = ref<SkillView[]>([])
 const documents = ref<WikiDocument[]>([])
+const documentPage = ref(0)
+const documentPageSize = 20
+const documentTotal = ref(0)
+const documentTotalPages = ref(0)
 const selected = ref<WikiDocument | null>(null)
 const revisions = ref<WikiRevision[]>([])
 const teamId = ref<number | undefined>(undefined)
@@ -28,13 +32,8 @@ const content = ref('')
 const type = ref<WikiDocumentType>('SKILL_GUIDE')
 const selectedSkillIds = ref<number[]>([])
 const selectedTeamId = ref<number | null>(null)
-const externalDraftRequiresSkill = ref(false)
-const externalDraft = ref<{ teamId: number; title: string } | null>(null)
-const externalMatches = ref<WikiDocumentMatch[]>([])
-const externalMode = ref<'create' | 'update'>('create')
-const externalTarget = ref<WikiDocument | null>(null)
-const externalLookupLoading = ref(false)
-const externalLookupFailed = ref(false)
+const parentId = ref<number | null>(null)
+const parentOptions = ref<Array<{ label: string; value: number }>>([])
 const fileInput = ref<HTMLInputElement | null>(null)
 const skillLoading = ref(false)
 const showPromotionDialog = ref(false)
@@ -47,6 +46,24 @@ let teamSearchTimer: ReturnType<typeof setTimeout> | undefined
 let skillSearchTimer: ReturnType<typeof setTimeout> | undefined
 
 const teamOptions = computed(() => teams.value.map((team) => ({ label: team.name, value: team.id })))
+const orderedDocuments = computed(() => {
+  const byParent = new Map<number | null, WikiDocument[]>()
+  const ids = new Set(documents.value.map((document) => document.id))
+  for (const document of documents.value) {
+    const parent = document.parentId && ids.has(document.parentId) ? document.parentId : null
+    byParent.set(parent, [...(byParent.get(parent) ?? []), document])
+  }
+  const result: Array<{ document: WikiDocument; depth: number }> = []
+  const visited = new Set<number>()
+  const walk = (parent: number | null, depth: number) => {
+    for (const document of byParent.get(parent) ?? []) {
+      if (visited.has(document.id)) continue
+      visited.add(document.id); result.push({ document, depth }); walk(document.id, depth + 1)
+    }
+  }
+  walk(null, 0)
+  return result
+})
 const isSuperAdmin = computed(() => authStore.user?.permissions.includes('admin:identity') ?? false)
 const skillOptions = computed(() => {
   const options = skills.value.map((skill) => ({ label: `${skill.displayName}（${skill.skillKey}）`, value: skill.id }))
@@ -56,7 +73,7 @@ const skillOptions = computed(() => {
   return options
 })
 const skillSelection = computed<number | number[]>({ get: () => type.value === 'SKILL_GUIDE' ? selectedSkillIds.value : (selectedSkillIds.value[0] ?? undefined) as unknown as number, set: (value) => { selectedSkillIds.value = Array.isArray(value) ? value : typeof value === 'number' ? [value] : [] } })
-const allowsUnlinkedSkills = computed(() => type.value === 'SKILL_GUIDE' && (selected.value?.teamId ?? selectedTeamId.value) !== null && !externalDraftRequiresSkill.value)
+const allowsUnlinkedSkills = computed(() => type.value === 'SKILL_GUIDE')
 const documentTypeLabel = (value: WikiDocumentType) => value === 'SKILL_README' ? 'Skill README' : '团队知识文档'
 async function searchTeams(keyword = '') { if (teamSearchTimer) clearTimeout(teamSearchTimer); teamSearchTimer = setTimeout(async () => { try { const page = await searchWikiTeams(keyword); const currentIds = new Set([teamId.value, selectedTeamId.value].filter((id): id is number => typeof id === 'number')); teams.value = [...page.items, ...teams.value.filter((team) => currentIds.has(team.id) && !page.items.some((item) => item.id === team.id))] } catch { errorMessage.value = '团队加载失败，请稍后重试' } }, 300) }
 async function loadSkills(keyword = '') {
@@ -69,18 +86,33 @@ async function loadSkills(keyword = '') {
   finally { skillLoading.value = false }
 }
 function searchSkills(keyword = '') { if (skillSearchTimer) clearTimeout(skillSearchTimer); skillSearchTimer = setTimeout(() => { void loadSkills(keyword) }, 300) }
+async function loadParents(keyword = '') {
+  if (!selectedTeamId.value) { parentOptions.value = []; return }
+  try {
+    const page = await getWikiDocuments({ teamId: selectedTeamId.value, documentType: 'SKILL_GUIDE', keyword: keyword || undefined, size: 50 })
+    parentOptions.value = page.items.filter((item) => item.id !== selected.value?.id).map((item) => ({ label: item.title, value: item.id }))
+    if (parentId.value && !parentOptions.value.some((option) => option.value === parentId.value)) {
+      const current = await getWikiDocument(parentId.value)
+      parentOptions.value.unshift({ label: current.title, value: current.id })
+    }
+  } catch { errorMessage.value = '父 Wiki 加载失败，请重试' }
+}
 
-async function loadDocuments() {
+async function loadDocuments(preferRoute = false) {
   loading.value = true; errorMessage.value = ''
   try {
-    const page = await getWikiDocuments({ teamId: teamId.value, keyword: keyword.value.trim() || undefined, size: 50 })
+    const page = await getWikiDocuments({ teamId: teamId.value, keyword: keyword.value.trim() || undefined, page: documentPage.value, size: documentPageSize })
     documents.value = page.items
-    const openingExternalDraft = typeof route.query.externalDraft === 'string'
+    documentTotal.value = page.totalElements
+    documentTotalPages.value = page.totalPages
+    if (documentPage.value > 0 && page.items.length === 0 && page.totalPages > 0) {
+      documentPage.value = page.totalPages - 1
+      await loadDocuments()
+      return
+    }
     const requested = Number(route.query.documentId)
     const currentSelectedId = selected.value?.id
-    const nextId = openingExternalDraft
-      ? undefined
-      : requested > 0 && Number.isSafeInteger(requested)
+    const nextId = preferRoute && requested > 0 && Number.isSafeInteger(requested)
       ? requested
       : currentSelectedId && documents.value.some((item) => item.id === currentSelectedId)
         ? currentSelectedId
@@ -97,11 +129,13 @@ async function loadDocuments() {
   } catch (error: unknown) { errorMessage.value = axios.isAxiosError(error) ? String(error.response?.data?.message ?? 'Wiki 加载失败') : 'Wiki 加载失败' }
   finally { loading.value = false }
 }
+function applyDocumentFilters() { documentPage.value = 0; void loadDocuments() }
+function changeDocumentPage(value: number) { documentPage.value = value - 1; void loadDocuments() }
 async function selectDocument(id: number) {
-  if (externalDraft.value) { resetExternalDraft(); editing.value = false }
   try {
     selected.value = await getWikiDocument(id)
     title.value = selected.value.title
+    parentId.value = selected.value.parentId ?? null
     content.value = selected.value.markdownContent
     revisions.value = await getWikiRevisions(id)
     if (route.query.download === '1' && Number(route.query.documentId) === id) {
@@ -124,41 +158,24 @@ function downloadMarkdown(wikiDocument: WikiDocument) {
   anchor.remove()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
-function resetExternalDraft() { externalDraft.value = null; externalDraftRequiresSkill.value = false; externalMatches.value = []; externalMode.value = 'create'; externalTarget.value = null; externalLookupFailed.value = false }
-function beginCreate() { selected.value = null; resetExternalDraft(); editing.value = true; title.value = ''; content.value = ''; type.value = 'SKILL_GUIDE'; selectedSkillIds.value = []; selectedTeamId.value = teamId.value ?? teams.value[0]?.id ?? null }
-function beginEdit() { if (!selected.value) return; resetExternalDraft(); editing.value = true; title.value = selected.value.title; content.value = selected.value.markdownContent; type.value = selected.value.documentType; selectedSkillIds.value = selected.value.skills.map((item) => item.id); selectedTeamId.value = selected.value.teamId }
-async function chooseExternalTarget(id: number) {
-  externalTarget.value = null
-  try {
-    const target = await getWikiDocument(id)
-    if (!externalDraft.value || target.teamId !== externalDraft.value.teamId || target.documentType !== 'SKILL_GUIDE' || target.title.trim().toLocaleLowerCase() !== externalDraft.value.title.trim().toLocaleLowerCase() || !target.canEdit) throw new Error('目标 Wiki 已变化或不可编辑，请重新打开外部文档')
-    externalTarget.value = target
-    selectedSkillIds.value = target.skills.map((skill) => skill.id)
-  } catch (error: unknown) { errorMessage.value = error instanceof Error ? error.message : '读取目标 Wiki 失败' }
-}
-async function chooseExternalMode(mode: 'create' | 'update') {
-  externalMode.value = mode
-  if (mode === 'create') { externalTarget.value = null; return }
-  const first = externalMatches.value.find((item) => item.canEdit)
-  if (first) await chooseExternalTarget(first.id)
-}
+function beginCreate() { selected.value = null; editing.value = true; title.value = ''; content.value = ''; type.value = 'SKILL_GUIDE'; selectedSkillIds.value = []; selectedTeamId.value = teamId.value ?? teams.value[0]?.id ?? null; parentId.value = null; void loadParents() }
+function beginEdit() { if (!selected.value) return; editing.value = true; title.value = selected.value.title; content.value = selected.value.markdownContent; type.value = selected.value.documentType; selectedSkillIds.value = selected.value.skills.map((item) => item.id); selectedTeamId.value = selected.value.teamId; parentId.value = selected.value.parentId ?? null; void loadParents() }
 function onFileChange(event: Event) { const file = (event.target as HTMLInputElement).files?.[0]; if (!file) return; if (!file.name.toLowerCase().endsWith('.md')) { errorMessage.value = '仅支持 .md 文件'; return } const reader = new globalThis.FileReader(); reader.onload = () => { content.value = String(reader.result ?? ''); if (!title.value) title.value = file.name.replace(/\.md$/i, '') }; reader.readAsText(file); (event.target as HTMLInputElement).value = '' }
 async function save() {
   if (selected.value && !selected.value.canEdit) { errorMessage.value = '当前文档不可编辑'; return }
-  if (externalDraft.value && (externalLookupLoading.value || externalLookupFailed.value || (externalMode.value === 'update' && !externalTarget.value))) { errorMessage.value = '请先完成同名 Wiki 检查并选择可更新的文档'; return }
   if (!title.value.trim() || !content.value.trim()) { errorMessage.value = '标题和 Markdown 正文不能为空'; return }
   if (type.value === 'SKILL_README' && selectedSkillIds.value.length !== 1) { errorMessage.value = 'Skill README 必须且只能关联一个 Skill'; return }
   if (!allowsUnlinkedSkills.value && !selectedSkillIds.value.length) { errorMessage.value = '请选择至少一个关联 Skill'; return }
   saving.value = true; errorMessage.value = ''
   try {
-    const value = selected.value
-    const target = externalDraft.value && externalMode.value === 'update' ? externalTarget.value : value
-    const result = target ? await updateWikiDocument(target.id, { title: title.value.trim(), markdownContent: content.value, versionNo: target.versionNo, skillIds: selectedSkillIds.value }) : await createWikiDocument({ title: title.value.trim(), documentType: type.value, teamId: type.value === 'SKILL_GUIDE' ? selectedTeamId.value : null, skillIds: selectedSkillIds.value, markdownContent: content.value })
-    editing.value = false; resetExternalDraft(); await selectDocument(result.id); await loadDocuments()
+    const target = selected.value
+    const result = target ? await updateWikiDocument(target.id, { title: title.value.trim(), markdownContent: content.value, versionNo: target.versionNo, skillIds: selectedSkillIds.value, parentId: parentId.value, parentSpecified: true }) : await createWikiDocument({ title: title.value.trim(), documentType: type.value, teamId: type.value === 'SKILL_GUIDE' ? selectedTeamId.value : null, skillIds: selectedSkillIds.value, markdownContent: content.value, parentId: parentId.value })
+    editing.value = false; await selectDocument(result.id); await loadDocuments()
   } catch (error: unknown) { errorMessage.value = axios.isAxiosError(error) ? String(error.response?.data?.message ?? '保存失败') : '保存失败' }
   finally { saving.value = false }
 }
 async function restore(revision: WikiRevision) { if (!selected.value || !window.confirm(`恢复到修订 ${revision.revisionNo}？`)) return; saving.value = true; try { await restoreWikiRevision(selected.value.id, revision.id, selected.value.versionNo); await selectDocument(selected.value.id) } catch (error: unknown) { errorMessage.value = axios.isAxiosError(error) ? String(error.response?.data?.message ?? '恢复失败') : '恢复失败' } finally { saving.value = false } }
+async function archiveSelected() { if (!selected.value || !window.confirm('下架此 Wiki 及全部子 Wiki？180 天后将永久删除。')) return; saving.value = true; try { await archiveWikiDocument(selected.value.id); selected.value = null; await router.replace({ query: { ...route.query, documentId: undefined } }); await loadDocuments() } catch (error: unknown) { errorMessage.value = axios.isAxiosError(error) ? String(error.response?.data?.message ?? '下架失败') : '下架失败' } finally { saving.value = false } }
 function openPromotionDialog() { promotionComment.value = ''; showPromotionDialog.value = true }
 async function submitPromotion() {
   if (!selected.value || !promotionComment.value.trim()) return
@@ -182,38 +199,8 @@ async function rebuildVectors() {
     rebuildingVectors.value = false
   }
 }
-async function applyExternalDraft() {
-  const token = typeof route.query.externalDraft === 'string' ? route.query.externalDraft : ''
-  if (!token) return
-  const key = `external-wiki-draft:${token}`
-  try {
-    const raw = sessionStorage.getItem(key)
-    if (!raw) throw new Error('外部文档草稿已失效，请返回外部资源页重新打开')
-    const draft = JSON.parse(raw) as { title?: string; markdownContent?: string; teamId?: number; teamName?: string }
-    if (!draft.title || !draft.markdownContent || !draft.teamId) throw new Error('外部文档草稿内容不完整')
-    beginCreate()
-    type.value = 'SKILL_GUIDE'
-    title.value = draft.title
-    content.value = draft.markdownContent
-    selectedTeamId.value = draft.teamId
-    if (!teams.value.some((team) => team.id === draft.teamId)) {
-      teams.value = [{ id: draft.teamId, name: draft.teamName || `团队 ${draft.teamId}`, parentId: null }, ...teams.value]
-    }
-    externalDraftRequiresSkill.value = true
-    externalDraft.value = { title: draft.title, teamId: draft.teamId }
-    externalLookupLoading.value = true
-    try { externalMatches.value = await findWikiDocumentsByTitle(draft.teamId, draft.title) }
-    catch { externalLookupFailed.value = true; errorMessage.value = '同名 Wiki 检查失败，请返回外部资源页重新打开文档' }
-    finally { externalLookupLoading.value = false }
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '读取外部文档草稿失败'
-  } finally {
-    sessionStorage.removeItem(key)
-    await router.replace({ query: { ...route.query, externalDraft: undefined, documentId: undefined } })
-  }
-}
-onMounted(async () => { await searchTeams(); await loadSkills(); await loadDocuments(); await applyExternalDraft() })
-watch(() => route.query.documentId, () => { if (route.query.externalDraft) return; const id = Number(route.query.documentId); if (id) void selectDocument(id) })
+onMounted(async () => { await searchTeams(); await loadSkills(); await loadDocuments(true) })
+watch(() => route.query.documentId, () => { const id = Number(route.query.documentId); if (id) void selectDocument(id) })
 watch(type, (next, previous) => { if (next === 'SKILL_README' && previous === 'SKILL_GUIDE' && selectedSkillIds.value.length > 1) { selectedSkillIds.value = selectedSkillIds.value.slice(0, 1); errorMessage.value = 'README 只能关联一个 Skill，已保留第一个关联项' } })
 </script>
 
@@ -222,12 +209,12 @@ watch(type, (next, previous) => { if (next === 'SKILL_README' && previous === 'S
     <header class="wiki-heading"><div><p class="eyebrow">TEAM KNOWLEDGE</p><h1>团队 Wiki</h1><p>沉淀 Skill 使用说明，让团队经验可以被持续复用。</p></div><div class="wiki-heading__actions"><t-button v-if="isSuperAdmin" variant="outline" :loading="rebuildingVectors" :disabled="rebuildingVectors" @click="rebuildVectors">一键重建向量</t-button><t-button theme="primary" @click="beginCreate">新建 Markdown 文档</t-button></div></header>
     <div v-if="errorMessage" class="wiki-alert">{{ errorMessage }}</div>
     <div v-if="rebuildNotice" class="wiki-rebuild-notice" :class="`wiki-rebuild-notice--${rebuildNoticeType}`" role="status" aria-live="polite">{{ rebuildNotice }}</div>
-    <div class="wiki-toolbar"><t-select v-model="teamId" clearable filterable placeholder="全部可见范围" :options="teamOptions" @search="searchTeams" @change="loadDocuments" /><t-input v-model="keyword" placeholder="搜索文档标题" clearable @enter="loadDocuments" /><t-button variant="outline" @click="loadDocuments">搜索</t-button></div>
+    <div class="wiki-toolbar"><t-select v-model="teamId" clearable filterable placeholder="全部可见范围" :options="teamOptions" @search="searchTeams" @change="applyDocumentFilters" /><t-input v-model="keyword" placeholder="搜索文档标题" clearable @enter="applyDocumentFilters" /><t-button variant="outline" @click="applyDocumentFilters">搜索</t-button></div>
     <div class="wiki-layout">
-      <aside class="wiki-list"><div class="wiki-list__head"><strong>文档目录</strong><span>{{ documents.length }}</span></div><div v-if="loading" class="wiki-empty">加载中…</div><button v-for="item in documents" :key="item.id" class="wiki-list-item" :class="{ active: selected?.id === item.id }" @click="selectDocument(item.id)"><strong>{{ item.title }}</strong><small>{{ documentTypeLabel(item.documentType) }} · 修订 {{ item.revisionNo }}</small></button><div v-if="!loading && !documents.length" class="wiki-empty">暂无可见文档</div></aside>
+      <aside class="wiki-list"><div class="wiki-list__head"><strong>文档目录</strong><span>共 {{ documentTotal }} 篇</span></div><div v-if="loading" class="wiki-empty">加载中…</div><button v-for="item in orderedDocuments" :key="item.document.id" class="wiki-list-item" :class="{ active: selected?.id === item.document.id }" :style="{ paddingLeft: `${10 + item.depth * 16}px` }" @click="selectDocument(item.document.id)"><strong>{{ item.depth ? '↳ ' : '' }}{{ item.document.title }}</strong><small>{{ documentTypeLabel(item.document.documentType) }} · 修订 {{ item.document.revisionNo }}</small></button><div v-if="!loading && !documents.length" class="wiki-empty">暂无可见文档</div><div v-if="documentTotalPages > 1" class="wiki-pagination"><t-button size="small" variant="outline" :disabled="loading || documentPage === 0" @click="changeDocumentPage(documentPage)">上一页</t-button><span>第 {{ documentPage + 1 }} / {{ documentTotalPages }} 页</span><t-button size="small" variant="outline" :disabled="loading || documentPage + 1 >= documentTotalPages" @click="changeDocumentPage(documentPage + 2)">下一页</t-button></div></aside>
       <main class="wiki-reader">
-        <template v-if="editing"><div class="editor-heading"><div><t-input v-model="title" placeholder="文档标题" :disabled="Boolean(externalDraft)" /></div><div class="editor-actions"><t-button variant="outline" @click="editing = false">取消</t-button><t-button theme="primary" :loading="saving" :disabled="externalLookupLoading || externalLookupFailed || (Boolean(externalDraft) && externalMode === 'update' && !externalTarget)" @click="save">保存</t-button></div></div><div v-if="externalDraft" class="external-import-choice"><strong>导入团队 Wiki</strong><p v-if="externalLookupLoading">正在检查同名文档…</p><template v-else-if="!externalLookupFailed"><p v-if="externalMatches.length">目标团队已有 {{ externalMatches.length }} 篇同名 Wiki，请选择处理方式。</p><p v-else>目标团队暂无同名 Wiki。</p><label><input type="radio" name="external-import-mode" :checked="externalMode === 'create'" @change="chooseExternalMode('create')" />新建 Wiki</label><label v-if="externalMatches.length"><input type="radio" name="external-import-mode" :checked="externalMode === 'update'" :disabled="!externalMatches.some((item) => item.canEdit)" @change="chooseExternalMode('update')" />更新已有 Wiki</label><label v-if="externalMode === 'update'" class="external-import-target">更新目标<select :value="externalTarget?.id" @change="chooseExternalTarget(Number(($event.target as HTMLSelectElement).value))"><option v-for="match in externalMatches" :key="match.id" :value="match.id" :disabled="!match.canEdit">{{ match.title }} · 修订 {{ match.revisionNo }} · ID {{ match.id }}{{ match.canEdit ? '' : '（不可编辑）' }}</option></select></label><p v-if="externalMatches.length && !externalMatches.some((item) => item.canEdit)">同名 Wiki 当前不可编辑，可以选择新建。</p></template></div><div class="editor-fields"><label v-if="!selected && !externalDraft" class="wiki-field"><span>文档类型</span><t-select v-model="type" :options="[{ label: '团队知识文档', value: 'SKILL_GUIDE' }, { label: 'Skill README', value: 'SKILL_README' }]" /></label><label v-if="!selected && type === 'SKILL_GUIDE' && !externalDraft" class="wiki-field"><span>所属团队</span><t-select v-model="selectedTeamId" filterable :options="teamOptions" placeholder="所属团队" @search="searchTeams" /></label><label class="wiki-field"><span>关联 Skill（{{ allowsUnlinkedSkills ? '选填' : '必选' }}）</span><t-select v-model="skillSelection" :multiple="type === 'SKILL_GUIDE'" filterable :loading="skillLoading" :options="skillOptions" :placeholder="allowsUnlinkedSkills ? '可不选择，创建独立团队知识文档' : '请选择关联 Skill，支持搜索'" @search="searchSkills" /></label></div><div class="upload-row"><t-button variant="outline" @click="fileInput?.click()">导入 .md 文件</t-button><input ref="fileInput" type="file" accept=".md,text/markdown" hidden @change="onFileChange" /><span>仅支持 UTF-8 Markdown，正文最大 1 MiB</span></div><t-textarea v-model="content" :autosize="{ minRows: 22, maxRows: 40 }" placeholder="输入 Markdown 内容" /></template>
-        <template v-else-if="selected"><div class="reader-heading"><div><p class="eyebrow">{{ documentTypeLabel(selected.documentType) }}</p><h2>{{ selected.title }}</h2><p>修订 {{ selected.revisionNo }} · {{ selected.platformVisible ? '全公司可见' : '团队内部可见' }}<span v-if="selected.pendingPlatformReviewId" class="pending-review-badge">平台审核中</span></p></div><div class="reader-actions"><t-button variant="outline" @click="downloadMarkdown(selected)">下载 Markdown</t-button><t-button v-if="selected.canEdit && !selected.platformVisible" theme="primary" variant="outline" @click="openPromotionDialog">推送到全平台</t-button><t-button v-if="selected.canEdit" theme="primary" variant="outline" @click="beginEdit">编辑文档</t-button></div></div><div v-if="selected.skills.length" class="reader-links"><RouterLink v-for="skill in selected.skills" :key="skill.id" :to="{ name: 'skill-detail', params: { skillKey: skill.skillKey } }">{{ skill.displayName }}</RouterLink></div><p v-else-if="selected.documentType === 'SKILL_GUIDE' && selected.teamId" class="independent-document">独立团队知识文档</p><MarkdownView :content="selected.markdownContent" class="markdown-content" /><section v-if="selected.canEdit" class="revision-panel"><div class="revision-heading"><strong>修订历史</strong><span>{{ revisions.length }} 个修订</span></div><div v-for="revision in revisions" :key="revision.id" class="revision-row"><span>修订 {{ revision.revisionNo }} · {{ revision.createdByName }}</span><time>{{ new Date(revision.createdAt).toLocaleString() }}</time><t-button v-if="revision.revisionNo !== selected.revisionNo" size="small" variant="text" @click="restore(revision)">恢复</t-button></div></section></template>
+        <template v-if="editing"><div class="editor-heading"><div><t-input v-model="title" placeholder="文档标题" /></div><div class="editor-actions"><t-button variant="outline" @click="editing = false">取消</t-button><t-button theme="primary" :loading="saving" @click="save">保存</t-button></div></div><div class="editor-fields"><label v-if="!selected" class="wiki-field"><span>文档类型</span><t-select v-model="type" :options="[{ label: '团队知识文档', value: 'SKILL_GUIDE' }, { label: 'Skill README', value: 'SKILL_README' }]" /></label><label v-if="!selected && type === 'SKILL_GUIDE'" class="wiki-field"><span>所属团队</span><t-select v-model="selectedTeamId" filterable :options="teamOptions" placeholder="所属团队" @search="searchTeams" @change="parentId = null; loadParents()" /></label><label class="wiki-field"><span>关联 Skill（{{ allowsUnlinkedSkills ? '选填' : '必选' }}）</span><t-select v-model="skillSelection" :multiple="type === 'SKILL_GUIDE'" filterable :loading="skillLoading" :options="skillOptions" :placeholder="allowsUnlinkedSkills ? '可不选择，保存为独立 Wiki' : '请选择关联 Skill，支持搜索'" @search="searchSkills" /></label><label v-if="type === 'SKILL_GUIDE'" class="wiki-field"><span>父 Wiki（可选）</span><t-select v-model="parentId" clearable filterable :options="parentOptions" placeholder="选择父 Wiki" @search="loadParents" /></label></div><div class="upload-row"><t-button variant="outline" @click="fileInput?.click()">导入 .md 文件</t-button><input ref="fileInput" type="file" accept=".md,text/markdown" hidden @change="onFileChange" /><span>仅支持 UTF-8 Markdown，正文最大 1 MiB</span></div><t-textarea v-model="content" :autosize="{ minRows: 22, maxRows: 40 }" placeholder="输入 Markdown 内容" /></template>
+        <template v-else-if="selected"><div class="reader-heading"><div><p class="eyebrow">{{ documentTypeLabel(selected.documentType) }}</p><h2>{{ selected.title }}</h2><p>修订 {{ selected.revisionNo }} · {{ selected.platformVisible ? '全公司可见' : '团队内部可见' }}<span v-if="selected.pendingPlatformReviewId" class="pending-review-badge">平台审核中</span></p></div><div class="reader-actions"><t-button variant="outline" @click="downloadMarkdown(selected)">下载 Markdown</t-button><t-button v-if="selected.canEdit && !selected.platformVisible" theme="primary" variant="outline" @click="openPromotionDialog">推送到全平台</t-button><t-button v-if="selected.canEdit" theme="primary" variant="outline" @click="beginEdit">编辑文档</t-button><t-button v-if="selected.canArchive" theme="danger" variant="outline" :loading="saving" @click="archiveSelected">下架文档</t-button></div></div><div v-if="selected.skills.length" class="reader-links"><RouterLink v-for="skill in selected.skills" :key="skill.id" :to="{ name: 'skill-detail', params: { skillKey: skill.skillKey } }">{{ skill.displayName }}</RouterLink></div><p v-else-if="selected.documentType === 'SKILL_GUIDE' && selected.teamId" class="independent-document">独立团队知识文档</p><MarkdownView :content="selected.markdownContent" class="markdown-content" /><section v-if="selected.canEdit" class="revision-panel"><div class="revision-heading"><strong>修订历史</strong><span>{{ revisions.length }} 个修订</span></div><div v-for="revision in revisions" :key="revision.id" class="revision-row"><span>修订 {{ revision.revisionNo }} · {{ revision.createdByName }}</span><time>{{ new Date(revision.createdAt).toLocaleString() }}</time><t-button v-if="revision.revisionNo !== selected.revisionNo" size="small" variant="text" @click="restore(revision)">恢复</t-button></div></section></template>
         <div v-else class="wiki-empty wiki-empty--large">选择左侧文档开始阅读</div>
       </main>
     </div>
@@ -242,6 +229,7 @@ watch(type, (next, previous) => { if (next === 'SKILL_README' && previous === 'S
 .wiki-rebuild-notice--success{color:var(--success);background:var(--success-soft)}
 .wiki-rebuild-notice--warning{color:var(--warning);background:var(--warning-soft)}
 .wiki-rebuild-notice--error{color:var(--error);background:var(--error-soft)}
+.wiki-pagination{display:flex;align-items:center;justify-content:space-between;gap:4px;min-width:0;margin-top:14px;padding:0 2px}.wiki-pagination span{white-space:nowrap;font-size:12px;color:var(--text-3)}.wiki-pagination :deep(.t-button){min-width:0;flex-shrink:1}
 @media(max-width:800px){.wiki-heading{flex-wrap:wrap}.wiki-heading__actions{justify-content:flex-start}}
 
 .external-import-choice{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:14px 16px;margin:12px 0;border:1px solid var(--border,#d6dce6);border-radius:8px;background:var(--surface,#fff)}

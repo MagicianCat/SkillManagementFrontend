@@ -194,6 +194,8 @@ export interface WikiSkillLink {
 
 export interface WikiDocument {
   id: number
+  parentId?: number | null
+  sourceResourceId?: string | null
   title: string
   documentType: WikiDocumentType
   teamId: number | null
@@ -203,6 +205,7 @@ export interface WikiDocument {
   versionNo: number
   skills: WikiSkillLink[]
   canEdit: boolean
+  canArchive?: boolean
   active: boolean
   pendingPlatformReviewId: number | null
   pendingPlatformReviewStatus: 'PENDING' | null

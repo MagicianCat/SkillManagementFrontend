@@ -38,6 +38,14 @@ export async function getWikiDocument(id: number) {
   return data
 }
 
+export async function downloadWikiDocument(id: number) {
+  return http.get<Blob>(`/wiki/documents/${id}/download`, { responseType: 'blob' })
+}
+
+export async function downloadWikiDocuments(documentIds: number[]) {
+  return http.post<Blob>('/wiki/documents:download', { documentIds }, { responseType: 'blob' })
+}
+
 export async function createWikiDocument(request: { title: string; documentType: WikiDocumentType; teamId?: number | null; skillIds?: number[]; markdownContent: string; parentId?: number | null }) {
   const { data } = await http.post<WikiDocument>('/wiki/documents', request)
   return data

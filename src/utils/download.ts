@@ -7,12 +7,12 @@ function decodeFilename(value: string) {
   return (candidate || 'skill-download.zip').replace(/[\\/]/g, '_')
 }
 
-export function saveBlobResponse(response: AxiosResponse<Blob>) {
+export function saveBlobResponse(response: AxiosResponse<Blob>, fallbackFilename = 'skill-download.zip') {
   const disposition = response.headers['content-disposition'] as
     string | undefined
   const filename = disposition
     ? decodeFilename(disposition)
-    : 'skill-download.zip'
+    : fallbackFilename
   const url = URL.createObjectURL(response.data)
   const anchor = document.createElement('a')
   anchor.href = url

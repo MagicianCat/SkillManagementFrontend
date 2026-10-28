@@ -255,7 +255,7 @@ function loadBulkParents(keyword = '') {
     try {
       const page = await getWikiDocuments({ teamId: bulkWikiTeamId.value ?? undefined, documentType: 'SKILL_GUIDE', keyword: query, size: 100 })
       if (searchId !== bulkParentSearchId) return
-      bulkParentOptions.value = page.items.filter((item) => item.teamId === bulkWikiTeamId.value).map((item) => ({ label: item.title, value: item.id }))
+      bulkParentOptions.value = page.items.filter((item) => bulkWikiTeamId.value === null ? item.platformVisible : item.teamId === bulkWikiTeamId.value).map((item) => ({ label: item.title, value: item.id }))
     } catch (e) { if (searchId === bulkParentSearchId) error.value = message(e) }
   }, 300)
 }

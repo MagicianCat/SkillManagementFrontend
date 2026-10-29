@@ -6,7 +6,7 @@ import { useAgentStore } from './store'
 import AgentBatchDownloadDialog from './AgentBatchDownloadDialog.vue'
 import { renderAgentMarkdown } from './markdown'
 import { citedWikiDocuments, isPlatformWikiDownload, type AgentWikiDocument } from './wiki-downloads'
-import { downloadWikiDocument, downloadWikiDocuments } from '../../api/wiki.api'
+import { downloadWikiDocument, downloadWikiDocuments, getWikiDocumentMetadata } from '../../api/wiki.api'
 import { saveBlobResponse } from '../../utils/download'
 import type { AgentRecommendation } from './types'
 
@@ -20,9 +20,20 @@ const batchRunKey = ref<string | null>(null)
 const batchRecommendation = ref<AgentRecommendation | null>(null)
 const selectedWiki = ref<Record<string, number[]>>({})
 const downloadingWiki = ref(false)
+const wikiTitles = ref<Record<number, string>>({})
+const wikiTitleRequests = new Set<number>()
 const wikiByMessage = computed(() => new Map(store.visibleMessages
   .filter(message => message.role === 'ASSISTANT' && message.status !== 'STREAMING' && message.content)
   .map(message => [message.sequence, citedWikiDocuments(message.content)])))
+watch(wikiByMessage, groups => {
+  for (const documents of groups.values()) for (const wiki of documents) {
+    if (wikiTitleRequests.has(wiki.id) || wikiTitles.value[wiki.id]) continue
+    wikiTitleRequests.add(wiki.id)
+    void getWikiDocumentMetadata(wiki.id)
+      .then(metadata => { wikiTitles.value[wiki.id] = metadata.title })
+      .catch(() => { wikiTitles.value[wiki.id] = '文档已不可访问' })
+  }
+}, { immediate: true })
 const thinkingMessages = ['正在理解你的问题…', '正在分析相关上下文…', '正在检索相关信息…', '正在组织回答…']
 const thinkingIndex = ref(0)
 const elapsedSeconds = ref(0)
@@ -62,6 +73,7 @@ async function submit() { const value = input.value; if (!value.trim() || store.
 function openSkill(item: { skillKey: string; platform?: string | null; osType?: string | null }) { const platform = item.platform || store.platform; const osType = item.osType || store.osType; void router.push({ name: 'skill-detail', params: { skillKey: item.skillKey }, query: { ...(platform ? { platform } : {}), ...(osType ? { osType } : {}) } }); store.floatingOpen = false }
 function openBatch(runKey: string | null | undefined, recommendation: AgentRecommendation | null | undefined) { if (!runKey || !recommendation?.items.length) return; batchRunKey.value = runKey; batchRecommendation.value = recommendation; batchVisible.value = true }
 function wikiDocuments(sequence: number) { return wikiByMessage.value.get(sequence) ?? [] }
+function wikiTitle(wiki: AgentWikiDocument) { return wikiTitles.value[wiki.id] || (wiki.title.startsWith('Wiki 文档 #') ? '正在读取文档名称…' : wiki.title) }
 function wikiKey(sequence: number) { return `${store.current?.session.sessionKey ?? 'unknown'}:${sequence}` }
 function selectedWikiIds(sequence: number, documents: AgentWikiDocument[]) { return selectedWiki.value[wikiKey(sequence)] ?? documents.map(document => document.id) }
 function selectAllWiki(sequence: number, documents: AgentWikiDocument[]) { selectedWiki.value[wikiKey(sequence)] = documents.map(document => document.id) }
@@ -120,7 +132,7 @@ onUnmounted(() => { stopThinkingRotation(); stopElapsedTimer() })
         <section v-if="message.role === 'ASSISTANT' && wikiDocuments(message.sequence).length" class="agent-wiki-downloads" aria-label="引用的 Wiki 文档">
           <div class="agent-wiki-downloads__heading"><strong>引用的 Wiki 文档</strong><div><t-button size="small" variant="text" @click="selectAllWiki(message.sequence, wikiDocuments(message.sequence))">全选</t-button><t-button size="small" variant="outline" :disabled="!selectedWikiIds(message.sequence, wikiDocuments(message.sequence)).length || downloadingWiki" :loading="downloadingWiki" @click="downloadSelectedWiki(message.sequence, wikiDocuments(message.sequence))">一键下载（{{ selectedWikiIds(message.sequence, wikiDocuments(message.sequence)).length }}）</t-button></div></div>
           <div v-for="wiki in wikiDocuments(message.sequence)" :key="wiki.id" class="agent-wiki-downloads__item">
-            <label><input type="checkbox" :checked="selectedWikiIds(message.sequence, wikiDocuments(message.sequence)).includes(wiki.id)" @change="toggleWiki(message.sequence, wikiDocuments(message.sequence), wiki.id)"><span>{{ wiki.title }}</span></label>
+            <label><input type="checkbox" :checked="selectedWikiIds(message.sequence, wikiDocuments(message.sequence)).includes(wiki.id)" @change="toggleWiki(message.sequence, wikiDocuments(message.sequence), wiki.id)"><span>{{ wikiTitle(wiki) }}</span></label>
             <div><a :href="wiki.sourceUrl" target="_blank" rel="noopener noreferrer">查看原文</a><button type="button" :disabled="downloadingWiki" @click="downloadOneWiki(wiki.id)">下载</button></div>
           </div>
         </section>

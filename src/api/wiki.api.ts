@@ -38,6 +38,11 @@ export async function getWikiDocument(id: number) {
   return data
 }
 
+export async function getWikiDocumentMetadata(id: number) {
+  const { data } = await http.get<{ id: number; title: string }>(`/wiki/documents/${id}/metadata`)
+  return data
+}
+
 export async function downloadWikiDocument(id: number) {
   return http.get<Blob>(`/wiki/documents/${id}/download`, { responseType: 'blob' })
 }

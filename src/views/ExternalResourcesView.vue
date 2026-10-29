@@ -9,9 +9,9 @@ import type { SkillCategory, WikiTeam } from '../types/skill'
 import {
   downloadExternalZip, getExternalDocument,
   getExternalImportJob, importExternalSkill, listExternalDocuments, listExternalImports, listExternalResources,
-  listExternalRoles, listExternalVersions, prepareExternalSkill, startBulkSkillImport, startBulkWikiImport,
+  listExternalRoles, listExternalVersions, prepareExternalSkill, startBulkSkillImport, startBulkWikiImport, getAsdmToolStatus, importAsdmTool, refreshAsdmToolLink,
   type DocumentEntry, type ExternalImport, type ExternalResource,
-  type ExternalRole, type ExternalVersion, type SkillPreparation, type ExternalImportJob,
+  type ExternalRole, type ExternalVersion, type SkillPreparation, type ExternalImportJob, type AsdmToolStatus, type AsdmToolImportResult,
 } from '../api/external-resources.api'
 
 const router = useRouter()
@@ -20,6 +20,8 @@ const roles = ref<ExternalRole[]>([])
 const resources = ref<ExternalResource[]>([])
 const versions = ref<ExternalVersion[]>([])
 const imports = ref<ExternalImport[]>([])
+const asdmStatus = ref<AsdmToolStatus | null>(null)
+const asdmResult = ref<AsdmToolImportResult | null>(null)
 const categories = ref<SkillCategory[]>([])
 const teams = ref<WikiTeam[]>([])
 const teamLoading = ref(false)
@@ -187,6 +189,7 @@ function syncVersionCategory(id: number) {
 }
 async function selectResource(item: ExternalResource) {
   selected.value = item; versionId.value = item.currentVersionId
+  asdmStatus.value = null; asdmResult.value = null
   preparation.value = null; entries.value = []; preview.value = ''; teamId.value = null; categoryId.value = null
   try { versions.value = await listExternalVersions(item.id); await selectVersion(item.currentVersionId) }
   catch (e) { error.value = message(e) }
@@ -194,7 +197,33 @@ async function selectResource(item: ExternalResource) {
 async function selectVersion(id: number) {
   versionId.value = id; preparation.value = null; entries.value = []; preview.value = ''
   syncVersionCategory(id)
-  try { imports.value = await listExternalImports(id) } catch (e) { error.value = message(e) }
+  try {
+    imports.value = await listExternalImports(id)
+    asdmStatus.value = selected.value?.resourceType === 'ASDM-TOOL' ? await getAsdmToolStatus(id) : null
+    asdmResult.value = null
+  } catch (e) { error.value = message(e) }
+}
+async function importAsdm() {
+  if (!versionId.value || busy.value) return
+  const prior = asdmStatus.value
+  const updating = Boolean(prior?.wikiDocumentId && !prior.imported)
+  if (updating && !confirm('更新平台 Wiki 将替换现有正文并生成新的工具下载链接，确认继续？')) return
+  busy.value = true; error.value = ''
+  try {
+    asdmResult.value = await importAsdmTool(versionId.value, { confirmUpdate: updating, expectedWikiVersionNo: updating ? prior?.wikiVersionNo ?? null : null })
+    asdmStatus.value = await getAsdmToolStatus(versionId.value)
+    imports.value = await listExternalImports(versionId.value)
+  } catch (e) { error.value = message(e) }
+  finally { busy.value = false }
+}
+async function refreshAsdmLink() {
+  if (!versionId.value || busy.value || !confirm('重新生成 Wiki 中的工具包下载链接？')) return
+  busy.value = true; error.value = ''
+  try {
+    asdmResult.value = await refreshAsdmToolLink(versionId.value)
+    asdmStatus.value = await getAsdmToolStatus(versionId.value)
+  } catch (e) { error.value = message(e) }
+  finally { busy.value = false }
 }
 async function download() {
   if (!versionId.value) return
@@ -304,10 +333,10 @@ watch(() => route.query.jobId, (value) => { const id = Number(value); if (Number
     <p v-if="error" class="alert">{{ error }}</p>
     <div class="layout">
       <aside class="panel"><h2>来源与角色</h2><button v-for="role in roles" :key="role.id" class="role" :class="{ active: roleId === role.id }" @click="roleId = role.id"><small>{{ role.sourceSystem }}</small><span class="role-heading"><strong>{{ role.roleName }}</strong><span class="role-status" :class="role.status === 'ACTIVE' ? 'role-status--active' : 'role-status--inactive'">{{ role.status === 'ACTIVE' ? '启用 · ACTIVE' : '停用 · INACTIVE' }}</span></span><small>{{ role.externalRoleId }}</small></button><p v-if="!roles.length">暂无外部资源</p><div v-if="roleId" class="bulk-controls"><h3>按角色批量导入</h3><div class="skill-selection"><div class="skill-selection-heading"><strong>选择要导入的 Skill（{{ selectedSkillIds.length }}/{{ skillChoices.length }}）</strong><div><button :disabled="skillChoicesLoading" @click="selectedSkillIds = skillChoices.map((item) => item.id)">全选</button><button :disabled="skillChoicesLoading" @click="selectedSkillIds = []">清空</button></div></div><p v-if="skillChoicesLoading">正在加载当前角色的 Skill…</p><p v-else-if="!skillChoices.length">当前角色没有可导入的 Skill</p><div v-else class="skill-selection-list"><label v-for="item in skillChoices" :key="item.id" class="bulk-checkbox"><input v-model="selectedSkillIds" type="checkbox" :value="item.id"><span>{{ item.name }}</span></label></div></div><button :disabled="bulkBusy || bulkRunning || skillChoicesLoading || !selectedSkillIds.length" @click="startBulk('SKILL')">导入选中的 {{ selectedSkillIds.length }} 个 Skill 并提交审核</button><div class="wiki-selection"><strong>选择文档 ZIP（{{ selectedWikiZipIds.length }}/{{ wikiChoices.length }}）</strong><p v-if="wikiChoicesLoading">正在加载当前角色的文档 ZIP…</p><p v-else-if="!wikiChoices.length">当前角色没有可导入的文档 ZIP</p><div v-else class="wiki-selection-list"><div v-for="item in wikiChoices" :key="item.id" class="wiki-zip"><label class="bulk-checkbox"><input type="checkbox" :checked="selectedWikiZipIds.includes(item.id)" @change="toggleWikiZip(item)"><span>{{ item.name }}</span></label><p v-if="wikiZipLoading.includes(item.id)">正在读取 ZIP 内文档…</p><div v-else-if="selectedWikiZipIds.includes(item.id)" class="wiki-document-list"><p v-if="!wikiEntries[item.id]?.length">ZIP 中没有 Markdown 文档</p><template v-else><div class="skill-selection-heading"><small>选中 {{ selectedWikiPaths[item.id]?.length || 0 }}/{{ wikiEntries[item.id]?.length }} 篇</small><div><button @click="selectedWikiPaths[item.id] = wikiEntries[item.id]!.map((entry) => entry.path)">全选</button><button @click="selectedWikiPaths[item.id] = []">清空</button></div></div><label v-for="entry in wikiEntries[item.id]" :key="entry.path" class="bulk-checkbox"><input v-model="selectedWikiPaths[item.id]" type="checkbox" :value="entry.path"><span>{{ entry.path }}</span></label></template></div></div></div><small>共选中 {{ selectedWikiDocumentCount }} 篇文档</small></div><label>Wiki 发布范围 <t-select v-model="bulkWikiTeamId" filterable clearable :loading="teamLoading" :options="[{ label: '平台级 Wiki', value: null }, ...teamOptions.filter((option) => option.value !== null)]" placeholder="平台级 Wiki 或选择团队" @search="searchTeams" /></label><label>父 Wiki（可选） <t-select v-model="bulkParentWikiId" filterable clearable :options="bulkParentOptions" placeholder="输入父 Wiki 名称搜索；不选则放在根目录" @search="loadBulkParents" /></label><label class="bulk-checkbox"><input v-model="linkRoleSkills" type="checkbox">关联当前角色已推送的全部 Skill</label><button :disabled="bulkBusy || bulkRunning || wikiChoicesLoading || wikiZipLoading.length > 0 || !selectedWikiDocumentCount" @click="startBulk('DOCUMENT')">导入选中的 {{ selectedWikiDocumentCount }} 篇 Wiki 并提交审核</button><p v-if="bulkJob">任务 {{ bulkJob.job.id }}：{{ bulkJob.job.status }}，成功 {{ bulkJob.job.successCount }}，失败 {{ bulkJob.job.failureCount }}</p><p v-for="(item, index) in bulkJob?.items.filter((row) => row.status === 'FAILED')" :key="index" class="alert">{{ item.entryPath || `资源 ${item.resourceId}` }}：{{ item.errorCode }} {{ item.errorMessage }}</p></div></aside>
-      <section class="panel"><h2>资源</h2><div class="filters"><input v-model="keyword" placeholder="搜索名称或外部 ID" @keyup.enter="searchResources"><select v-model="type"><option value="">全部类型</option><option value="SKILL">Skill</option><option value="DOCUMENT">文档 ZIP</option></select><button @click="searchResources">搜索</button></div><button v-for="item in resources" :key="item.id" class="resource" :class="{ active: selected?.id === item.id }" @click="selectResource(item)"><span class="badge">{{ item.resourceType }}</span><strong>{{ item.name }}</strong><small>版本 {{ item.externalVersion || '未标记' }} · {{ Math.ceil((item.sizeBytes || 0) / 1024) }} KB</small></button><p v-if="!resources.length">当前角色暂无资源</p><div class="filters"><button :disabled="page === 0" @click="movePage(-1)">上一页</button><span>第 {{ page + 1 }} 页</span><button :disabled="resources.length < 50" @click="movePage(1)">下一页</button></div></section>
+      <section class="panel"><h2>资源</h2><div class="filters"><input v-model="keyword" placeholder="搜索名称或外部 ID" @keyup.enter="searchResources"><select v-model="type"><option value="">全部类型</option><option value="SKILL">Skill</option><option value="DOCUMENT">文档 ZIP</option><option value="ASDM-TOOL">ASDM 工具</option></select><button @click="searchResources">搜索</button></div><button v-for="item in resources" :key="item.id" class="resource" :class="{ active: selected?.id === item.id }" @click="selectResource(item)"><span class="badge">{{ item.resourceType }}</span><strong>{{ item.name }}</strong><small>版本 {{ item.externalVersion || '未标记' }} · {{ Math.ceil((item.sizeBytes || 0) / 1024) }} KB</small></button><p v-if="!resources.length">当前角色暂无资源</p><div class="filters"><button :disabled="page === 0" @click="movePage(-1)">上一页</button><span>第 {{ page + 1 }} 页</span><button :disabled="resources.length < 50" @click="movePage(1)">下一页</button></div></section>
       <section class="panel details"><template v-if="selected"><h2>{{ selected.name }}</h2><p>{{ selected.description }}</p><label>原始版本 <select v-model.number="versionId" @change="versionId && selectVersion(versionId)"><option v-for="v in versions" :key="v.id" :value="v.id">{{ v.externalVersion || '无版本号' }} · {{ v.receivedAt }}</option></select></label><button @click="download">下载原始 ZIP</button>
         <template v-if="selected.resourceType === 'SKILL'"><h3>推送到平台草稿</h3><button :disabled="busy" @click="prepare">解析并校验 ZIP</button><div v-if="preparation" class="form"><p>文件数 {{ preparation.fileCount }}；{{ preparation.exists ? '同 Key 已存在' : '尚无同 Key Skill' }}</p><p v-if="preparation.activeDraftVersionId" class="alert">该 Skill 已有草稿；导入将更新此草稿的 ZIP 和元数据。</p><label>Skill Key <input v-model="skillKey" :disabled="Boolean(preparation.skillKey)"></label><label>名称 <input v-model="displayName"></label><label>说明 <textarea v-model="description"></textarea></label><label>研发阶段 <t-cascader v-model="categoryId" :options="categoryOptions" clearable filterable placeholder="请选择具体阶段" /></label><label>归属团队 <t-select v-model="teamId" filterable clearable :loading="teamLoading" :options="[{ label: '平台 Skill', value: null }, ...teamOptions.filter((option) => option.value !== null)]" placeholder="平台 Skill 或搜索团队" @search="searchTeams" /></label><button :disabled="busy" @click="importSkill">确认导入草稿</button></div></template>
-        <template v-else><h3>ZIP 内 Markdown</h3><button :disabled="busy" @click="openDocuments">查看文档</button><div v-if="entries.length"><p>导入请使用左侧“按角色批量导入”。</p><div v-for="entry in entries" :key="entry.path" class="entry"><button @click="showDocument(entry.path)">{{ entry.path }}</button></div><div v-if="previewPath"><h4>{{ previewPath }}</h4><details><summary>查看 Markdown 原文</summary><pre>{{ preview }}</pre></details><div class="markdown-body" v-html="safePreview"></div></div></div><p v-else>点击“查看文档”读取 ZIP 中的 Markdown 文件</p></template>
+        <template v-else-if="selected.resourceType === 'ASDM-TOOL'"><h3>ASDM 工具包</h3><p>来源：{{ selected.sourceSystem }} · 资源 ID：{{ selected.externalResourceId }}</p><p>原始文件：{{ versions.find((item) => item.id === versionId)?.fileName || '未知' }}</p><p v-if="asdmStatus?.imported">已导入平台 Wiki #{{ asdmStatus.wikiDocumentId }} · {{ asdmStatus.toolFilename }}</p><p v-else-if="asdmStatus?.wikiDocumentId">此资源已有平台 Wiki #{{ asdmStatus.wikiDocumentId }}；当前版本尚未导入</p><button :disabled="busy || !versionId || asdmStatus?.imported" @click="importAsdm">{{ asdmStatus?.wikiDocumentId && !asdmStatus.imported ? '更新平台 Wiki' : '导入平台 Wiki' }}</button><div v-if="asdmResult || asdmStatus?.imported" class="form"><RouterLink v-if="asdmStatus?.wikiDocumentId" :to="{ name: 'wiki', query: { documentId: asdmStatus.wikiDocumentId } }">查看平台 Wiki</RouterLink><RouterLink v-if="asdmStatus?.assetId" :to="{ name: 'asdm-tool-download', params: { assetId: asdmStatus.assetId } }">下载 ASDM 工具包</RouterLink><button v-if="asdmStatus?.imported" :disabled="busy" @click="refreshAsdmLink">重建下载链接</button></div></template><template v-else><h3>ZIP 内 Markdown</h3><button :disabled="busy" @click="openDocuments">查看文档</button><div v-if="entries.length"><p>导入请使用左侧“按角色批量导入”。</p><div v-for="entry in entries" :key="entry.path" class="entry"><button @click="showDocument(entry.path)">{{ entry.path }}</button></div><div v-if="previewPath"><h4>{{ previewPath }}</h4><details><summary>查看 Markdown 原文</summary><pre>{{ preview }}</pre></details><div class="markdown-body" v-html="safePreview"></div></div></div><p v-else>点击“查看文档”读取 ZIP 中的 Markdown 文件</p></template>
         <h3>导入记录</h3><p v-for="row in imports" :key="row.id">{{ row.createdAt }} · {{ row.targetType }} {{ row.entryPath || '' }} → {{ row.targetId }} · {{ row.result }}</p>
       </template><p v-else>选择资源查看版本、原始 ZIP 和导入操作。</p></section>
     </div>

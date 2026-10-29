@@ -69,6 +69,12 @@ const router = createRouter({
           meta: { title: '团队 Wiki', permissions: ['skill:browse'] },
         },
         {
+          path: 'asdm-tools/download/:assetId',
+          name: 'asdm-tool-download',
+          component: () => import('../views/AsdmToolDownloadView.vue'),
+          meta: { title: 'ASDM 工具下载', permissions: ['skill:browse'] },
+        },
+        {
           path: 'admin/external-resources',
           name: 'external-resources',
           component: () => import('../views/ExternalResourcesView.vue'),

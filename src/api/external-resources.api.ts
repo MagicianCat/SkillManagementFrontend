@@ -1,7 +1,9 @@
 import { http } from './http'
 
 export interface ExternalRole { id: number; sourceSystem: string; externalRoleId: string; roleName: string; status: 'ACTIVE' | 'INACTIVE' }
-export interface ExternalResource { id: number; roleId: number; sourceSystem: string; externalResourceId: string; resourceType: 'SKILL' | 'DOCUMENT'; name: string; description?: string; developmentStage?: string | null; subStageKey?: string | null; currentVersionId: number; externalVersion?: string; sizeBytes: number; receivedAt: string }
+export interface ExternalResource { id: number; roleId: number; sourceSystem: string; externalResourceId: string; resourceType: 'SKILL' | 'DOCUMENT' | 'ASDM-TOOL'; name: string; description?: string; developmentStage?: string | null; subStageKey?: string | null; currentVersionId: number; externalVersion?: string; sizeBytes: number; receivedAt: string }
+export interface AsdmToolStatus { imported: boolean; resourceVersionId: number; assetId: number | null; wikiDocumentId: number | null; wikiActive: boolean; toolFilename: string | null; downloadUrl: string | null; importedAt: string | null; wikiVersionNo: number | null }
+export interface AsdmToolImportResult { status: 'CREATED' | 'UPDATED' | 'UNCHANGED'; resourceVersionId: number; assetId: number; wikiDocumentId: number; wikiTitle: string; toolFilename: string; toolSizeBytes: number; downloadUrl: string; wikiUrl: string }
 export interface ExternalVersion { id: number; externalVersion?: string; fileName: string; sizeBytes: number; sha256: string; developmentStage?: string | null; subStageKey?: string | null; receivedAt: string }
 export interface ExternalImport { id: number; entryPath?: string; targetType: string; targetId: number; result: string; createdAt: string }
 export interface SkillPreparation { skillKey?: string; fileCount: number; exists: boolean; skillId?: number; activeDraftVersionId?: number }
@@ -22,3 +24,6 @@ export async function getExternalReadiness(roleId: number) { return (await http.
 export async function startBulkSkillImport(roleId: number, resourceIds: number[]) { return (await http.post<{ jobId: number }>(`/external-resources/roles/${roleId}/skills:import-all`, { resourceIds })).data }
 export async function startBulkWikiImport(roleId: number, request: { teamId: number | null; parentWikiId: number | null; linkRoleSkills: boolean; selections: Array<{ resourceId: number; paths: string[] }> }) { return (await http.post<{ jobId: number }>(`/external-resources/roles/${roleId}/wikis:import-all`, request)).data }
 export async function getExternalImportJob(id: number) { return (await http.get<ExternalImportJob>(`/external-import-jobs/${id}`)).data }
+export async function getAsdmToolStatus(versionId: number) { return (await http.get<AsdmToolStatus>(`/external-resource-versions/${versionId}/asdm-tool/status`)).data }
+export async function importAsdmTool(versionId: number, body: { confirmUpdate: boolean; expectedWikiVersionNo: number | null }) { return (await http.post<AsdmToolImportResult>(`/external-resource-versions/${versionId}/asdm-tool:import-wiki`, body)).data }
+export async function refreshAsdmToolLink(versionId: number) { return (await http.post<AsdmToolImportResult>(`/external-resource-versions/${versionId}/asdm-tool:refresh-link`)).data }

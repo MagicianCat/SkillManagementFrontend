@@ -6,7 +6,9 @@ import { useAgentStore } from './store'
 import AgentBatchDownloadDialog from './AgentBatchDownloadDialog.vue'
 import { renderAgentMarkdown } from './markdown'
 import { citedWikiDocuments, isPlatformWikiDownload, type AgentWikiDocument } from './wiki-downloads'
+import { citedAsdmTools } from './asdm-downloads'
 import { downloadWikiDocument, downloadWikiDocuments, getWikiDocumentMetadata } from '../../api/wiki.api'
+import { http } from '../../api/http'
 import { saveBlobResponse } from '../../utils/download'
 import type { AgentRecommendation } from './types'
 
@@ -25,6 +27,9 @@ const wikiTitleRequests = new Set<number>()
 const wikiByMessage = computed(() => new Map(store.visibleMessages
   .filter(message => message.role === 'ASSISTANT' && message.status !== 'STREAMING' && message.content)
   .map(message => [message.sequence, citedWikiDocuments(message.content)])))
+const asdmByMessage = computed(() => new Map(store.visibleMessages
+  .filter(message => message.role === 'ASSISTANT' && message.status !== 'STREAMING' && message.content)
+  .map(message => [message.sequence, citedAsdmTools(message.content).slice(0, 1)])))
 watch(wikiByMessage, groups => {
   for (const documents of groups.values()) for (const wiki of documents) {
     if (wikiTitleRequests.has(wiki.id) || wikiTitles.value[wiki.id]) continue
@@ -73,6 +78,7 @@ async function submit() { const value = input.value; if (!value.trim() || store.
 function openSkill(item: { skillKey: string; platform?: string | null; osType?: string | null }) { const platform = item.platform || store.platform; const osType = item.osType || store.osType; void router.push({ name: 'skill-detail', params: { skillKey: item.skillKey }, query: { ...(platform ? { platform } : {}), ...(osType ? { osType } : {}) } }); store.floatingOpen = false }
 function openBatch(runKey: string | null | undefined, recommendation: AgentRecommendation | null | undefined) { if (!runKey || !recommendation?.items.length) return; batchRunKey.value = runKey; batchRecommendation.value = recommendation; batchVisible.value = true }
 function wikiDocuments(sequence: number) { return wikiByMessage.value.get(sequence) ?? [] }
+function asdmTools(sequence: number) { return asdmByMessage.value.get(sequence) ?? [] }
 function wikiTitle(wiki: AgentWikiDocument) { return wikiTitles.value[wiki.id] || (wiki.title.startsWith('Wiki 文档 #') ? '正在读取文档名称…' : wiki.title) }
 function wikiKey(sequence: number) { return `${store.current?.session.sessionKey ?? 'unknown'}:${sequence}` }
 function selectedWikiIds(sequence: number, documents: AgentWikiDocument[]) { return selectedWiki.value[wikiKey(sequence)] ?? documents.map(document => document.id) }
@@ -98,10 +104,32 @@ async function downloadSelectedWiki(sequence: number, documents: AgentWikiDocume
   catch { await MessagePlugin.error('批量下载失败，请确认所选文档仍可访问') }
   finally { downloadingWiki.value = false }
 }
+const downloadingAsdm = ref(false)
+async function downloadAsdmTool(assetId: number) {
+  if (downloadingAsdm.value) return
+  downloadingAsdm.value = true
+  try {
+    const metadata = await http.get<{ filename: string }>(`/asdm-tool-assets/${assetId}`)
+    const file = await http.get<Blob>(`/asdm-tool-assets/${assetId}/download`, { responseType: 'blob', timeout: 120_000 })
+    saveBlobResponse(file, metadata.data.filename)
+  } catch { await MessagePlugin.error('工具包下载失败，请确认仍有访问权限') }
+  finally { downloadingAsdm.value = false }
+}
 function handleAnswerClick(event: MouseEvent) {
   const target = event.target
   if (!(target instanceof Element)) return
   const link = target.closest('a[href]')
+  if (link) {
+    try {
+      const url = new URL(link.getAttribute('href') ?? '', window.location.href)
+      const match = url.origin === window.location.origin && /^\/asdm-tools\/download\/([1-9]\d*)\/?$/.exec(url.pathname)
+      if (match) {
+        event.preventDefault()
+        void downloadAsdmTool(Number(match[1]))
+        return
+      }
+    } catch { /* Ignore malformed links. */ }
+  }
   const id = link ? isPlatformWikiDownload(link.getAttribute('href') ?? '') : null
   if (id === null) return
   event.preventDefault()
@@ -134,6 +162,13 @@ onUnmounted(() => { stopThinkingRotation(); stopElapsedTimer() })
           <div v-for="wiki in wikiDocuments(message.sequence)" :key="wiki.id" class="agent-wiki-downloads__item">
             <label><input type="checkbox" :checked="selectedWikiIds(message.sequence, wikiDocuments(message.sequence)).includes(wiki.id)" @change="toggleWiki(message.sequence, wikiDocuments(message.sequence), wiki.id)"><span>{{ wikiTitle(wiki) }}</span></label>
             <div><a :href="wiki.sourceUrl" target="_blank" rel="noopener noreferrer">查看原文</a><button type="button" :disabled="downloadingWiki" @click="downloadOneWiki(wiki.id)">下载</button></div>
+          </div>
+        </section>
+        <section v-if="message.role === 'ASSISTANT' && asdmTools(message.sequence).length" class="agent-wiki-downloads" aria-label="ASDM 工具包下载">
+          <div class="agent-wiki-downloads__heading"><strong>ASDM 工具包</strong></div>
+          <div v-for="tool in asdmTools(message.sequence)" :key="tool.assetId" class="agent-wiki-downloads__item">
+            <span>{{ tool.title }}</span>
+            <t-button size="small" theme="primary" :disabled="downloadingAsdm" :loading="downloadingAsdm" @click="downloadAsdmTool(tool.assetId)">下载工具包</t-button>
           </div>
         </section>
         <section v-if="message.role === 'ASSISTANT' && (message.recommendation || (message.status === 'STREAMING' && store.streamingRecommendation))" class="agent-recommendations" aria-label="本轮 Skill 推荐">

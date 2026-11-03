@@ -259,7 +259,6 @@ onMounted(loadReview)
               <div>
                 <button
                   class="btn-secondary"
-                  style="margin-top: 10px"
                   @click="loadDiffs"
                 >
                   重试
@@ -283,7 +282,7 @@ onMounted(loadReview)
                     {{ formatSize(diff.currentSizeBytes) }}
                   </span>
                   <span aria-hidden="true">{{
-                    expandedPaths.has(diff.path) ? '▾' : '▸'
+                    expandedPaths.has(diff.path) ? '▼' : '▶'
                   }}</span>
                 </button>
                 <div
@@ -338,7 +337,6 @@ onMounted(loadReview)
               <div>
                 <button
                   class="btn-secondary"
-                  style="margin-top: 10px"
                   @click="selectFile(selectedPath)"
                 >
                   重试
@@ -391,46 +389,17 @@ onMounted(loadReview)
 </template>
 
 <style scoped>
-.btn-primary,
-.btn-secondary,
-.btn-danger {
-  height: 38px;
-  padding: 0 16px;
-  border-radius: 7px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 650;
-  cursor: pointer;
-}
-.btn-primary {
-  border: 0;
-  color: var(--text-on-accent);
-  background: var(--accent-500);
-}
-.btn-primary:hover:not(:disabled) {
-  background: var(--accent-400);
-}
-.btn-primary:disabled,
-.btn-danger:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-.btn-secondary {
-  border: 1px solid var(--border-2);
-  color: var(--text-2);
-  background: var(--surface-1);
-}
-.btn-secondary:hover:not(:disabled) {
-  background: var(--surface-2);
-}
 .btn-danger {
   border: 0;
   color: var(--text-on-accent);
   background: var(--error);
 }
 .btn-danger:hover:not(:disabled) {
-  background: var(--error);
   filter: brightness(1.18);
+}
+.btn-danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 .btn-xs {
   height: 24px;
@@ -732,11 +701,6 @@ onMounted(loadReview)
   background: var(--surface-2);
   line-height: 1.7;
   white-space: pre-wrap;
-}
-.inline-error {
-  margin: 10px 0 0;
-  color: var(--error);
-  font-size: 12px;
 }
 @media (max-width: 720px) {
   .review-layout {

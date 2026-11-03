@@ -304,7 +304,19 @@ onMounted(() => { searchTeams(); fetchReviews() })
 
     <section class="market-toolbar" aria-label="审核任务搜索">
       <label class="search-box"
-        ><span aria-hidden="true">⌕</span
+        ><span aria-hidden="true"><svg
+          viewBox="0 0 24 24"
+          width="16"
+          height="16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m21 21-4.3-4.3" />
+        </svg></span
         ><input
           v-model="keywordInput"
           type="search"
@@ -556,52 +568,6 @@ onMounted(() => { searchTeams(); fetchReviews() })
 }
 
 .review-team-filter{width:240px;min-width:200px}
-.btn-primary,
-.btn-secondary,
-.btn-danger {
-  height: 38px;
-  padding: 0 16px;
-  border-radius: 7px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 650;
-  cursor: pointer;
-}
-.btn-primary {
-  border: 0;
-  color: var(--text-on-accent);
-  background: var(--accent-500);
-}
-.btn-primary:hover:not(:disabled) {
-  background: var(--accent-400);
-}
-.btn-primary:disabled,
-.btn-danger:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-.btn-secondary {
-  border: 1px solid var(--border-2);
-  color: var(--text-2);
-  background: var(--surface-1);
-}
-.btn-secondary:hover:not(:disabled) {
-  background: var(--surface-2);
-}
-.btn-danger {
-  border: 0;
-  color: var(--text-on-accent);
-  background: var(--error);
-}
-.btn-danger:hover:not(:disabled) {
-  background: var(--error);
-  filter: brightness(1.18);
-}
-.btn-sm {
-  height: 30px;
-  padding: 0 12px;
-  font-size: 12px;
-}
 .status-tabs {
   display: flex;
   gap: 4px;
@@ -729,67 +695,17 @@ onMounted(() => { searchTeams(); fetchReviews() })
   flex: 0 0 auto;
   gap: 8px;
 }
-.modal-mask {
-  position: fixed;
-  z-index: 40;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: var(--mask-bg);
-}
-.modal {
-  width: min(92vw, 460px);
-  padding: 24px;
-  border: 1px solid var(--border-1);
-  border-radius: 12px;
-  background: var(--surface-overlay);
-  backdrop-filter: blur(12px);
-  box-shadow: var(--shadow-lg);
-}
-.modal h2 {
-  margin: 0 0 6px;
-  color: var(--text-1);
-  font-size: 16px;
-}
 .modal-desc {
   margin: 0 0 14px;
   color: var(--text-2);
   font-size: 12px;
-}
-.modal-field {
-  display: grid;
-  gap: 8px;
-  color: var(--text-1);
-  font-size: 12px;
-  font-weight: 650;
+  line-height: 1.6;
 }
 .modal-field textarea {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border-2);
-  border-radius: 7px;
-  color: var(--text-1);
-  background: var(--surface-2);
-  font: inherit;
-  font-size: 13px;
   font-weight: 400;
   resize: vertical;
   outline: none;
-}
-.modal-field textarea:focus {
-  border-color: var(--accent-500);
-  box-shadow: 0 0 0 3px var(--accent-glow);
-}
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 18px;
-}
-.inline-error {
-  margin: 12px 0 0;
-  color: var(--error);
-  font-size: 12px;
 }
 .batch-failures {
   max-height: 200px;

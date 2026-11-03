@@ -64,7 +64,7 @@ watch(() => route.query.session, () => void loadRequestedSession())
   <div class="agent-page">
     <aside class="agent-sessions">
       <div class="agent-sessions__header">
-        <strong>会话列表</strong><button @click="create">＋</button>
+        <strong>会话列表</strong><button @click="create">+</button>
       </div>
       <button
         v-for="session in store.sessions"

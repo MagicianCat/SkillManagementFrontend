@@ -95,7 +95,7 @@ onUnmounted(()=>{if(liveRefreshTimer!==undefined)window.clearInterval(liveRefres
           </div>
 
           <aside class="stage-actions">
-            <t-button v-if="canChangeInclusion(stage)" :theme="stage.status==='SKIPPED'?'primary':'default'" variant="outline" :loading="busy===`flow-${stage.stageKey}`" :disabled="busy!==''" @click="changeInclusion(stage)">{{stage.status==='SKIPPED'?'＋ 纳入流程':'移出流程'}}</t-button>
+            <t-button v-if="canChangeInclusion(stage)" :theme="stage.status==='SKIPPED'?'primary':'default'" variant="outline" :loading="busy===`flow-${stage.stageKey}`" :disabled="busy!==''" @click="changeInclusion(stage)">{{stage.status==='SKIPPED'?'+ 纳入流程':'移出流程'}}</t-button>
             <span v-else-if="stage.status==='SKIPPED'" class="action-note">{{unavailableReason(stage)}}</span>
             <span v-else-if="!canChangeInclusion(stage)" class="action-note">{{stage.status==='COMPLETED'?'已锁定':stage.status==='IN_PROGRESS'||stage.status==='PENDING_APPROVAL'||stage.status==='REJECTED'?'推进中不可调整':!['L2','L3'].includes(requirement.approvalLevel)?'策略锁定':stageOrder(stage)<(requirement.currentStageOrder||1)?'早于当前位置':''}}</span>
             <t-button v-if="stage.status!=='SKIPPED'&&canEditStage(stage)" variant="text" :loading="busy===stage.stageKey" :disabled="!canManage||busy!==''" @click="syncLatest(stage)">同步项目组</t-button>

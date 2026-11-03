@@ -216,13 +216,25 @@ onMounted(() => {
           class="btn-primary"
           @click="router.push({ name: 'skill-create' })"
         >
-          ＋ 新建 Skill
+          + 新建 Skill
         </button>
       </div>
     </div>
     <section class="market-toolbar" aria-label="Skill 搜索">
       <label class="search-box"
-        ><span aria-hidden="true">⌕</span
+        ><span aria-hidden="true"><svg
+          viewBox="0 0 24 24"
+          width="16"
+          height="16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m21 21-4.3-4.3" />
+        </svg></span
         ><input
           v-model="keywordInput"
           type="search"
@@ -271,7 +283,25 @@ onMounted(() => {
             @keydown="handleSkillCardKeydown($event, skill.skillKey)"
           >
             <div class="skill-card__top">
-              <div class="skill-icon">□</div>
+              <div class="skill-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+                  />
+                  <path d="M3.27 6.96 12 12.01l8.73-5.05" />
+                  <path d="M12 22.08V12" />
+                </svg>
+              </div>
               <div class="skill-card__badges">
                 <span
                   v-if="skillStage(skill)"
@@ -336,10 +366,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.page-actions {
-  display: flex;
-  gap: 10px;
-}
 .btn-primary,
 .btn-secondary {
   height: 38px;

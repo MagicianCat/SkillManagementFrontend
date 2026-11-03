@@ -200,7 +200,7 @@ onMounted(load)
             target="_blank"
             rel="noopener noreferrer"
           >
-            来源网址 ↗
+            来源网址 →
           </a>
         </div>
         <div class="detail-header__badges">

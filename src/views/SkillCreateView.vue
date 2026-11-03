@@ -235,7 +235,8 @@ function skipUpload() {
       </label>
       <label class="form-field">
         <span>研发全流程分类 <em>*</em></span>
-        <t-cascader v-model="form.categoryId" :options="categoryOptions" clearable filterable
+        <t-cascader
+v-model="form.categoryId" :options="categoryOptions" clearable filterable
           placeholder="请选择具体分类" :disabled="submitting || Boolean(createdKey)" />
       </label>
       <label class="form-field">
@@ -296,141 +297,11 @@ function skipUpload() {
   backdrop-filter: blur(12px);
   box-shadow: var(--inner-highlight);
 }
-.form-field {
-  display: grid;
-  gap: 7px;
-}
-.form-field span {
-  color: var(--text-1);
-  font-size: 13px;
-  font-weight: 650;
-}
-.form-field em {
-  color: var(--error);
-  font-style: normal;
-}
-.form-field small {
-  color: var(--text-3);
-  font-size: 11px;
-}
-.form-field input,
-.form-field select,
-.form-field textarea {
-  padding: 9px 11px;
-  border: 1px solid var(--border-2);
-  border-radius: 7px;
-  color: var(--text-1);
-  background: var(--surface-2);
-  font: inherit;
-  font-size: 13px;
-  outline: none;
-}
-.form-field input:focus,
-.form-field select:focus,
-.form-field textarea:focus {
-  border-color: var(--accent-500);
-  box-shadow: 0 0 0 3px var(--accent-glow);
-}
-.form-field input.has-error {
-  border-color: var(--error);
-}
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 4px;
-}
-.btn-primary,
-.btn-secondary {
-  height: 38px;
-  padding: 0 16px;
-  border-radius: 7px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 650;
-  cursor: pointer;
-}
-.btn-primary {
-  border: 0;
-  color: var(--text-on-accent);
-  background: var(--accent-500);
-}
-.btn-primary:hover:not(:disabled) {
-  background: var(--accent-400);
-}
-.btn-primary:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-.btn-secondary {
-  border: 1px solid var(--border-2);
-  color: var(--text-2);
-  background: var(--surface-1);
-}
-.btn-secondary:hover:not(:disabled) {
-  background: var(--surface-2);
-}
-.inline-error {
-  margin: 0;
-  color: var(--error);
-  font-size: 12px;
-}
-.modal-mask {
-  position: fixed;
-  z-index: 40;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: var(--mask-bg);
-}
-.modal {
-  width: min(92vw, 460px);
-  padding: 24px;
-  border: 1px solid var(--border-1);
-  border-radius: 12px;
-  background: var(--surface-overlay);
-  backdrop-filter: blur(12px);
-  box-shadow: var(--shadow-lg);
-}
-.modal h2 {
-  margin: 0;
-  color: var(--text-1);
-  font-size: 17px;
-}
-.modal-desc {
-  margin: 10px 0 18px;
-  color: var(--text-2);
-  font-size: 13px;
-  line-height: 1.6;
-}
 .modal-desc code {
   padding: 1px 5px;
   border-radius: 4px;
   background: var(--surface-2);
   font-family: var(--font-mono, monospace);
   font-size: 12px;
-}
-.modal-field {
-  display: grid;
-  gap: 7px;
-  margin-bottom: 14px;
-  color: var(--text-1);
-  font-size: 12px;
-  font-weight: 650;
-}
-.modal-field input {
-  padding: 8px 10px;
-  border: 1px solid var(--border-2);
-  border-radius: 7px;
-  color: var(--text-1);
-  background: var(--surface-2);
-  font: inherit;
-  font-size: 13px;
-}
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 18px;
 }
 </style>

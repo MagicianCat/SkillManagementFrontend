@@ -66,13 +66,13 @@ defineExpose({ summary, badge, count: computed(() => sorted.value.length) })
             <span class="mono rev">Revision {{ current.revision ?? '—' }}</span>
           </h4>
           <p class="muted">状态 {{ current.status || '—' }} · RevisionId {{ current.revisionId ?? '—' }}</p>
-          <a v-if="docHref" :href="docHref" target="_blank" rel="noopener" class="open-doc-btn">打开文档 ↗</a>
+          <a v-if="docHref" :href="docHref" target="_blank" rel="noopener" class="open-doc-btn">打开文档 →</a>
           <p v-else class="muted">完整内容请在项目文档中查看。</p>
           <div v-if="publication" class="publication-status" :class="`is-${String(publication.status || '').toLowerCase()}`" data-testid="feishu-publication-status">
             <span class="pub-label">飞书发布</span>
             <strong>{{ publicationText[publication.status || ''] || publication.status || '未知' }}</strong>
             <small v-if="publication.attemptCount">尝试 {{ publication.attemptCount }} 次</small>
-            <a v-if="publication.documentUrl" :href="publication.documentUrl" target="_blank" rel="noreferrer" class="pub-link">打开飞书文档 ↗</a>
+            <a v-if="publication.documentUrl" :href="publication.documentUrl" target="_blank" rel="noreferrer" class="pub-link">打开飞书文档 →</a>
             <span v-if="publication.lastError" class="publication-error">{{ publication.lastError }}</span>
             <button v-if="publication.retryable && ownerCanRetry" type="button" class="pub-retry" @click="emit('retryPublication')">Owner 重试同步</button>
           </div>

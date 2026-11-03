@@ -378,6 +378,10 @@ a {
   margin: 0 auto;
 }
 .page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 22px;
 }
 .page-heading h1,
@@ -394,8 +398,210 @@ a {
   color: var(--text-2);
   font-size: 13px;
 }
+.page-actions {
+  display: flex;
+  gap: 10px;
+  flex: 0 0 auto;
+}
 
-/* ============ 工具条 / 搜索 ============ */
+/* ============ 通用按钮（与 scoped 样式并存时，scoped 优先） ============ */
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+    filter var(--duration-fast) var(--ease-out);
+}
+.btn-primary {
+  border: 0;
+  color: var(--text-on-accent);
+  background: var(--accent-500);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-400);
+}
+.btn-secondary {
+  border: 1px solid var(--border-2);
+  color: var(--text-2);
+  background: var(--surface-1);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.btn-danger {
+  border: 0;
+  color: var(--text-on-accent);
+  background: var(--error);
+}
+.btn-danger:hover:not(:disabled) {
+  filter: brightness(1.18);
+}
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.btn-sm {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+.btn-xs {
+  height: 24px;
+  padding: 0 9px;
+  font-size: 11px;
+}
+.btn-stack {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* ============ 表单 / 弹窗通用 ============ */
+.inline-error {
+  margin: 0;
+  color: var(--error);
+  font-size: 12px;
+}
+.form-field {
+  display: grid;
+  gap: 7px;
+}
+.form-field > span {
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 650;
+}
+.form-field em {
+  color: var(--error);
+  font-style: normal;
+}
+.form-field small {
+  color: var(--text-3);
+  font-size: 11px;
+}
+.form-field input,
+.form-field select,
+.form-field textarea {
+  padding: 9px 11px;
+  border: 1px solid var(--border-2);
+  border-radius: 7px;
+  color: var(--text-1);
+  background: var(--surface-2);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  border-color: var(--accent-500);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.form-field input.has-error {
+  border-color: var(--error);
+}
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+.modal-mask {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--mask-bg);
+}
+.modal {
+  width: min(92vw, 460px);
+  padding: 24px;
+  border: 1px solid var(--border-1);
+  border-radius: 12px;
+  background: var(--surface-overlay);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-lg);
+}
+.modal h2 {
+  margin: 0;
+  color: var(--text-1);
+  font-size: 17px;
+}
+.modal-desc {
+  margin: 10px 0 18px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.modal-field {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 14px;
+  color: var(--text-1);
+  font-size: 12px;
+  font-weight: 650;
+}
+.modal-field input,
+.modal-field textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--border-2);
+  border-radius: 7px;
+  color: var(--text-1);
+  background: var(--surface-2);
+  font: inherit;
+  font-size: 13px;
+}
+.modal-field textarea {
+  width: 100%;
+  resize: vertical;
+  outline: none;
+}
+.modal-field input:focus,
+.modal-field textarea:focus {
+  border-color: var(--accent-500);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+/* ============ 状态页 ============ */
+.result-state {
+  padding: 64px 20px;
+  border: 1px dashed var(--border-3);
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+  background: var(--surface-1);
+  font-size: 13px;
+  text-align: center;
+}
+.result-state--error,
+.inline-error {
+  border-color: rgb(248 113 113 / 30%);
+  color: var(--error);
+  background: var(--error-soft);
+}
+.result-state--error {
+  background: var(--error-soft);
+}
+.result-state .btn-secondary,
+.result-state .btn-primary {
+  margin-top: 10px;
+}
+
+/* ============ 分页 ============ */
 .market-toolbar {
   display: flex;
   align-items: center;
@@ -490,7 +696,6 @@ a {
   color: var(--accent-300);
   background: var(--accent-soft);
   box-shadow: var(--inner-highlight);
-  font-size: 20px;
 }
 .status-badge {
   display: inline-flex;

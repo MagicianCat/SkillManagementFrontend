@@ -439,27 +439,27 @@ onBeforeUnmount(() => {
     <div v-else-if="!draft" class="result-state">
       <p>当前没有活动草稿</p>
       <p v-if="platformPromotionNotice" class="inline-success" role="status">{{ platformPromotionNotice }}</p>
-      <button
-        v-if="canRequestPlatformPromotion"
-        class="btn-primary"
-        style="margin-top: 14px"
-        :disabled="promotingToPlatform || platformPromotionSubmitted"
-        @click="openPlatformPromotion"
-      >
-        {{ platformPromotionSubmitted ? '已提交平台审核' : '推送到全平台' }}
-      </button>
-      <button
-        v-if="canOffline && publishedVersion"
-        class="btn-danger"
-        style="margin: 14px 8px 0"
-        :disabled="offlining"
-        @click="takeOffline"
-      >
-        {{ offlining ? '下架中…' : '下架已发布版本' }}
-      </button>
-      <button class="btn-primary" style="margin-top: 14px" @click="openNewDraft">
-        打开草稿开始编辑
-      </button>
+      <div class="btn-stack">
+        <button
+          v-if="canRequestPlatformPromotion"
+          class="btn-primary"
+          :disabled="promotingToPlatform || platformPromotionSubmitted"
+          @click="openPlatformPromotion"
+        >
+          {{ platformPromotionSubmitted ? '已提交平台审核' : '推送到全平台' }}
+        </button>
+        <button
+          v-if="canOffline && publishedVersion"
+          class="btn-danger"
+          :disabled="offlining"
+          @click="takeOffline"
+        >
+          {{ offlining ? '下架中…' : '下架已发布版本' }}
+        </button>
+        <button class="btn-primary" @click="openNewDraft">
+          打开草稿开始编辑
+        </button>
+      </div>
       <section v-if="!metadataReadOnly && skill" class="metadata-only-editor">
         <p class="panel-label">Skill 元数据</p>
         <label class="meta-field">
@@ -606,7 +606,6 @@ onBeforeUnmount(() => {
             <div>
               <button
                 class="btn-secondary"
-                style="margin-top: 10px"
                 @click="selectFile(selectedPath, true)"
               >
                 重试
@@ -944,6 +943,7 @@ onBeforeUnmount(() => {
   color: var(--success);
   font-size: 11px;
 }
+/* 本页按钮密度更高：收窄高度与内边距 */
 .btn-primary,
 .btn-secondary,
 .btn-danger {
@@ -960,7 +960,12 @@ onBeforeUnmount(() => {
   color: var(--text-on-accent);
   background: var(--accent-500);
 }
-.btn-primary:disabled {
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-400);
+}
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-danger:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -969,22 +974,16 @@ onBeforeUnmount(() => {
   color: var(--text-2);
   background: var(--surface-1);
 }
-.btn-secondary:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-2);
 }
 .btn-danger {
   border: 1px solid rgb(248 113 113 / 25%);
   color: var(--error);
   background: var(--surface-1);
 }
-.btn-danger:hover {
+.btn-danger:hover:not(:disabled) {
   background: var(--error-soft);
-}
-.inline-error {
-  margin: 0;
-  color: var(--error);
-  font-size: 12px;
 }
 .warnings {
   margin: 10px 0;
@@ -998,56 +997,6 @@ onBeforeUnmount(() => {
 .warnings ul {
   margin: 6px 0 0;
   padding-left: 18px;
-}
-.modal-mask {
-  position: fixed;
-  z-index: 40;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: var(--mask-bg);
-}
-.modal {
-  width: min(92vw, 460px);
-  padding: 24px;
-  border: 1px solid var(--border-1);
-  border-radius: 12px;
-  background: var(--surface-overlay);
-  backdrop-filter: blur(12px);
-  box-shadow: var(--shadow-lg);
-}
-.modal h2 {
-  margin: 0;
-  color: var(--text-1);
-  font-size: 17px;
-}
-.modal-desc {
-  color: var(--text-2);
-  font-size: 13px;
-  line-height: 1.6;
-}
-.modal-field {
-  display: grid;
-  gap: 7px;
-  margin-top: 12px;
-  color: var(--text-1);
-  font-size: 12px;
-  font-weight: 650;
-}
-.modal-field textarea {
-  padding: 8px 10px;
-  border: 1px solid var(--border-2);
-  border-radius: 7px;
-  color: var(--text-1);
-  background: var(--surface-2);
-  font: inherit;
-  font-size: 13px;
-}
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 18px;
 }
 /* 三栏布局（文件树 220 / 编辑器 / 元数据 300）窄屏降级，避免相互挤压 */
 @media (max-width: 1180px) {

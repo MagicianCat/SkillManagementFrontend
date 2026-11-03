@@ -155,7 +155,7 @@ onMounted(load)
           <article v-for="file in groupedFiles.confirmed" :key="file.path" class="file-row">
             <div class="file-title"><strong>{{ file.path }}</strong><span>{{ kindLabel(file.deliverAs) }} · {{ sizeLabel(file.sizeBytes) }}</span></div>
             <p>{{ file.reason || '与当前需求和阶段强关联' }}</p>
-            <a v-if="file.gitlabUrl" :href="file.gitlabUrl" target="_blank" rel="noopener noreferrer">在 GitLab 查看 ↗</a>
+            <a v-if="file.gitlabUrl" :href="file.gitlabUrl" target="_blank" rel="noopener noreferrer">在 GitLab 查看 →</a>
           </article>
         </section>
         <section v-if="groupedFiles.likely.length || groupedFiles.uncertain.length" class="file-group review-group">
@@ -164,7 +164,7 @@ onMounted(load)
             <div class="file-title"><strong>{{ file.path }}</strong><span>{{ file.association === 'LIKELY' ? '推断关联' : file.association === 'OVERSIZE' ? '超出大小限制' : '归属不明' }} · {{ sizeLabel(file.sizeBytes) }}</span></div>
             <p>{{ file.reason || '需要负责人确认是否属于本需求' }}</p>
             <div class="file-actions">
-              <a v-if="file.gitlabUrl" :href="file.gitlabUrl" target="_blank" rel="noopener noreferrer">GitLab ↗</a>
+              <a v-if="file.gitlabUrl" :href="file.gitlabUrl" target="_blank" rel="noopener noreferrer">GitLab →</a>
               <button v-if="canManage && !file.selected && file.association !== 'OVERSIZE'" :disabled="busyPath === file.path" @click="decideFile(file, 'INCLUDE')">{{ busyPath === file.path ? '处理中…' : '确认纳入' }}</button>
               <button v-if="canManage && file.selected" :disabled="busyPath === file.path" @click="decideFile(file, 'EXCLUDE')">确认排除</button>
               <button v-else-if="canManage && file.association !== 'OVERSIZE'" class="quiet" :disabled="busyPath === file.path" @click="decideFile(file, 'EXCLUDE')">排除</button>
@@ -173,7 +173,7 @@ onMounted(load)
         </section>
         <section v-if="groupedFiles.external.length" class="file-group">
           <h3>外部仓引用 <span>{{ groupedFiles.external.length }}</span></h3>
-          <article v-for="file in groupedFiles.external" :key="file.path" class="file-row"><div class="file-title"><strong>{{ file.path }}</strong><span>仅链接</span></div><p>{{ file.reason || '外部仓库内容不会通过 ASDM 仓库凭证复制' }}</p><a v-if="file.gitlabUrl" :href="file.gitlabUrl" target="_blank" rel="noopener noreferrer">打开外部链接 ↗</a></article>
+          <article v-for="file in groupedFiles.external" :key="file.path" class="file-row"><div class="file-title"><strong>{{ file.path }}</strong><span>仅链接</span></div><p>{{ file.reason || '外部仓库内容不会通过 ASDM 仓库凭证复制' }}</p><a v-if="file.gitlabUrl" :href="file.gitlabUrl" target="_blank" rel="noopener noreferrer">打开外部链接 →</a></article>
         </section>
         <section v-if="groupedFiles.excluded.length" class="file-group excluded-group">
           <details><summary>排除文件（{{ groupedFiles.excluded.length }}）</summary><article v-for="file in groupedFiles.excluded" :key="file.path" class="file-row"><strong>{{ file.path }}</strong><p>{{ file.reason || '不符合自动发布范围' }}</p></article></details>
@@ -182,7 +182,7 @@ onMounted(load)
       <div v-if="packageInfo" class="package-progress">
         <header><div><h3>飞书同步进度</h3><span class="state-pill" :data-status="packageInfo.status">{{ asdmStatusLabel(packageInfo.status) }}</span></div><button v-if="canManage && filesForPackage().some(file => isRetryableFile(file.publishStatus))" class="secondary" :disabled="retrying" @click="retryPackage">{{ retrying ? '重试中…' : '重试失败项' }}</button></header>
         <div class="progress-counts"><span>文档 {{ progressLabel(packageInfo.docxPublished, packageInfo.docxTotal) }}</span><span>附件 {{ progressLabel(packageInfo.attachmentPublished, packageInfo.attachmentTotal) }}</span></div>
-        <a v-if="packageInfo.indexUrl" :href="packageInfo.indexUrl" target="_blank" rel="noopener noreferrer">打开阶段包索引 ↗</a>
+        <a v-if="packageInfo.indexUrl" :href="packageInfo.indexUrl" target="_blank" rel="noopener noreferrer">打开阶段包索引 →</a>
         <article v-for="file in filesForPackage()" :key="file.path" class="package-file"><strong>{{ file.path }}</strong><span>{{ file.publishStatus }}</span><a v-if="file.feishuUrl" :href="file.feishuUrl" target="_blank" rel="noopener noreferrer">查看飞书文件</a><small v-if="file.lastErrorCode" class="error-text">{{ file.lastErrorCode }}</small></article>
       </div>
       <p v-if="notice" class="callout success">{{ notice }}</p>

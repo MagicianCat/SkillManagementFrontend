@@ -73,7 +73,7 @@ const navEntries = computed<NavEntry[]>(() => [
   {
     label: 'Agent 运行与审计',
     routeName: 'agent-mcp-audits',
-    icon: 'review',
+    icon: 'shield',
     visible: hasPermission(authStore.user?.permissions, 'admin:audit'),
   },
   {
@@ -93,7 +93,7 @@ const navEntries = computed<NavEntry[]>(() => [
   {
     label: '外部资源接入',
     routeName: 'external-resources',
-    icon: 'box',
+    icon: 'link',
     visible: hasPermission(authStore.user?.permissions, 'admin:identity'),
   },
   {
@@ -270,7 +270,17 @@ async function signOut() {
           :to="{ name: entry.routeName }"
           ><span class="workspace-nav__icon" aria-hidden="true"
             ><svg
-              v-if="entry.icon === 'book'"
+              v-if="entry.icon === 'folder-open'"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><path
+                d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg
+            ><svg
+              v-else-if="entry.icon === 'book'"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -361,7 +371,25 @@ async function signOut() {
                 cx="10"
                 cy="7"
                 r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path
-                d="M16 3.13a4 4 0 0 1 0 7.75" /></svg></span
+                d="M16 3.13a4 4 0 0 1 0 7.75" /></svg
+            ><svg
+              v-else-if="entry.icon === 'shield'"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg
+            ><svg
+              v-else-if="entry.icon === 'link'"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg></span
           >{{ entry.label
           }}<em
             v-if="entry.routeName === 'notifications' && notificationStore.unreadCount > 0"
@@ -377,7 +405,21 @@ async function signOut() {
           <strong>{{ authStore.user?.displayName || '当前用户' }}</strong>
         </div>
         <button aria-label="退出登录" title="退出登录" @click="signOut">
-          ↪
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
         </button>
       </div>
     </aside>
@@ -385,8 +427,7 @@ async function signOut() {
       <header class="workspace-header">
         <div class="header-actions">
           <ThemeSwitcher />
-          <button aria-label="帮助">?</button>
-          <div class="notification-wrap" ref="notificationWrap">
+          <div ref="notificationWrap" class="notification-wrap">
             <button
               aria-label="通知"
               class="notification-bell"

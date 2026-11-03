@@ -342,7 +342,7 @@ async function removeGitRepository(id: number) { if (workflowStarted.value || re
         <TButton variant="outline" :loading="repoResolving" :disabled="!repoUrl.trim()" @click="resolveRepo">识别仓库</TButton>
       </div>
       <div v-if="repoResolution" class="repo-config">
-        <p class="repo-meta">默认分支: <b class="mono accent">{{ repoResolution.defaultBranch || '远端未声明' }}</b>　当前 HEAD: <b class="mono">{{ repoHeadShort || '—' }}</b></p>
+        <p class="repo-meta">默认分支: <b class="mono accent">{{ repoResolution.defaultBranch || '远端未声明' }}</b><span class="meta-dot">当前 HEAD: <b class="mono">{{ repoHeadShort || '—' }}</b></span></p>
         <div class="repo-config-row">
           <TSelect v-model="repoBranch" :options="repoBranchOptions" placeholder="选择跟踪分支" filterable class="repo-branch-select" />
           <TCheckboxGroup v-model="repoStages" class="repo-stage-checks"><TCheckbox v-for="opt in REPO_STAGE_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</TCheckbox></TCheckboxGroup>
@@ -411,13 +411,13 @@ h2,h3{margin:4px 0}
 .char-count{justify-self:end;color:var(--text-3);font-size:11px;font-weight:400}
 .locked-protocol{border:1px solid rgb(148 163 184 / 35%);border-radius:var(--radius-md);padding:10px 12px;background:var(--bg-2)}
 .locked-protocol summary{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;color:var(--text-2);font-weight:650;list-style:none}
-.locked-protocol summary::before{content:"▸";color:var(--text-3);transition:transform var(--duration-fast)}
+.locked-protocol summary::before{content:"▶";color:var(--text-3);transition:transform var(--duration-fast)}
 .locked-protocol[open] summary::before{transform:rotate(90deg)}
 .locked-protocol pre{white-space:pre-wrap;max-height:260px;overflow:auto;margin:12px 0;padding:12px;border-radius:var(--radius-sm);background:var(--surface-2);color:var(--text-2);font:12px/1.6 var(--font-mono)}
 .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 .graph-policy-details{padding:12px 14px;border:1px solid var(--border-1);border-radius:var(--radius-md);background:var(--surface-2)}
 .graph-policy-details>summary{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:650;list-style:none}
-.graph-policy-details>summary::before{content:"▸";color:var(--text-3)}
+.graph-policy-details>summary::before{content:"▶";color:var(--text-3)}
 .graph-policy-details[open]>summary::before{transform:rotate(90deg)}
 .graph-policy-details>summary .t-tag{margin-left:auto}
 .graph-policy-body{display:grid;gap:13px;padding-top:14px}
@@ -425,7 +425,7 @@ h2,h3{margin:4px 0}
 .graph-policy-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .graph-policy-impact{margin:0;padding:9px 11px;border-radius:var(--radius-sm);background:var(--accent-softer);color:var(--text-2);font-size:12px}
 .skills-details>summary{display:flex;align-items:baseline;gap:10px;cursor:pointer;font-weight:650;color:var(--text-1);list-style:none}
-.skills-details>summary::before{content:"▸";color:var(--text-3)}
+.skills-details>summary::before{content:"▶";color:var(--text-3)}
 .skills-details[open]>summary::before{transform:rotate(90deg)}
 .hint-inline{color:var(--text-3);font-size:12px;font-weight:400}
 .skill-picker{display:grid;gap:12px;padding-top:10px}
@@ -481,6 +481,7 @@ h2,h3{margin:4px 0}
 .repo-config{display:grid;gap:10px;padding:14px 16px;border:1px dashed var(--border-2);border-radius:var(--radius-md);background:var(--surface-1)}
 .repo-meta{margin:0;color:var(--text-2);font-size:13px}
 .repo-meta .accent{color:var(--accent-300)}
+.repo-meta .meta-dot{display:inline-flex;align-items:center;gap:6px;margin-left:12px;padding-left:12px;border-left:1px solid var(--border-2)}
 .repo-config-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .repo-branch-select{min-width:240px}
 .repo-stage-checks{display:inline-flex;gap:16px}

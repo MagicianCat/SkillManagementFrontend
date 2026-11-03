@@ -74,8 +74,19 @@ function maximize() {
     <header>
       <strong><span class="agent-floating__mark" aria-hidden="true"></span>研途助手</strong>
       <div>
-        <button aria-label="打开独立页面" @click="maximize">□</button>
-        <button aria-label="最小化" @click="minimize">—</button>
+        <button aria-label="打开独立页面" @click="maximize">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M15 3h6v6" />
+            <path d="M9 21H3v-6" />
+            <path d="M21 3l-7 7" />
+            <path d="M3 21l7-7" />
+          </svg>
+        </button>
+        <button aria-label="最小化" @click="minimize">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14" />
+          </svg>
+        </button>
       </div>
     </header>
     <AgentChat compact />

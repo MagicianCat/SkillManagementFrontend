@@ -22,7 +22,7 @@ onMounted(load)
 
 <template>
   <main class="page">
-    <header class="heading"><div><span class="eyebrow">COLLABORATION / GROUPS</span><h1>项目组</h1><p>配置协作成员与研发角色模板，再按项目组创建多条需求。</p></div><button class="primary" :disabled="!teams.length" @click="openCreate">＋ 新建项目组</button></header>
+    <header class="heading"><div><span class="eyebrow">COLLABORATION / GROUPS</span><h1>项目组</h1><p>配置协作成员与研发角色模板，再按项目组创建多条需求。</p></div><button class="primary" :disabled="!teams.length" @click="openCreate">+ 新建项目组</button></header>
     <div v-if="error" class="error">{{error}} <button @click="error=''">关闭</button></div>
     <section class="panel"><header class="panel-head"><div><h2>我可访问的项目组</h2><span>{{groups.length}} 个</span></div><button class="quiet" @click="load">刷新</button></header>
       <div v-if="loading" class="empty">正在加载…</div>

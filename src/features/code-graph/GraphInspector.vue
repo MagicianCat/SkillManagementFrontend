@@ -31,7 +31,7 @@ const emit = defineEmits<{ drill: []; impact: []; overview: [] }>()
 <template>
   <aside class="inspector panel" aria-label="图谱详情">
     <template v-if="activeRelation">
-      <header>RELATION DETAIL <span>↗</span></header>
+      <header>RELATION DETAIL <span>→</span></header>
       <span class="badge">{{ activeRelationType }} · {{ impactRelation ? '图谱真实边' : relation?.evidenceStatus === 'VERIFIED' ? '已确认' : '待确认' }}</span>
       <h2>{{ activeRelation.source }} → {{ activeRelation.target }}</h2>
       <p class="subtitle">影响路径按传播方向展示；关系事实仍保留 GitNexus 原始边方向。</p>
@@ -44,7 +44,7 @@ const emit = defineEmits<{ drill: []; impact: []; overview: [] }>()
     </template>
 
     <template v-else-if="symbol">
-      <header>SYMBOL DETAIL <span>↗</span></header>
+      <header>SYMBOL DETAIL <span>→</span></header>
       <span class="badge">{{ symbol.kind }} · {{ level === 'impact' ? '影响分析' : '代码节点' }}</span>
       <h2>{{ symbol.label }}</h2>
       <p class="subtitle">{{ symbol.repository || repository?.name || '当前仓库' }}</p>
@@ -58,7 +58,7 @@ const emit = defineEmits<{ drill: []; impact: []; overview: [] }>()
     </template>
 
     <template v-else-if="repository">
-      <header>REPOSITORY DETAIL <span>↗</span></header>
+      <header>REPOSITORY DETAIL <span>→</span></header>
       <span class="badge repository">{{ repository.role }} · 已索引</span>
       <h2>{{ repository.name }}</h2>
       <p class="subtitle">当前 Workflow Run 冻结快照中的代码仓库。</p>

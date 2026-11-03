@@ -314,41 +314,6 @@ onMounted(fetchNotifications)
 </template>
 
 <style scoped>
-.page-actions {
-  display: flex;
-  gap: 10px;
-}
-.btn-primary,
-.btn-secondary {
-  height: 38px;
-  padding: 0 16px;
-  border-radius: 7px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 650;
-  cursor: pointer;
-}
-.btn-primary {
-  border: 0;
-  color: var(--text-on-accent);
-  background: var(--accent-500);
-}
-.btn-primary:hover:not(:disabled) {
-  background: var(--accent-400);
-}
-.btn-primary:disabled,
-.btn-secondary:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-.btn-secondary {
-  border: 1px solid var(--border-2);
-  color: var(--text-2);
-  background: var(--surface-1);
-}
-.btn-secondary:hover:not(:disabled) {
-  background: var(--surface-2);
-}
 .status-tabs {
   display: flex;
   gap: 4px;

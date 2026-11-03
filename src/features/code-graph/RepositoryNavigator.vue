@@ -23,7 +23,19 @@ const emit = defineEmits<{
   <aside class="navigator panel" aria-label="仓库导航">
     <header><b>仓库导航</b><small>{{ repositories.length }} 个</small></header>
     <form class="search" @submit.prevent="emit('search')">
-      <span aria-hidden="true">⌕</span>
+      <span aria-hidden="true"><svg
+        viewBox="0 0 24 24"
+        width="14"
+        height="14"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="11" cy="11" r="7" />
+        <path d="m21 21-4.3-4.3" />
+      </svg></span>
       <input :value="searchQuery" placeholder="搜索仓库、文件、符号" aria-label="搜索仓库、文件、符号" @input="emit('updateSearch', ($event.target as HTMLInputElement).value)" />
     </form>
     <p class="section-label">REPOSITORIES</p>

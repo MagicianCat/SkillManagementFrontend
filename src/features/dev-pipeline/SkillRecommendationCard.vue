@@ -208,7 +208,7 @@ async function startVideo() {
 
 .recommendation-card__prompt { margin-top: 12px; }
 .recommendation-card__prompt summary { display: inline-flex; align-items: center; gap: 5px; color: var(--accent-400); font-size: 11px; font-weight: 750; cursor: pointer; }
-.recommendation-card__prompt summary::before { content: '＋'; font-size: 13px; }
+.recommendation-card__prompt summary::before { content: '+'; font-size: 13px; }
 .recommendation-card__prompt[open] summary::before { content: '−'; }
 .recommendation-card__prompt summary:focus-visible { outline: 2px solid var(--accent-400); outline-offset: 3px; }
 .recommendation-card__prompt pre { overflow: auto; max-height: 260px; margin: 10px 0 0; padding: 11px; border-radius: 9px; color: #dfe8f4; background: #243149; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }

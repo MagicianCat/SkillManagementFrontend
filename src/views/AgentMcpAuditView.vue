@@ -108,12 +108,14 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
               <section class="panel-block">
                 <header class="block-head"><div class="block-title"><i class="block-bar" />运行负载<span class="block-sub">Active Queues &amp; Tasks</span></div><t-tag size="small" variant="light" :theme="dashboard.workload.running + dashboard.workload.buildRunning + dashboard.workload.queryRunning > 0 ? 'warning' : 'success'">{{ dashboard.workload.running + dashboard.workload.buildRunning + dashboard.workload.queryRunning > 0 ? 'BUSY' : 'IDLE' }} / {{ dashboard.workload.running + dashboard.workload.buildRunning + dashboard.workload.queryRunning > 0 ? '负载中' : '正常轻载' }}</t-tag></header>
                 <div class="metric-grid four">
-                  <div class="metric-card"><span class="metric-label">Agent 负载</span><b class="metric-num">{{ dashboard.workload.running }}</b><small>运行中 · 近15分 {{ dashboard.workload.recentTotal }}</small></div>
+                  <div class="metric-card"><span class="metric-label">Agent 活跃 Run</span><b class="metric-num">{{ dashboard.workload.runningNow }}</b><small>待执行 {{ dashboard.workload.pending }} · 近15分 {{ dashboard.workload.recentTotal }}</small></div>
+                  <div class="metric-card"><span class="metric-label">DSH 活跃 Run</span><b class="metric-num">{{ dashboard.workload.dshActiveRuns }}<i>/ {{ dashboard.workload.dshMaxConcurrentRuns || '—' }}</i></b><small>累计并发拒绝 {{ dashboard.workload.dshBusyRejections }}</small></div>
+                  <div class="metric-card"><span class="metric-label">Agent 执行队列</span><b class="metric-num">{{ dashboard.workload.agentExecutorQueued }}<i>/ {{ dashboard.workload.agentExecutorQueueCapacity }}</i></b><small>工作线程 {{ dashboard.workload.agentExecutorActive }} / {{ capacityNum('agentMaxConcurrentRuns') }}</small></div>
                   <div class="metric-card"><span class="metric-label">构建负载</span><b class="metric-num">{{ dashboard.workload.buildRunning }}</b><small>运行中 · 排队 {{ dashboard.workload.buildQueued }}</small></div>
                   <div class="metric-card"><span class="metric-label">查询负载</span><b class="metric-num">{{ dashboard.workload.queryRunning }}</b><small>当前运行查询</small></div>
                   <div class="metric-card"><span class="metric-label">语义索引</span><b class="metric-num">{{ dashboard.workload.semanticIndexing }}</b><small>INDEXING Binding</small></div>
                 </div>
-                <footer class="block-foot"><span>调度器状态：并发通道处于就绪待命状态</span><span class="ok-dot">无积压任务</span></footer>
+                <footer class="block-foot"><span>后端执行槽 {{ dashboard.workload.agentExecutorActive }}/{{ capacityNum('agentMaxConcurrentRuns') }} · DSH {{ dashboard.workload.dshActiveRuns }}/{{ dashboard.workload.dshMaxConcurrentRuns || '—' }}</span><span :class="dashboard.workload.agentExecutorQueued ? '' : 'ok-dot'">{{ dashboard.workload.agentExecutorQueued ? `排队 ${dashboard.workload.agentExecutorQueued} 项` : '无积压任务' }}</span></footer>
               </section>
 
               <!-- 资源与容量 -->

@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { acceptWorkflowStage, answerWorkflowHumanQuestion, designAcceptWorkflowRun, getCurrentWorkflowRun, sendIntervention } from '../api/workflow.api'
-import { prepareWorkflowRun, getCodeGraphToolUsage, getCodeGraphEvidence, type CodeGraphToolUsage } from '../api/code-graph.api'
+import { startWorkflowRun, acceptWorkflowStage, answerWorkflowHumanQuestion, designAcceptWorkflowRun, getCurrentWorkflowRun, sendIntervention } from '../api/workflow.api'
 import WorkbenchHeader from '../features/workbench/WorkbenchHeader.vue'
 import WorkflowDagPanel from '../features/workbench/WorkflowDagPanel.vue'
 import CurrentStagePanel from '../features/workbench/CurrentStagePanel.vue'
@@ -36,10 +35,6 @@ const answeringQuestion = ref(false)
 const acceptanceRef = ref<InstanceType<typeof AcceptancePanel> | null>(null)
 const artifactRef = ref<InstanceType<typeof ArtifactPanel> | null>(null)
 const timelineRef = ref<InstanceType<typeof ExecutionTimeline> | null>(null)
-const graphUsage = ref<CodeGraphToolUsage[]>([])
-const graphEvidence = ref<Record<string, any>>({})
-async function loadGraphMetrics(id = String(workspace.workflowRun?.id || runId.value)) { if (!id) return; const [usage, evidence] = await Promise.allSettled([getCodeGraphToolUsage(id), getCodeGraphEvidence(id)]); if (usage.status === 'fulfilled') graphUsage.value = usage.value; if (evidence.status === 'fulfilled') graphEvidence.value = evidence.value }
-
 const initialRequest = ref('')
 const starting = ref(false)
 const resolvingRun = ref(false)
@@ -49,9 +44,9 @@ async function start() {
   if (!request || !projectKey.value || starting.value) return
   starting.value = true
   try {
-    const run = await prepareWorkflowRun(projectKey.value, { initialRequest: request })
+    const run = await startWorkflowRun(projectKey.value, { initialRequest: request })
     initialRequest.value = ''
-    await router.push({ name: 'project-code-graph', params: { projectKey: projectKey.value }, query: { runId: String(run.runId) } })
+    await router.push({ name: 'project-workspace', params: { projectId: projectKey.value, runId: String(run.id) } })
   } finally { starting.value = false }
 }
 
@@ -103,28 +98,22 @@ onMounted(async () => {
     try {
       const run = await getCurrentWorkflowRun(projectKey.value)
       id = String(run.id)
-      if (['PREPARING_CODE_GRAPH', 'CODE_GRAPH_PREPARATION_FAILED', 'READY_TO_START'].includes(String(run.status))) {
-        await router.replace({ name: 'project-code-graph', params: { projectKey: projectKey.value }, query: { runId: id } })
-        return
-      }
       await router.replace({ name: 'project-workspace', params: { projectId: projectKey.value, runId: id } })
     } catch { resolvingRun.value = false; return }
     resolvingRun.value = false
   }
   await workspace.load(id)
-  await loadGraphMetrics(id)
   selectStageFromQuery()
   if (workspace.workflowRun) { const activeRunId = String(workspace.workflowRun.id); runtime.connect(activeRunId); workspace.startAutoRefresh(activeRunId) }
 })
 watch(runId, async (next, previous) => {
   if (!next || next === previous || String(workspace.workflowRun?.id ?? '') === next) return
   await workspace.load(next)
-  await loadGraphMetrics(next)
   selectStageFromQuery()
   runtime.connect(next)
   workspace.startAutoRefresh(next)
 })
-watch(() => runtime.events.length, () => { const event = runtime.events.at(-1); if (event) { workspace.applyEvent(event); if (runtime.events.length % 3 === 0) void loadGraphMetrics() } })
+watch(() => runtime.events.length, () => { const event = runtime.events.at(-1); if (event) { workspace.applyEvent(event);  } })
 onBeforeUnmount(() => { workspace.stopAutoRefresh(); runtime.close() })
 
 const lastEventAt = computed(() => runtime.events.at(-1)?.createdAt ?? '')
@@ -134,8 +123,6 @@ const artifactSummary = computed(() => artifactRef.value?.summary ?? '')
 const artifactBadge = computed(() => artifactRef.value?.badge ?? '')
 const timelineSummary = computed(() => timelineRef.value?.summary ?? '')
 const timelineLive = computed(() => timelineRef.value?.live ?? runtime.events.length > 0)
-const graphUsageSummary = computed(() => `${graphUsage.value.reduce((n,x)=>n+Number(x.toolCallCount||0),0)} 次调用 · ${graphUsage.value.reduce((n,x)=>n+Number(x.cacheHitCount||0),0)} 次缓存 · ${Number(graphEvidence.value.factCount ?? graphEvidence.value.facts?.length ?? 0)} 条证据`)
-
 /** 干预目标自动取当前阶段与其当前 Agent，无需手填。 */
 const interventionTarget = computed<InterventionTarget>(() => {
   const stage = workspace.currentStage
@@ -273,14 +260,7 @@ async function externalStageCompleted(){ await workspace.load(String(workspace.w
         <ExecutionTimeline ref="timelineRef" :events="runtime.events" />
       </CollapsiblePanel>
 
-      <CollapsiblePanel v-if="!gitWatchStage" title="代码图谱查询使用情况" :badge="graphUsage.length ? '受控' : '未调用'" :badge-on="graphUsage.length > 0" :summary="graphUsageSummary">
-        <div class="graph-usage-scroll"><div class="graph-usage">
-          <div class="graph-usage__head"><span>阶段 / Agent</span><span>主动调用</span><span>预加载</span><span>引擎查询</span><span>缓存命中</span><span>累计耗时</span><span>预算拒绝</span></div>
-          <div v-for="item in graphUsage" :key="`${item.stageRunId}/${item.nodeKey}`" class="graph-usage__row"><b>{{ item.stageKey }} / {{ item.nodeKey }}</b><span>{{ item.toolCallCount }}</span><span>{{ item.preloadQueryCount }}</span><span>{{ item.engineQueryCount }}</span><span>{{ item.cacheHitCount }}</span><span>{{ item.durationMs || 0 }} ms</span><span :class="{ warn: item.budgetRejectedCount > 0 }">{{ item.budgetRejectedCount || 0 }}</span></div>
-          <p v-if="!graphUsage.length" class="muted graph-usage__empty">当前尚未发生主动代码图谱查询；角色可以直接使用启动证据完成任务。</p>
-          <footer>Evidence revision {{ graphEvidence.revision || 0 }} · {{ graphEvidence.facts?.length || 0 }} 条可复用事实</footer>
-        </div></div>
-      </CollapsiblePanel>
+
 
       <AcceptancePanel v-if="waitingAcceptance" ref="acceptanceRef" :accepting="accepting" :stage-name="selectedStage?.displayName || selectedStage?.name" :stage-key="selectedStage?.key" @decide="acceptance" />
 

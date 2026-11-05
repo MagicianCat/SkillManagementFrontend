@@ -1,42 +1,26 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { listAgentLibrary, listTeamPresets, getProjectAgentNode, saveProjectAgentNodeDraft, getProjectAgentContexts, saveProjectAgentContexts, appendProjectAgentContexts, reviseProjectAgentConfiguration, resolveProjectFeishuWiki, getProjectAgentNodeGraphPolicy, saveProjectAgentNodeGraphPolicy, resetProjectAgentNodeGraphPolicy } from '../api/agent-library.api'
+import { listAgentLibrary, listTeamPresets, getProjectAgentNode, saveProjectAgentNodeDraft, getProjectAgentContexts, saveProjectAgentContexts, appendProjectAgentContexts, reviseProjectAgentConfiguration, resolveProjectFeishuWiki } from '../api/agent-library.api'
 import { getCurrentWorkflowRun } from '../api/workflow.api'
-import { prepareWorkflowRun } from '../api/code-graph.api'
-// Legacy contract marker: actual launch moved to prepareWorkflowRun; old clients used startWorkflowRun(projectKey, ...).
+import { startWorkflowRun } from '../api/workflow.api'
 import { getWikiDocuments } from '../api/wiki.api'
 import { searchDocumentAgentFeishu } from '../api/document-agent.api'
 import { getSkills, getSkillCategories } from '../api/skills.api'
 import { MessagePlugin } from 'tdesign-vue-next'
-import { Button as TButton, Tag as TTag, Select as TSelect, Input as TInput, InputNumber as TInputNumber, Textarea as TTextarea, RadioGroup as TRadioGroup, RadioButton as TRadioButton, Collapse as TCollapse, CollapsePanel as TCollapsePanel, Pagination as TPagination, CheckboxGroup as TCheckboxGroup, Checkbox as TCheckbox, DialogPlugin } from 'tdesign-vue-next'
-import { LockOnIcon, InfoCircleFilledIcon, EditIcon, ChevronRightIcon, AddIcon, CloudUploadIcon, SearchIcon, CodeIcon, FileIcon, SecuredIcon, GitBranchIcon } from 'tdesign-icons-vue-next'
+import { Button as TButton, Tag as TTag, Select as TSelect, Input as TInput, InputNumber as TInputNumber, Textarea as TTextarea, RadioGroup as TRadioGroup, RadioButton as TRadioButton, Collapse as TCollapse, CollapsePanel as TCollapsePanel, Pagination as TPagination, DialogPlugin } from 'tdesign-vue-next'
+import { LockOnIcon, InfoCircleFilledIcon, EditIcon, ChevronRightIcon, AddIcon, CloudUploadIcon, SearchIcon, CodeIcon, FileIcon, SecuredIcon } from 'tdesign-icons-vue-next'
 import type { SkillCategory, SkillView } from '../types/skill'
-import type { AgentLibraryProfile, AgentTeamBinding, AgentTeamPreset, ProjectAgentContext, ProjectAgentContexts, ProjectAgentNodeDraft, CodeGraphPolicyView, CodeGraphTool } from '../types/agent-library'
+import type { AgentLibraryProfile, AgentTeamBinding, AgentTeamPreset, ProjectAgentContext, ProjectAgentContexts, ProjectAgentNodeDraft } from '../types/agent-library'
 import { useProjectSetupStore } from '../stores/projectSetup'
 import { getFeishuPublishTarget, updateFeishuPublishTarget, type FeishuPublishTarget } from '../api/projects.api'
-import { appendProjectGitRepository, getProjectGitRepositories, resolveGitRepository, saveProjectGitRepositories, type GitRepositoryResolution, type ProjectGitRepository, type ProjectGitRepositoryInput } from '../api/git.api'
 
 const route = useRoute(); const router = useRouter(); const setup = useProjectSetupStore(); const projectKey = String(route.params.projectKey)
 const profiles = ref<AgentLibraryProfile[]>([]); const presets = ref<AgentTeamPreset[]>([]); const source = ref<'SYSTEM_PRESET'|'PROJECT_COPY'|'CUSTOM'>('SYSTEM_PRESET'); const selectedPreset = ref<string|number>(''); const sourceProjectKey = ref(''); const selectedDraft = ref<ProjectAgentNodeDraft|null>(null); const contexts = ref<ProjectAgentContexts>({ platformWiki: [], feishu: [] }); const initialRequest = ref(''); const wikiQuery = ref(''); const feishuQuery = ref(''); const contextTab = ref<'PLATFORM_WIKI'|'FEISHU'>('PLATFORM_WIKI'); const message = ref(''); const busy = ref(false); const saving = ref(false); const validating = ref(false); const resolvingEntry = ref(true); const feishuResolving = ref(false); const skillQuery = ref(''); const skillResults = ref<SkillView[]>([]); const skillSearching = ref(false)
 const workflowStarted = ref(false)
 const currentRunId = ref<string|number|null>(null)
 const currentRunStatus = ref<string>('')
-const graphPolicy = ref<CodeGraphPolicyView | null>(null)
-const graphPolicyMode = ref<'DEFAULT'|'CUSTOM'>('DEFAULT')
-const graphToolOptions: Array<{ value: CodeGraphTool; label: string }> = [
-  { value: 'overview', label: 'Overview' }, { value: 'query', label: 'Query' }, { value: 'context', label: 'Context' },
-  { value: 'impact', label: 'Impact' }, { value: 'trace', label: 'Trace' }, { value: 'route-map', label: 'Route Map' },
-]
 const persistedContextKeys = ref(new Set<string>())
-/* ===== 05 代码仓库：识别 → 选分支与绑定阶段 → 追加/保存 ===== */
-const repositories = ref<ProjectGitRepository[]>([])
-const repoUrl = ref(''); const repoResolving = ref(false); const repoResolution = ref<GitRepositoryResolution | null>(null); const repoBranch = ref(''); const repoStages = ref<string[]>(['BACKEND_CODING']); const repoSaving = ref(false); const repoError = ref('')
-const REPO_STAGE_OPTIONS = [{ label: '后端编码', value: 'BACKEND_CODING' }, { label: '前端编码', value: 'FRONTEND_CODING' }]
-function repoStageLabel(key: string) { return REPO_STAGE_OPTIONS.find(o => o.value === key)?.label ?? key }
-async function resolveRepo() { const url = repoUrl.value.trim(); if (!url || repoResolving.value) return; repoResolving.value = true; repoError.value = ''; try { repoResolution.value = await resolveGitRepository(projectKey, url); repoBranch.value = repoResolution.value.defaultBranch || '' } catch (e) { repoResolution.value = null; repoError.value = apiErrorMessage(e, '仓库识别失败，请检查 URL 是否可访问') } finally { repoResolving.value = false } }
-const repoHeadShort = computed(() => repoResolution.value?.headCommit?.slice(0, 8) || '')
-const repoBranchOptions = computed(() => (repoResolution.value?.branches ?? []).map(name => ({ label: name, value: name })))
 /** 阶段折叠面板 value：展开的 stageKey 数组，默认只展开第一个（需求）阶段。（#2） */
 const activeStages = ref<string[]>([])
 /** Skill 二级细分类（skill.category.parentId != null 为二级），用于按当前阶段预筛。 */
@@ -54,7 +38,7 @@ const groupedNodes = computed(() => {
   }
   return [...groups.values()]
 })
-async function loadNode() { if (!selectedNode.value) return; try { const [draft, policy] = await Promise.all([getProjectAgentNode(projectKey, selectedNode.value.stageKey, selectedNode.value.nodeKey), getProjectAgentNodeGraphPolicy(projectKey, selectedNode.value.stageKey, selectedNode.value.nodeKey)]); selectedDraft.value = draft; graphPolicy.value = policy; graphPolicyMode.value = policy.policySource === 'PROJECT_NODE' ? 'CUSTOM' : 'DEFAULT' } catch (e) { message.value = e instanceof Error ? e.message : 'Agent 草稿加载失败' } }
+async function loadNode() { if (!selectedNode.value) return; try { selectedDraft.value = await getProjectAgentNode(projectKey, selectedNode.value.stageKey, selectedNode.value.nodeKey) } catch (e) { message.value = e instanceof Error ? e.message : 'Agent 草稿加载失败' } }
 function removeSkill(skillKey: string) { if (!selectedDraft.value) return; selectedDraft.value.skills = (selectedDraft.value.skills ?? []).filter(skill => skill.skillKey !== skillKey).map((skill, index) => ({ ...skill, versionPolicy: 'LATEST_PUBLISHED', fixedSkillVersionId: undefined, required: true, sortOrder: index })) }
 function selectedSkill(skillKey: string) { return selectedDraft.value?.skills?.some(skill => skill.skillKey === skillKey) ?? false }
 async function searchSkills() { skillSearching.value = true; skillSearched.value = true; try { const page = await getSkills({ keyword: skillQuery.value.trim() || undefined, status: 'ACTIVE', page: 0, size: 20, sort: 'skillKey,asc' }); skillResults.value = page.items.filter(skill => Boolean(skill.latestPublishedVersion) && (!skill.scopeType || skill.scopeType === 'PLATFORM')); skillCategoryFilter.value = null; cacheSkillMeta(skillResults.value) } catch (e) { MessagePlugin.error(e instanceof Error ? e.message : 'Skill 搜索失败') } finally { skillSearching.value = false } }
@@ -130,19 +114,14 @@ function contextLocked(item: ProjectAgentContext) { return workflowStarted.value
 function rememberPersisted(value: ProjectAgentContexts) { persistedContextKeys.value = new Set([...value.platformWiki, ...value.feishu].map(contextKey)) }
 const pendingContexts = computed<ProjectAgentContexts>(() => ({ platformWiki: contexts.value.platformWiki.filter(item => !persistedContextKeys.value.has(contextKey(item))), feishu: contexts.value.feishu.filter(item => !persistedContextKeys.value.has(contextKey(item))) }))
 const pendingContextCount = computed(() => pendingContexts.value.platformWiki.length + pendingContexts.value.feishu.length)
-async function loadAll() { await Promise.allSettled([setup.load(projectKey), setup.loadReusable(projectKey), listAgentLibrary().then(v => profiles.value = v), listTeamPresets().then(v => { presets.value = v; selectedPreset.value = v.find(x => x.isDefault)?.versionId ?? v[0]?.versionId ?? '' }), getProjectAgentContexts(projectKey).then(v => { contexts.value = v; rememberPersisted(v) }), getProjectGitRepositories(projectKey).then(v => repositories.value = v), getFeishuPublishTarget(projectKey).then(v => { feishuTarget.value = v; feishuTargetUrl.value = v.url || '' }), getSkillCategories().then(v => skillCategories.value = (v ?? []).filter(c => c.parentId != null && c.selectable !== false)).catch(() => {}), getCurrentWorkflowRun(projectKey).then(run => { workflowStarted.value = true; currentRunId.value = run?.id ?? null; currentRunStatus.value = String(run?.status ?? '') }).catch(() => { workflowStarted.value = false; currentRunStatus.value = '' })]); if (!activeStages.value.length) activeStages.value = groupedNodes.value.slice(0, 1).map(group => group.key); const firstNode = setup.configuration?.nodes?.[0]; if (firstNode) { setup.selectedNodeKey = `${firstNode.stageKey}/${firstNode.nodeKey}`; await loadNode() } }
+async function loadAll() { await Promise.allSettled([setup.load(projectKey), setup.loadReusable(projectKey), listAgentLibrary().then(v => profiles.value = v), listTeamPresets().then(v => { presets.value = v; selectedPreset.value = v.find(x => x.isDefault)?.versionId ?? v[0]?.versionId ?? '' }), getProjectAgentContexts(projectKey).then(v => { contexts.value = v; rememberPersisted(v) }), getFeishuPublishTarget(projectKey).then(v => { feishuTarget.value = v; feishuTargetUrl.value = v.url || '' }), getSkillCategories().then(v => skillCategories.value = (v ?? []).filter(c => c.parentId != null && c.selectable !== false)).catch(() => {}), getCurrentWorkflowRun(projectKey).then(run => { workflowStarted.value = true; currentRunId.value = run?.id ?? null; currentRunStatus.value = String(run?.status ?? '') }).catch(() => { workflowStarted.value = false; currentRunStatus.value = '' })]); if (!activeStages.value.length) activeStages.value = groupedNodes.value.slice(0, 1).map(group => group.key); const firstNode = setup.configuration?.nodes?.[0]; if (firstNode) { setup.selectedNodeKey = `${firstNode.stageKey}/${firstNode.nodeKey}`; await loadNode() } }
 async function resolveEntry() { try { await loadAll() } catch (error) { message.value = (error as any)?.response?.data?.message || '项目配置加载失败，请稍后重试' } finally { resolvingEntry.value = false } }
 onMounted(resolveEntry)
-function goWorkspace() {
-  if (currentRunId.value && ['PREPARING_CODE_GRAPH', 'CODE_GRAPH_PREPARATION_FAILED', 'READY_TO_START'].includes(currentRunStatus.value)) {
-    return router.push({ name: 'project-code-graph', params: { projectKey }, query: { runId: String(currentRunId.value) } })
-  }
-  return router.push({ name: 'project-workspace', params: { projectId: projectKey, ...(currentRunId.value ? { runId: String(currentRunId.value) } : {}) } })
-}
+function goWorkspace() { return router.push({ name: 'project-workspace', params: { projectId: projectKey, ...(currentRunId.value ? { runId: String(currentRunId.value) } : {}) } }) }
 function confirmApplySource(action: () => Promise<void>, label: string) { if (workflowStarted.value) return; const dialog = DialogPlugin.confirm({ header: '确认应用配置来源？', body: `${label} 将覆盖当前所有 Node 的草稿配置，且不可恢复。`, confirmBtn: '确认应用', cancelBtn: '取消', theme: 'warning', onConfirm: async () => { dialog.destroy(); busy.value = true; try { setup.clearValidation(); await action(); setup.selectedNodeKey = setup.configuration?.nodes[0] ? `${setup.configuration.nodes[0].stageKey}/${setup.configuration.nodes[0].nodeKey}` : ''; await loadNode() } catch (e) { message.value = e instanceof Error ? e.message : '配置来源应用失败' } finally { busy.value = false } }, onClose: () => dialog.destroy() }) }
 function applySource() { if (source.value === 'SYSTEM_PRESET' && selectedPreset.value != null) confirmApplySource(() => setup.usePreset(projectKey, selectedPreset.value!), '应用系统方案'); else if (source.value === 'PROJECT_COPY' && sourceProjectKey.value) confirmApplySource(() => setup.copyFrom(projectKey, sourceProjectKey.value), '复制历史项目配置') }
 function parseJsonObject(value: unknown, label: string) { try { const parsed = typeof value === 'string' ? JSON.parse(value || '{}') : (value ?? {}); if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') throw new Error(`${label}必须是 JSON 对象`); return JSON.stringify(parsed) } catch (e) { throw new Error(`${label}格式无效：${e instanceof Error ? e.message : '请填写合法 JSON'}`) } }
-async function saveNode() { if (!selectedNode.value || !selectedDraft.value) return; saving.value = true; try { const skills = (selectedDraft.value.skills ?? []).map((skill, index) => ({ ...skill, versionPolicy: 'LATEST_PUBLISHED' as const, fixedSkillVersionId: undefined, required: true, sortOrder: index })); selectedDraft.value.skills = skills; const outputSchemaJson = parseJsonObject(selectedDraft.value.outputSchemaJson, 'Output Schema'); const runtimeConfigJson = parseJsonObject(selectedDraft.value.runtimeConfigJson, 'Runtime Config'); await saveProjectAgentNodeDraft(projectKey, selectedNode.value.stageKey, selectedNode.value.nodeKey, { systemPrompt: selectedDraft.value.systemPrompt, modelCode: selectedDraft.value.modelCode, temperature: selectedDraft.value.temperature, maxIterationPerRun: selectedDraft.value.maxIterationPerRun, timeoutSeconds: selectedDraft.value.timeoutSeconds, outputSchemaJson, runtimeConfigJson, skills }); if (graphPolicyMode.value === 'CUSTOM' && graphPolicy.value) graphPolicy.value = await saveProjectAgentNodeGraphPolicy(projectKey, selectedNode.value.stageKey, selectedNode.value.nodeKey, graphPolicy.value.policy); else if (graphPolicy.value?.policySource === 'PROJECT_NODE') graphPolicy.value = await resetProjectAgentNodeGraphPolicy(projectKey, selectedNode.value.stageKey, selectedNode.value.nodeKey); setup.clearValidation(); MessagePlugin.success('当前 Node 草稿与代码图谱策略已保存') } catch (e) { MessagePlugin.error(e instanceof Error ? e.message : '草稿保存失败') } finally { saving.value = false } }
+async function saveNode() { if (!selectedNode.value || !selectedDraft.value) return; saving.value = true; try { const skills = (selectedDraft.value.skills ?? []).map((skill, index) => ({ ...skill, versionPolicy: 'LATEST_PUBLISHED' as const, fixedSkillVersionId: undefined, required: true, sortOrder: index })); selectedDraft.value.skills = skills; const outputSchemaJson = parseJsonObject(selectedDraft.value.outputSchemaJson, 'Output Schema'); const runtimeConfigJson = parseJsonObject(selectedDraft.value.runtimeConfigJson, 'Runtime Config'); await saveProjectAgentNodeDraft(projectKey, selectedNode.value.stageKey, selectedNode.value.nodeKey, { systemPrompt: selectedDraft.value.systemPrompt, modelCode: selectedDraft.value.modelCode, temperature: selectedDraft.value.temperature, maxIterationPerRun: selectedDraft.value.maxIterationPerRun, timeoutSeconds: selectedDraft.value.timeoutSeconds, outputSchemaJson, runtimeConfigJson, skills }); setup.clearValidation(); MessagePlugin.success('当前 Node 草稿已保存') } catch (e) { MessagePlugin.error(e instanceof Error ? e.message : '草稿保存失败') } finally { saving.value = false } }
 async function saveContexts() { try { contexts.value = workflowStarted.value ? await appendProjectAgentContexts(projectKey, pendingContexts.value) : await saveProjectAgentContexts(projectKey, contexts.value); rememberPersisted(contexts.value); setup.clearValidation(); MessagePlugin.success(workflowStarted.value ? '上下文已追加并对当前工作流生效' : '启动上下文已保存') } catch (e) { MessagePlugin.error(e instanceof Error ? e.message : '上下文保存失败') } }
 async function revise() { try { setup.configuration = await reviseProjectAgentConfiguration(projectKey); setup.clearValidation(); MessagePlugin.success('已创建可编辑配置修订') } catch (e) { MessagePlugin.error(e instanceof Error ? e.message : '创建修订失败') } }
 async function validate() { if (validating.value) return; validating.value = true; try { const result = await setup.validate(projectKey); if (result.valid) MessagePlugin.success('配置校验通过'); else MessagePlugin.warning(`配置校验未通过：${result.issues.length} 个问题`); } catch (e) { MessagePlugin.error(e instanceof Error ? e.message : '配置校验失败') } finally { validating.value = false } }
@@ -155,15 +134,13 @@ async function start() {
   busy.value = true
   message.value = ''
   try {
-    const prepared = await prepareWorkflowRun(projectKey, { initialRequest: request })
-    const runId = prepared.runId
-    if (runId == null) throw new Error('后端未返回 workflow runId')
-    currentRunId.value = runId
-    currentRunStatus.value = String(prepared.status || 'PREPARING_CODE_GRAPH')
-    MessagePlugin.success('已提交代码图谱准备任务')
-    await router.push({ name: 'project-code-graph', params: { projectKey }, query: { runId: String(runId) } })
+    const run = await startWorkflowRun(projectKey, { initialRequest: request })
+    currentRunId.value = run.id
+    currentRunStatus.value = run.status
+    MessagePlugin.success('工作流已启动')
+    await router.push({ name: 'project-workspace', params: { projectId: projectKey, runId: String(run.id) } })
   } catch (e) {
-    const text = apiErrorMessage(e, '代码图谱准备启动失败')
+    const text = apiErrorMessage(e, '工作流启动失败')
     message.value = text
     MessagePlugin.error(text)
   } finally { busy.value = false }
@@ -173,9 +150,6 @@ function apiErrorMessage(error: any, fallback: string) { return error?.response?
 async function searchContext() { if (feishuResolving.value) return; try { if (contextTab.value === 'PLATFORM_WIKI') { const page = await getWikiDocuments({ keyword: wikiQuery.value.trim() || undefined, page: 0, size: 10 }); wikiResults.value = page.items.filter(x => x.platformVisible && x.active).map(x => ({ kind: 'PLATFORM_WIKI', id: x.id, title: x.title, revisionNo: x.revisionNo })) } else { const query = feishuQuery.value.trim(); const documentUrl = /^https:\/\/[A-Za-z0-9.-]+\.feishu\.cn\/(?:wiki|docx|docs)\/[A-Za-z0-9_-]+(?:[?#].*)?$/i.test(query); if (documentUrl) { feishuResolving.value = true; const resolved = await resolveProjectFeishuWiki(projectKey, query); if (resolved.readable === false) throw new Error(resolved.message || '暂不支持该类型文件'); const item = { kind: 'FEISHU' as const, id: resolved.nodeToken || resolved.docId, title: resolved.title || resolved.nodeToken || resolved.docId, docType: resolved.docType, url: resolved.sourceUrl || query, readable: true }; feishuResults.value = [item, ...feishuResults.value.filter(x => String(x.id) !== String(item.id))]; addContext(item); MessagePlugin.success('飞书文档解析成功，已加入启动上下文'); return } const raw = await searchDocumentAgentFeishu(query); const data = Array.isArray(raw) ? raw : (raw as any).result ?? raw; const items = (data as any).files ?? (data as any).items ?? (data as any).docs ?? []; feishuResults.value = items.filter((x: any) => x.readable !== false).map((x: any) => ({ kind: 'FEISHU', id: x.docId, title: x.title || x.docId, docType: x.docType, url: x.open_url })) } } catch (e) { const text = apiErrorMessage(e, '上下文搜索失败'); message.value = text; MessagePlugin.error(text) } finally { feishuResolving.value = false } }
 function addContext(item: ProjectAgentContext) { const key = item.kind === 'PLATFORM_WIKI' ? 'platformWiki' : 'feishu'; const index = contexts.value[key].findIndex(x => contextKey(x) === contextKey(item)); if (index >= 0) { if (!contextLocked(contexts.value[key][index])) contexts.value[key] = contexts.value[key].map((value, current) => current === index ? item : value); return } if (contexts.value[key].length >= 10) return; contexts.value[key] = [...contexts.value[key], item] }
 async function saveFeishuTarget() { const url = feishuTargetUrl.value.trim(); if (!url || feishuTargetBusy.value) return; feishuTargetBusy.value = true; feishuTargetMessage.value = ''; try { feishuTarget.value = await updateFeishuPublishTarget(projectKey, url); feishuTargetUrl.value = feishuTarget.value.url || url; feishuTargetMessage.value = '飞书发布目录已校验并保存' } catch (e) { feishuTargetMessage.value = apiErrorMessage(e, '飞书发布目录校验失败') } finally { feishuTargetBusy.value = false } }
-function repositoryInputs(extra?: ProjectGitRepositoryInput) { const current = repositories.value.map(item => ({ url: item.remoteUrl, displayName: item.displayName, branch: item.trackedBranch, stageKeys: item.stageKeys })); return extra ? [...current, extra] : current }
-async function addGitRepository() { if (!repoResolution.value || !repoBranch.value || !repoStages.value.length || repoSaving.value) return; repoSaving.value = true; repoError.value = ''; const input = { url: repoUrl.value.trim(), branch: repoBranch.value, stageKeys: [...repoStages.value] }; try { repositories.value = workflowStarted.value ? await appendProjectGitRepository(projectKey, input) : await saveProjectGitRepositories(projectKey, repositoryInputs(input)); repoUrl.value = ''; repoResolution.value = null; repoBranch.value = ''; repoStages.value = []; MessagePlugin.success(workflowStarted.value ? '仓库已冻结，代码图谱正在后台更新，完成后新版本将自动生效' : '代码仓库已保存') } catch (e) { repoError.value = apiErrorMessage(e, '代码仓库保存失败') } finally { repoSaving.value = false } }
-async function removeGitRepository(id: number) { if (workflowStarted.value || repoSaving.value) return; repoSaving.value = true; repoError.value = ''; try { repositories.value = await saveProjectGitRepositories(projectKey, repositories.value.filter(item => item.id !== id).map(item => ({ url: item.remoteUrl, displayName: item.displayName, branch: item.trackedBranch, stageKeys: item.stageKeys }))); MessagePlugin.success('代码仓库已移除') } catch (e) { repoError.value = apiErrorMessage(e, '代码仓库移除失败') } finally { repoSaving.value = false } }
 </script>
 <template>
   <main v-if="resolvingEntry" class="setup-workbench"><section class="panel muted">正在检查项目工作流…</section></main>
@@ -237,29 +211,6 @@ async function removeGitRepository(id: number) { if (workflowStarted.value || re
             <label class="field-label">Timeout（秒）<TInputNumber v-model="selectedDraft.timeoutSeconds" :min="0" :disabled="!draftMode" suffix="sec" theme="normal" align="left" /></label>
           </div>
           <p class="hint"><InfoCircleFilledIcon class="hint-icon" />Model 与采样参数由平台统一调度，暂不开放自定义。</p>
-          <details v-if="graphPolicy" open class="graph-policy-details">
-            <summary>代码图谱使用策略<span class="hint-inline">按角色限制可见能力、查询深度和上下文体积，优先复用已有证据。</span><TTag size="small" theme="primary" variant="light">{{ graphPolicy.policySource === 'PROJECT_NODE' ? '项目自定义' : '角色推荐' }}</TTag></summary>
-            <div class="graph-policy-body">
-              <TRadioGroup v-model="graphPolicyMode" :disabled="!draftMode">
-                <TRadioButton value="DEFAULT">使用阶段推荐策略</TRadioButton>
-                <TRadioButton value="CUSTOM">自定义当前 Agent</TRadioButton>
-              </TRadioGroup>
-              <label class="field-label">允许的图谱工具</label>
-              <TCheckboxGroup v-model="graphPolicy.policy.allowedTools" class="graph-tool-grid" :disabled="!draftMode || graphPolicyMode !== 'CUSTOM'">
-                <TCheckbox v-for="tool in graphToolOptions" :key="tool.value" :value="tool.value">{{ tool.label }}</TCheckbox>
-              </TCheckboxGroup>
-              <div class="graph-policy-grid">
-                <label class="field-label">主动调用预算<TInputNumber v-model="graphPolicy.policy.softToolCalls" :min="0" :max="graphPolicy.policy.stageMaxToolCalls || 20" :disabled="!draftMode || graphPolicyMode !== 'CUSTOM'" suffix="次" /></label>
-                <label class="field-label">最大查询深度<TInputNumber v-model="graphPolicy.policy.maxDepth" :min="1" :max="graphPolicy.platformLimits.maxDepth" :disabled="!draftMode || graphPolicyMode !== 'CUSTOM'" /></label>
-                <label class="field-label">单次最多节点<TInputNumber v-model="graphPolicy.policy.maxNodes" :min="1" :max="graphPolicy.platformLimits.maxNodes" :disabled="!draftMode || graphPolicyMode !== 'CUSTOM'" /></label>
-                <label class="field-label">结果字符上限<TInputNumber v-model="graphPolicy.policy.maxResultChars" :min="500" :max="graphPolicy.platformLimits.maxResultChars" :step="500" :disabled="!draftMode || graphPolicyMode !== 'CUSTOM'" /></label>
-                <label class="field-label">启动预加载<TInputNumber v-model="graphPolicy.policy.maxPreloadQueries" :min="0" :max="2" :disabled="!draftMode || graphPolicyMode !== 'CUSTOM'" suffix="次" /></label>
-                <label class="field-label">阶段共享硬预算<TInputNumber :model-value="graphPolicy.policy.stageMaxToolCalls" disabled suffix="次" /></label>
-              </div>
-              <p class="graph-policy-impact"><b>预估影响：</b>{{ graphPolicy.policy.maxDepth >= 3 || graphPolicy.policy.softToolCalls >= 5 ? '高' : graphPolicy.policy.softToolCalls >= 2 ? '中' : '低' }} · Evidence 优先复用 · 缓存命中仍计主动调用次数</p>
-              <p class="hint">{{ graphPolicy.policy.stopInstruction }}</p>
-            </div>
-          </details>
           <details open class="skills-details"><summary>Skills 配置与挂载<span class="hint-inline">为当前 Agent 注入专项能力，支持多轮调试搜索并跨类别组合挂载。</span><span class="skill-head-meta"><TTag size="small" theme="primary" variant="light">已挂载 {{ (selectedDraft.skills || []).length }} / 上限 10</TTag><button type="button" class="link-btn" :disabled="!draftMode || !(selectedDraft.skills || []).length" @click="clearSkills">清空全部</button></span></summary>
             <div class="skill-picker" data-testid="project-agent-skill-picker">
               <div v-if="(selectedDraft.skills || []).length" class="mounted-list">
@@ -323,40 +274,10 @@ async function removeGitRepository(id: number) { if (workflowStarted.value || re
       <div class="selected"><span v-for="item in contexts[contextTab==='PLATFORM_WIKI'?'platformWiki':'feishu']" :key="contextKey(item)" class="tag" :class="{ locked: contextLocked(item) }">{{ item.title }} <small v-if="contextLocked(item)">已锁定</small><button v-else type="button" @click="remove(contextTab==='PLATFORM_WIKI'?'platformWiki':'feishu',item)">×</button></span><p v-if="!contexts[contextTab==='PLATFORM_WIKI'?'platformWiki':'feishu'].length" class="muted">尚未选择资料</p></div>
     </section>
 
-    <section class="git-repositories panel" data-testid="project-git-repositories">
-      <div class="section-head"><div><span class="step">05</span><h2>代码仓库</h2><p class="muted">只读监听远端分支提交；{{ workflowStarted ? '已有仓库已锁定，仍可追加新仓库或新分支。' : '启动前可新增、移除和调整绑定。' }}</p></div><TTag theme="primary" variant="light">{{ repositories.length }} Repositories</TTag></div>
-      <div v-if="repositories.length" class="repo-list">
-        <article v-for="repo in repositories" :key="repo.id" class="repo-card">
-          <div class="repo-icon"><GitBranchIcon /></div>
-          <div class="repo-body">
-            <header><strong>{{ repo.displayName }}</strong><TTag size="small" theme="success" variant="light">已同步</TTag></header>
-            <p class="mono">{{ repo.normalizedUrl }}</p>
-            <footer><span class="repo-branch mono">{{ repo.trackedBranch }}</span><i>·</i><span>{{ repo.stageKeys.map(repoStageLabel).join(' / ') }}</span></footer>
-          </div>
-          <span v-if="workflowStarted" class="locked-chip repo-lock"><LockOnIcon />已锁定</span>
-          <TButton v-else theme="danger" variant="text" :disabled="repoSaving" @click="removeGitRepository(repo.id)">移除</TButton>
-        </article>
-      </div>
-      <div class="repo-resolve">
-        <TInput v-model="repoUrl" placeholder="https://github.com/owner/repository" clearable @enter="resolveRepo"><template #prefixIcon><CodeIcon /></template></TInput>
-        <TButton variant="outline" :loading="repoResolving" :disabled="!repoUrl.trim()" @click="resolveRepo">识别仓库</TButton>
-      </div>
-      <div v-if="repoResolution" class="repo-config">
-        <p class="repo-meta">默认分支: <b class="mono accent">{{ repoResolution.defaultBranch || '远端未声明' }}</b><span class="meta-dot">当前 HEAD: <b class="mono">{{ repoHeadShort || '—' }}</b></span></p>
-        <div class="repo-config-row">
-          <TSelect v-model="repoBranch" :options="repoBranchOptions" placeholder="选择跟踪分支" filterable class="repo-branch-select" />
-          <TCheckboxGroup v-model="repoStages" class="repo-stage-checks"><TCheckbox v-for="opt in REPO_STAGE_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</TCheckbox></TCheckboxGroup>
-          <TButton theme="primary" :disabled="!repoBranch || !repoStages.length || repoSaving" :loading="repoSaving" @click="addGitRepository">{{ workflowStarted ? '追加到项目' : '加入项目' }}</TButton>
-        </div>
-        <p class="hint">仓库可访问，请选择跟踪分支和应用阶段</p>
-      </div>
-      <p v-if="repoError" class="hint error-text">{{ repoError }}</p>
-    </section>
-
     <section class="footer panel">
-      <div><span class="step">06</span><h2>{{ workflowStarted ? '配置已锁定' : '校验并启动' }}</h2><p class="muted">{{ workflowStarted ? '工作流已经启动，Agent 配置不可修改；可在上方继续追加上下文和代码仓库。' : '确认后项目 Agent 草稿冻结；启动时生成上下文和仓库快照。' }}</p></div>
+      <div><span class="step">06</span><h2>{{ workflowStarted ? '配置已锁定' : '校验并启动' }}</h2><p class="muted">{{ workflowStarted ? '工作流已经启动，Agent 配置不可修改；可在上方继续追加上下文。' : '确认后项目 Agent 草稿冻结；启动时生成上下文快照。' }}</p></div>
       <template v-if="!workflowStarted">
-        <div class="actions"><TButton variant="outline" :disabled="validating || busy" :loading="validating" @click="validate">{{ validating ? '校验中…' : '校验配置' }}</TButton><TButton v-if="setup.configuration?.status==='READY'" type="button" theme="primary" :disabled="busy" :loading="busy" @click="start">{{ busy ? '正在准备代码图谱…' : '启动 Workflow' }}</TButton><TButton v-else theme="primary" @click="confirm">确认配置</TButton></div>
+        <div class="actions"><TButton variant="outline" :disabled="validating || busy" :loading="validating" @click="validate">{{ validating ? '校验中…' : '校验配置' }}</TButton><TButton v-if="setup.configuration?.status==='READY'" type="button" theme="primary" :disabled="busy" :loading="busy" @click="start">{{ busy ? '正在启动…' : '启动 Workflow' }}</TButton><TButton v-else theme="primary" @click="confirm">确认配置</TButton></div>
         <div v-if="setup.validation" class="validation-result" :class="{valid: setup.validation.valid, invalid: !setup.validation.valid}" data-testid="config-validation-result"><strong>{{ setup.validation.valid ? '配置校验通过' : '配置校验未通过' }}</strong><div class="checks"><span v-for="check in setup.validation.checks || []" :key="check.label" :class="{passed: check.passed}">{{ check.passed ? '✓' : '!' }} {{ check.label }}</span></div><ul v-if="setup.validation.issues.length"><li v-for="issue in setup.validation.issues" :key="issue">{{ issue }}</li></ul><p v-else class="muted">所有配置检查均已通过。</p></div>
         <TTextarea v-if="setup.configuration?.status==='READY'" v-model="initialRequest" data-testid="initial-request" :autosize="{ minRows: 3, maxRows: 6 }" placeholder="输入本次研发需求" class="initial-request" />
       </template>

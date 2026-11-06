@@ -171,9 +171,9 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
           <t-loading v-if="dashboardLoading && !dashboard" text="加载监控数据中…" />
         </div>
       </t-tab-panel>
-      <t-tab-panel value="business" label="业务链路"><BusinessMetricsView /></t-tab-panel>
-      <t-tab-panel value="alerts" label="告警中心"><AlertCenter /></t-tab-panel>
-      <t-tab-panel v-if="canConfigureAlerts" value="alert-settings" label="告警设置"><AlertSettings /></t-tab-panel>
+      <t-tab-panel value="business" label="业务链路" />
+      <t-tab-panel value="alerts" label="告警中心" />
+      <t-tab-panel v-if="canConfigureAlerts" value="alert-settings" label="告警设置" />
       <t-tab-panel value="audit" label="调用审计">
     <section class="market-toolbar" aria-label="MCP 审计筛选">
       <t-input v-model="toolName" clearable placeholder="工具名称，如 search_feishu_documents" @enter="search" /><t-input v-model="traceFilter" clearable placeholder="Trace ID" @enter="search" /><t-input v-model="errorFilter" clearable placeholder="错误码" @enter="search" />
@@ -193,6 +193,9 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
     <t-pagination v-model="page" v-model:page-size="pageSize" :total="total" :page-size-options="[20, 50, 100]" show-page-size @change="load" @page-size-change="onPageSizeChange" />
       </t-tab-panel>
     </t-tabs>
+    <BusinessMetricsView v-if="activeTab === 'business'" />
+    <AlertCenter v-if="activeTab === 'alerts'" />
+    <AlertSettings v-if="activeTab === 'alert-settings' && canConfigureAlerts" />
   </main>
 </template>
 

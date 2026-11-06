@@ -1,0 +1,4 @@
+import { http } from './http'
+export interface BusinessMetrics { module: string; window: string; dataStatus: string; summary: { requests: number; success: number; failed: number; degraded: number; failureRate: number | null; degradationRate: number | null; p95Ms: number | null; p99Ms: number | null }; series: Array<{ at: string; requests: number; success: number; failed: number; degraded: number }>; errorGroups: Array<{ error_code: string; count: number }> }
+export async function getBusinessMetrics(module: string, window = 'PT1H') { return (await http.get<BusinessMetrics>('/admin/agent/operations/metrics', { params: { module, window } })).data }
+export async function getBusinessTrace(traceId: string) { return (await http.get<{ traceId: string; dataStatus: string; events: Array<Record<string, unknown>> }>(`/admin/agent/operations/traces/${encodeURIComponent(traceId)}`)).data }

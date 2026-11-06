@@ -9,6 +9,8 @@ export type Permission =
   | 'skill:offline'
   | 'admin:identity'
   | 'admin:audit'
+  | 'admin:alert:operate'
+  | 'admin:alert:configure'
   | 'admin:telemetry'
 
 export function hasPermission(

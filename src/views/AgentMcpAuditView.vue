@@ -5,9 +5,16 @@ import { CheckCircleFilledIcon, ErrorCircleFilledIcon } from 'tdesign-icons-vue-
 import { listAgentMcpAudits, type AgentMcpAuditView as AuditView } from '../api/agent-audit.api'
 import { getAgentOperationsDashboard, type AgentOperationsDashboard } from '../api/agent-operations.api'
 import { useRoute, useRouter } from 'vue-router'
+import AlertCenter from '../features/operations/AlertCenter.vue'
+import AlertSettings from '../features/operations/AlertSettings.vue'
+import BusinessMetricsView from '../features/operations/BusinessMetricsView.vue'
+import { useAuthStore } from '../stores/auth'
 
 const route = useRoute(); const router = useRouter()
-const activeTab = ref(String(route.query.tab || 'monitoring') === 'audit' ? 'audit' : 'monitoring')
+const activeTab = ref(['audit', 'alerts', 'business', 'alert-settings'].includes(String(route.query.tab)) ? String(route.query.tab) : 'monitoring')
+const auth = useAuthStore()
+const canConfigureAlerts = computed(() => auth.user?.permissions.includes('admin:alert:configure') && auth.user?.roles.includes('ADMIN'))
+const dashboardWindow = ref('PT15M')
 const dashboard = ref<AgentOperationsDashboard | null>(null)
 const dashboardLoading = ref(false); const dashboardError = ref(false); let timer: number | undefined
 
@@ -15,7 +22,7 @@ const dashboardLoading = ref(false); const dashboardError = ref(false); let time
 /** 组件卡过滤：Skill Platform Backend 是宿主自身，不在监控看板展示。 */
 const visibleComponents = computed(() => (dashboard.value?.components ?? []).filter(c => c.key !== 'skill-platform-backend' && c.name !== 'Skill Platform Backend'))
 const trendPoints = computed(() => dashboard.value?.trend.slice(-36) ?? [])
-const bannerTone = computed(() => (dashboard.value?.alerts.length ? 'has-alert' : 'clear'))
+const bannerTone = computed(() => (dashboard.value?.alerts.length || dashboard.value?.dataStatus !== 'OK' ? 'has-alert' : 'clear'))
 const lastCheckText = computed(() => { const at = dashboard.value?.generatedAt; if (!at) return '—'; const diff = Date.now() - new Date(at).getTime(); return diff < 10_000 ? '刚刚' : formatTime(at) })
 function componentTone(status: string) { return status === 'healthy' ? 'success' : status === 'degraded' ? 'warning' : status === 'unknown' ? 'neutral' : 'error' }
 function componentTheme(status: string): 'success' | 'warning' | 'default' | 'danger' { return status === 'healthy' ? 'success' : status === 'degraded' ? 'warning' : status === 'unknown' ? 'default' : 'danger' }
@@ -36,6 +43,8 @@ const pageSize = ref(20)
 const total = ref(0)
 const toolName = ref('')
 const status = ref('')
+const traceFilter = ref('')
+const errorFilter = ref('')
 
 const columns: TableProps['columns'] = [
   { colKey: 'startedAt', title: '调用时间', width: 170, ellipsis: true },
@@ -45,6 +54,8 @@ const columns: TableProps['columns'] = [
   { colKey: 'sourceChannel', title: '渠道', width: 90, ellipsis: true },
   { colKey: 'knowledgeScope', title: '知识范围', width: 130, ellipsis: true },
   { colKey: 'runKey', title: 'Agent Run', width: 120, ellipsis: true },
+  { colKey: 'traceId', title: 'Trace ID', width: 150, ellipsis: true },
+  { colKey: 'errorCode', title: '错误码', width: 150, ellipsis: true },
 ]
 
 function formatTime(value: string) { return new Date(value).toLocaleString('zh-CN', { hour12: false }) }
@@ -52,7 +63,7 @@ function formatBytes(value: number) { if (!value || value < 0) return '-'; const
 async function load() {
   loading.value = true
   try {
-    const result = await listAgentMcpAudits({ page: page.value - 1, size: pageSize.value, toolName: toolName.value || undefined, status: status.value || undefined })
+    const result = await listAgentMcpAudits({ page: page.value - 1, size: pageSize.value, toolName: toolName.value || undefined, status: status.value || undefined, traceId: traceFilter.value || undefined, errorCode: errorFilter.value || undefined })
     rows.value = result.items
     total.value = result.totalElements
   } catch (error) {
@@ -64,12 +75,12 @@ function onPageSizeChange(size: number) { pageSize.value = size; page.value = 1;
 onMounted(() => void load())
 async function loadDashboard() {
   dashboardLoading.value = true; dashboardError.value = false
-  try { dashboard.value = await getAgentOperationsDashboard() } catch { dashboardError.value = true } finally { dashboardLoading.value = false }
+  try { dashboard.value = await getAgentOperationsDashboard(dashboardWindow.value) } catch { dashboardError.value = true } finally { dashboardLoading.value = false }
 }
 function startPolling() { stopPolling(); if (activeTab.value !== 'monitoring') return; void loadDashboard(); timer = window.setInterval(() => { if (document.visibilityState === 'visible') void loadDashboard() }, 5000) }
 function stopPolling() { if (timer) { window.clearInterval(timer); timer = undefined } }
 function changeTab(value: string) { activeTab.value = value; void router.replace({ query: { ...route.query, tab: value } }); startPolling() }
-watch(() => route.query.tab, value => { const next = value === 'audit' ? 'audit' : 'monitoring'; if (next !== activeTab.value) { activeTab.value = next; startPolling() } })
+watch(() => route.query.tab, value => { const next = ['audit', 'alerts', 'business', 'alert-settings'].includes(String(value)) ? String(value) : 'monitoring'; if (next !== activeTab.value) { activeTab.value = next; startPolling() } })
 onMounted(() => startPolling()); onUnmounted(() => stopPolling())
 </script>
 
@@ -79,14 +90,15 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
     <t-tabs :value="activeTab" @change="changeTab">
       <t-tab-panel value="monitoring" label="运行监控">
         <div class="monitoring-panel">
+          <div class="market-toolbar"><span>观察窗口</span><t-select v-model="dashboardWindow" style="width: 130px" @change="loadDashboard"><t-option value="PT15M" label="15 分钟" /><t-option value="PT1H" label="1 小时" /><t-option value="P1D" label="24 小时" /></t-select></div>
           <t-alert v-if="dashboardError" theme="warning" message="监控数据暂时不可用，正在继续重试" />
           <template v-if="dashboard">
             <!-- 告警横幅：整宽置顶，无告警=绿色通过态 -->
             <div class="alert-banner" :class="bannerTone">
               <span class="banner-icon"><CheckCircleFilledIcon v-if="!dashboard.alerts.length" /><ErrorCircleFilledIcon v-else /></span>
               <div class="banner-body">
-                <strong>{{ dashboard.alerts.length ? `当前有 ${dashboard.alerts.length} 条告警` : '当前没有告警' }}</strong>
-                <p>{{ dashboard.alerts.length ? dashboard.alerts.map(a => a.message).join('；') : '所有服务探针与运行时间阈值均处于安全基线以内' }}</p>
+                <strong>{{ dashboard.dataStatus !== 'OK' ? '监控数据不完整' : dashboard.alerts.length ? `当前有 ${dashboard.alerts.length} 条告警` : '当前没有告警' }}</strong>
+                <p>{{ dashboard.dataStatus !== 'OK' ? '部分探针或指标尚无新鲜数据，请查看组件状态' : dashboard.alerts.length ? dashboard.alerts.map(a => a.message).join('；') : '所有服务探针与运行时间阈值均处于安全基线以内' }}</p>
               </div>
               <div class="banner-meta"><span>最后检查：{{ lastCheckText }}</span></div>
             </div>
@@ -136,8 +148,8 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
               <section class="panel-block">
                 <header class="block-head"><div class="block-title"><i class="block-bar" />延迟与索引</div><span class="block-meta">SLO 99.9%</span></header>
                 <div class="metric-grid two">
-                  <div class="metric-card"><span class="metric-label">P95 延迟</span><b class="metric-num">{{ dashboard.latency.p95Ms }}<i>ms</i></b><small>95% 请求阈值内</small></div>
-                  <div class="metric-card"><span class="metric-label">P99 延迟</span><b class="metric-num">{{ dashboard.latency.p99Ms }}<i>ms</i></b><small>极值延迟监测</small></div>
+                  <div class="metric-card"><span class="metric-label">MCP P95 延迟</span><b class="metric-num">{{ dashboard.latency.p95Ms }}<i>ms</i></b><small>95% 请求阈值内</small></div>
+                  <div class="metric-card"><span class="metric-label">MCP P99 延迟</span><b class="metric-num">{{ dashboard.latency.p99Ms }}<i>ms</i></b><small>极值延迟监测</small></div>
                   <div class="metric-card"><span class="metric-label">错误率</span><b class="metric-num" :class="dashboard.workload.errorRatePercent > 0 ? 'num-error' : 'num-ok'">{{ dashboard.workload.errorRatePercent }}<i>%</i></b><small>运行状态极佳</small></div>
                   <div class="metric-card"><span class="metric-label">Qdrant 索引</span><b class="metric-num" :class="dashboard.qdrant.reachable ? 'num-ok' : 'num-error'">{{ dashboard.qdrant.reachable ? '可用' : '不可用' }}</b><small class="mono">{{ dashboard.qdrant.collection }}</small></div>
                 </div>
@@ -146,7 +158,7 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
 
               <!-- 15 分钟趋势：点阵采样 -->
               <section class="panel-block">
-                <header class="block-head"><div class="block-title"><i class="block-bar" />15 分钟趋势<span class="block-sub">（每 5 秒采样）</span></div><div class="trend-legend"><span class="lg p95" />P95 延迟<span class="lg p99" />P99 延迟<span class="lg err" />错误率 (%)</div></header>
+                <header class="block-head"><div class="block-title"><i class="block-bar" />持久趋势<span class="block-sub">（每分钟聚合）</span></div><div class="trend-legend"><span class="lg p95" />MCP P95 延迟<span class="lg p99" />MCP P99 延迟<span class="lg err" />错误率 (%)</div></header>
                 <div class="trend-dots">
                   <div class="trend-line p95"><span class="trend-label">P95</span><span class="trend-base muted">稳定基线 {{ dashboard.latency.p95Ms }}ms</span><div class="dots"><i v-for="(point, index) in trendPoints" :key="index" :class="{ hot: point.p95Ms > dashboard.latency.p95Ms }" :title="`${point.at} · P95 ${point.p95Ms}ms`" /></div><b class="mono">{{ dashboard.latency.p95Ms }} ms</b></div>
                   <div class="trend-line p99"><span class="trend-label">P99</span><span class="trend-base muted">稳定基线 {{ dashboard.latency.p99Ms }}ms</span><div class="dots"><i v-for="(point, index) in trendPoints" :key="`p99-${index}`" :class="{ hot: point.p99Ms > dashboard.latency.p99Ms }" :title="`${point.at} · P99 ${point.p99Ms}ms`" /></div><b class="mono">{{ dashboard.latency.p99Ms }} ms</b></div>
@@ -159,9 +171,12 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
           <t-loading v-if="dashboardLoading && !dashboard" text="加载监控数据中…" />
         </div>
       </t-tab-panel>
+      <t-tab-panel value="business" label="业务链路"><BusinessMetricsView /></t-tab-panel>
+      <t-tab-panel value="alerts" label="告警中心"><AlertCenter /></t-tab-panel>
+      <t-tab-panel v-if="canConfigureAlerts" value="alert-settings" label="告警设置"><AlertSettings /></t-tab-panel>
       <t-tab-panel value="audit" label="调用审计">
     <section class="market-toolbar" aria-label="MCP 审计筛选">
-      <t-input v-model="toolName" clearable placeholder="工具名称，如 search_feishu_documents" @enter="search" />
+      <t-input v-model="toolName" clearable placeholder="工具名称，如 search_feishu_documents" @enter="search" /><t-input v-model="traceFilter" clearable placeholder="Trace ID" @enter="search" /><t-input v-model="errorFilter" clearable placeholder="错误码" @enter="search" />
       <t-select v-model="status" clearable placeholder="执行状态" :options="[{ label: '执行中', value: 'STARTED' }, { label: '成功', value: 'SUCCEEDED' }, { label: '失败', value: 'FAILED' }]" />
       <t-button theme="primary" @click="search">查询</t-button>
     </section>

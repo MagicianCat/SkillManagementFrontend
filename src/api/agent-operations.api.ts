@@ -1,6 +1,8 @@
 import { http } from './http'
 
 export interface AgentOperationsDashboard {
+  dataStatus?: string
+  activeAlerts?: Record<string, number>
   generatedAt: string
   overallStatus: string
   components: Array<{ key: string; name: string; status: string; latencyMs: number; error?: string }>

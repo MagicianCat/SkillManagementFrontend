@@ -16,6 +16,7 @@ export interface AgentMcpAuditView {
   durationMs: number | null
   errorCode: string | null
   argumentsSummary: string | null
+  traceId: string | null
 }
 
 export interface AgentMcpAuditQuery {
@@ -25,6 +26,8 @@ export interface AgentMcpAuditQuery {
   sessionKey?: string
   toolName?: string
   status?: string
+  traceId?: string
+  errorCode?: string
   sourceChannel?: string
   from?: string
   to?: string

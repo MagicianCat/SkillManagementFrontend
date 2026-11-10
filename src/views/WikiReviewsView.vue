@@ -171,10 +171,10 @@ onMounted(() => {
       </div>
     </div>
 
-    <t-tabs class="review-type-tabs" value="wiki" @change="changeReviewType">
-      <t-tab-panel value="skill" label="Skill 审核" />
-      <t-tab-panel value="wiki" label="Wiki 审核" />
-    </t-tabs>
+    <nav class="status-tabs review-type-tabs" role="tablist" aria-label="审核类型">
+      <button type="button" role="tab" aria-selected="false" class="status-tab" @click="changeReviewType('skill')">Skill 审核</button>
+      <button type="button" role="tab" aria-selected="true" class="status-tab is-selected" @click="changeReviewType('wiki')">Wiki 审核</button>
+    </nav>
 
     <section class="market-toolbar wiki-review-toolbar" aria-label="Wiki 审核任务搜索">
       <t-input v-model="keyword" class="review-keyword-filter" clearable placeholder="按文档标题搜索" @enter="page = 0; load()" />
@@ -242,5 +242,5 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.review-type-tabs{margin:18px 0}.wiki-review-toolbar{gap:16px}.review-keyword-filter{flex:1 1 360px;min-width:260px;max-width:440px}.review-team-filter{flex:0 0 240px;width:240px}.status-tabs{flex:0 0 auto}.status-tab{padding:7px 12px}.status-tab.is-selected{color:var(--accent-500);background:var(--accent-softer)}.result-count{margin-left:auto;white-space:nowrap}.batch-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.review-loading{min-height:180px}.select-all-card{margin-bottom:12px}.review-list{display:grid;gap:12px}.review-item-card :deep(.t-card__body){display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:12px}.review-item-title-row{display:flex;align-items:center;gap:10px}.review-item-meta{margin:8px 0;color:var(--text-2);font-size:12px}.review-item-comment{margin:0;color:var(--text-1);font-size:13px;line-height:1.6}.review-item-comment:empty{display:none}.review-item-actions{align-self:center;white-space:nowrap}.review-item-main :deep(.t-alert){margin-top:10px}.review-item-main :deep(.t-alert__message){font-size:12px}@media(max-width:900px){.wiki-review-toolbar{flex-wrap:wrap}.review-keyword-filter{flex-basis:100%;max-width:none}.review-team-filter{flex:1 1 240px}.result-count{margin-left:0}.review-item-card :deep(.t-card__body){grid-template-columns:auto minmax(0,1fr)}.review-item-actions{grid-column:2}}
+.review-type-tabs{margin:18px 0}.wiki-review-toolbar{gap:16px}.review-keyword-filter{flex:1 1 360px;min-width:260px;max-width:440px}.review-team-filter{flex:0 0 240px;width:240px}.status-tabs{flex:0 0 auto}.result-count{margin-left:auto;white-space:nowrap}.batch-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.review-loading{min-height:180px}.select-all-card{margin-bottom:12px}.review-list{display:grid;gap:12px}.review-item-card :deep(.t-card__body){display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:12px}.review-item-title-row{display:flex;align-items:center;gap:10px}.review-item-meta{margin:8px 0;color:var(--text-2);font-size:12px}.review-item-comment{margin:0;color:var(--text-1);font-size:13px;line-height:1.6}.review-item-comment:empty{display:none}.review-item-actions{align-self:center;white-space:nowrap}.review-item-main :deep(.t-alert){margin-top:10px}.review-item-main :deep(.t-alert__message){font-size:12px}@media(max-width:900px){.wiki-review-toolbar{flex-wrap:wrap}.review-keyword-filter{flex-basis:100%;max-width:none}.review-team-filter{flex:1 1 240px}.result-count{margin-left:0}.review-item-card :deep(.t-card__body){grid-template-columns:auto minmax(0,1fr)}.review-item-actions{grid-column:2}}
 </style>

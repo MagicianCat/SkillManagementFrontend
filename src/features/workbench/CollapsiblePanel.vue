@@ -46,9 +46,9 @@ const toggle = () => { open.value = !open.value }
 .bar { display: flex; justify-content: space-between; align-items: center; gap: 14px; width: 100%; padding: 12px 18px; border: none; background: transparent; cursor: pointer; text-align: left; }
 .lead { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
 .title { font-size: 13px; letter-spacing: 0.04em; color: var(--text-1); font-weight: 600; }
-.badge { padding: 2px 9px; border-radius: var(--radius-full); font-size: 10px; border: 1px solid var(--border-2); color: var(--text-3); background: var(--surface-2); white-space: nowrap; }
+.badge { padding: 2px 9px; border-radius: var(--radius-full); font-size: var(--font-meta); border: 1px solid var(--border-2); color: var(--text-3); background: var(--surface-2); white-space: nowrap; }
 .badge.on { color: var(--success); border-color: rgb(52 211 153 / 40%); background: var(--success-soft); }
-.summary { font-size: 11px; color: var(--text-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.summary { font-size: var(--font-meta); color: var(--text-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .toggle { display: flex; align-items: center; gap: 6px; flex: none; color: var(--text-3); }
 .toggle-text { font-size: 12px; }
 .chev { display: inline-block; font-size: 14px; line-height: 1; transition: transform var(--duration-base) var(--ease-out); }

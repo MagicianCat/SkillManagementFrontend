@@ -82,6 +82,7 @@ const waitingAcceptance = computed(() => {
 /** 终态 run：永远只有一次 run，所有阶段结束后只能查看过往产物，不再介入。 */
 const TERMINAL = ['COMPLETED', 'FAILED', 'CANCELLED', 'DESIGN_COMPLETED']
 const runReadonly = computed(() => TERMINAL.includes(workspace.workflowRun?.status || ''))
+function stageStatusText(status: unknown) { return ({ PENDING: '待开始', READY: '待开始', QUEUED: '排队中', STARTING: '启动中', RUNNING: '进行中', PROVISIONING: '准备中', WAITING_HUMAN: '待人工确认', HUMAN_REQUIRED: '待人工确认', WAITING_ACCEPTANCE: '待验收', WAITING_DESIGN_ACCEPTANCE: '待设计验收', PAUSED: '已暂停', COMPLETED: '已完成', FAILED: '失败', CANCELLED: '已取消' } as Record<string, string>)[String(status)] ?? String(status ?? '') }
 const readonlyText = computed(() => {
   const s = workspace.workflowRun?.status
   if (s === 'COMPLETED' || s === 'DESIGN_COMPLETED') return '本次工作流已完成，以下为最终产物，仅供查看。'
@@ -226,7 +227,7 @@ async function externalStageCompleted(){ await workspace.load(String(workspace.w
             @click="workspace.select(String(stage.id))"
           >
             <span>{{ stage.displayName || stage.name || stage.key }}</span>
-            <small>{{ stage.status }}</small>
+            <small>{{ stageStatusText(stage.status) }}</small>
             <i v-if="stage.attention || stage.approval?.canDecide" class="attention-dot" aria-label="需要处理" />
           </button>
         </div>
@@ -283,13 +284,13 @@ async function externalStageCompleted(){ await workspace.load(String(workspace.w
 .empty-state .muted { margin: 0; }
 .empty-state textarea { box-sizing: border-box; width: 100%; margin-top: 6px; padding: 12px; font-size: 13px; color: var(--text-1); background: var(--bg-2); border: 1px solid var(--border-2); border-radius: var(--radius-sm); resize: vertical; }
 .empty-state textarea::placeholder { color: var(--text-4); }
-.empty-state .primary { padding: 11px 22px; font-size: 14px; font-weight: 600; color: #fff; background: var(--accent-600); border: none; border-radius: var(--radius-sm); cursor: pointer; }
-.empty-state .primary:hover:not(:disabled) { background: var(--accent-500); box-shadow: var(--shadow-accent); }
+.empty-state .primary { min-height: var(--control-height-lg); padding: 0 22px; font-size: 14px; font-weight: 600; color: var(--text-on-accent); background: var(--accent-600); border: none; border-radius: var(--radius-sm); cursor: pointer; }
+.empty-state .primary:hover:not(:disabled) { background: var(--accent-400); }
 .empty-state .primary:disabled { opacity: 0.45; cursor: not-allowed; }
 .muted { color: var(--text-3); }
 .error-banner { margin: 0; padding: 10px 14px; border: 1px solid rgb(248 113 113 / 40%); border-radius: var(--radius-sm); background: var(--error-soft); color: var(--error); font-size: 13px; }
 .readonly-banner { margin: 0; padding: 10px 14px; border: 1px solid rgb(96 165 250 / 40%); border-radius: var(--radius-sm); background: var(--info-soft); color: var(--info); font-size: 13px; }
-.graph-usage-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain}.graph-usage{display:grid;min-width:850px;gap:8px;padding:4px}.graph-usage__head,.graph-usage__row{display:grid;grid-template-columns:minmax(190px,1fr) repeat(6,minmax(74px,.42fr));gap:10px;align-items:center;padding:9px 12px}.graph-usage__head{color:var(--text-3);font-size:11px;border-bottom:1px solid var(--border-1)}.graph-usage__row{border:1px solid var(--border-1);border-radius:var(--radius-sm);background:var(--surface-2);font-size:12px}.graph-usage__row b{color:var(--text-1)}.graph-usage__row span{color:var(--text-2)}.graph-usage__row .warn{color:var(--warning);font-weight:700}.graph-usage__empty{padding:12px}.graph-usage footer{color:var(--text-3);font-size:11px;padding:6px 12px}
+.graph-usage-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain}.graph-usage{display:grid;min-width:850px;gap:8px;padding:4px}.graph-usage__head,.graph-usage__row{display:grid;grid-template-columns:minmax(190px,1fr) repeat(6,minmax(74px,.42fr));gap:10px;align-items:center;padding:9px 12px}.graph-usage__head{color:var(--text-3);font-size: var(--font-meta);border-bottom:1px solid var(--border-1)}.graph-usage__row{border:1px solid var(--border-1);border-radius:var(--radius-sm);background:var(--surface-2);font-size:12px}.graph-usage__row b{color:var(--text-1)}.graph-usage__row span{color:var(--text-2)}.graph-usage__row .warn{color:var(--warning);font-weight:700}.graph-usage__empty{padding:12px}.graph-usage footer{color:var(--text-3);font-size: var(--font-meta);padding:6px 12px}
 /* 工作流 → 配置页：嵌入页头操作区，与配置页「返回工作流」按钮同源的描边辉光样式 */
 .setup-link { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border: 1px solid var(--border-accent); border-radius: var(--radius-sm); background: var(--accent-softer); color: var(--accent-300); font-size: 13px; font-weight: 600; text-decoration: none; transition: border-color var(--duration-fast), box-shadow var(--duration-fast), background var(--duration-fast), color var(--duration-fast); }
 .setup-link svg { width: 13px; height: 13px; transition: transform var(--duration-fast) var(--ease-out); }
@@ -303,11 +304,11 @@ async function externalStageCompleted(){ await workspace.load(String(workspace.w
 .readonly-side .muted { margin: 0; font-size: 12px; }
 .parallel-switcher { display: grid; gap: 10px; padding: 12px 14px; }
 .parallel-switcher__heading { display: flex; align-items: baseline; gap: 10px; font-size: 13px; }
-.parallel-switcher__heading .muted { font-size: 11px; }
+.parallel-switcher__heading .muted { font-size: var(--font-meta); }
 .parallel-switcher__tabs { display: flex; gap: 8px; flex-wrap: wrap; }
 .parallel-switcher__tabs button { position: relative; display: grid; gap: 3px; min-width: 150px; padding: 9px 14px; border: 1px solid var(--border-2); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-2); text-align: left; cursor: pointer; }
 .parallel-switcher__tabs button.active { border-color: var(--accent-500); background: var(--accent-softer); color: var(--text-1); box-shadow: inset 3px 0 var(--accent-500); }
-.parallel-switcher__tabs button small { color: var(--text-3); font-size: 10px; }
+.parallel-switcher__tabs button small { color: var(--text-3); font-size: var(--font-meta); }
 .attention-dot { position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--warning); box-shadow: 0 0 0 3px var(--warning-soft); }
 @media (max-width: 1100px) { .stage-row { grid-template-columns: 1fr; } }
 </style>

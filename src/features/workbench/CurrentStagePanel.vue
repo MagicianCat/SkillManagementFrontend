@@ -155,9 +155,9 @@ const statusText: Record<string, string> = { COMPLETED: '已完成', SUCCEEDED: 
 .panel-head { display: flex; justify-content: space-between; align-items: center; }
 .head-lead { display: flex; align-items: center; gap: 10px; }
 .panel-head h3 { font-size: 15px; color: var(--text-1); font-weight: 600; margin: 0; }
-.cycle { padding: 3px 10px; border: 1px solid var(--border-accent); border-radius: var(--radius-full); color: var(--accent-300); background: var(--accent-softer); font-size: 11px; }
+.cycle { padding: 3px 10px; border: 1px solid var(--border-accent); border-radius: var(--radius-full); color: var(--accent-300); background: var(--accent-softer); font-size: var(--font-meta); }
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-.status-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; padding: 3px 10px; border-radius: var(--radius-full); border: 1px solid var(--border-2); color: var(--text-3); }
+.status-pill { display: inline-flex; align-items: center; gap: 6px; font-size: var(--font-meta); padding: 3px 10px; border-radius: var(--radius-full); border: 1px solid var(--border-2); color: var(--text-3); }
 .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .status-pill.tone-success { color: var(--success); border-color: rgb(52 211 153 / 40%); background: var(--success-soft); }
 .status-pill.tone-warning { color: var(--warning); border-color: rgb(251 191 36 / 40%); background: var(--warning-soft); }
@@ -167,9 +167,9 @@ const statusText: Record<string, string> = { COMPLETED: '已完成', SUCCEEDED: 
 .status-pill.tone-purple { color: var(--purple); border-color: rgb(167 139 250 / 45%); background: var(--purple-soft); }
 /* 流程标题条：竖线标识 + 迭代中角标 */
 .flow-head { display: flex; align-items: center; justify-content: space-between; margin: 10px 0 8px; }
-.flow-title { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: var(--text-2); }
+.flow-title { display: inline-flex; align-items: center; gap: 8px; font-size: var(--font-meta); font-weight: 600; letter-spacing: 0.04em; color: var(--text-2); }
 .flow-bar { width: 3px; height: 12px; border-radius: 2px; background: var(--accent-500); }
-.iteration-chip { padding: 3px 10px; border: 1px solid rgb(251 191 36 / 45%); border-radius: var(--radius-full); color: var(--warning); background: var(--warning-soft); font-size: 11px; font-weight: 600; }
+.iteration-chip { padding: 3px 10px; border: 1px solid rgb(251 191 36 / 45%); border-radius: var(--radius-full); color: var(--warning); background: var(--warning-soft); font-size: var(--font-meta); font-weight: 600; }
 .agent-canvas { position: relative; flex: 1; min-height: 190px; border-radius: var(--radius-sm); background: var(--bg-2); overflow: hidden; }
 .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-3); font-size: 12px; }
 :deep(.agent-node) { border: none; background: transparent; box-shadow: none; padding: 0; }
@@ -178,7 +178,7 @@ const statusText: Record<string, string> = { COMPLETED: '已完成', SUCCEEDED: 
 .agent-icon { flex: none; font-size: 22px; }
 .agent-text { display: grid; gap: 3px; min-width: 0; }
 .agent-name { font-size: 13px; color: var(--text-1); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.agent-status { font-size: 11px; color: var(--text-3); }
+.agent-status { font-size: var(--font-meta); color: var(--text-3); }
 /* 完成态：绿描边 + 绿图标，轻微降饱和表示"已过" */
 .agent-box.tone-success { border-color: rgb(52 211 153 / 45%); background: rgb(52 211 153 / 6%); }
 .agent-box.tone-success .agent-icon { color: var(--success); }
@@ -213,12 +213,12 @@ const statusText: Record<string, string> = { COMPLETED: '已完成', SUCCEEDED: 
 :deep(.agent-edge.is-seq .vue-flow__edge-path) { stroke: var(--border-3); stroke-width: 1.6; fill: none; }
 /* 回环返工边：警示色虚线 + 导轨式底条观感。 */
 :deep(.agent-edge.is-loop .vue-flow__edge-path) { stroke: var(--warning); stroke-width: 1.5; stroke-dasharray: 6 4; fill: none; }
-:deep(.agent-edge.is-loop .vue-flow__edge-text) { fill: var(--warning); font-size: 10px; font-weight: 600; }
+:deep(.agent-edge.is-loop .vue-flow__edge-text) { fill: var(--warning); font-size: var(--font-meta); font-weight: 600; }
 :deep(.agent-edge.is-loop .vue-flow__edge-textbg) { fill: var(--surface-solid-1); rx: 8px; }
 /* 指标行：与原型一致的语义着色 */
 .metrics { display: grid; grid-template-columns: repeat(5, auto); justify-content: space-between; gap: 12px; list-style: none; margin: 10px 0 0; padding: 10px 0 0; border-top: 1px solid var(--border-1); }
 .metrics li { display: grid; gap: 3px; }
-.metrics span { font-size: 10px; color: var(--text-3); white-space: nowrap; }
+.metrics span { font-size: var(--font-meta); color: var(--text-3); white-space: nowrap; }
 .metrics b { font-size: 13px; color: var(--text-1); font-weight: 600; white-space: nowrap; }
 .metrics .m-accent { color: var(--warning); }
 .metrics .m-warning { color: var(--warning); }

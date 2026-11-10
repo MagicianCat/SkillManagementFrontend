@@ -58,6 +58,7 @@ const columns: TableProps['columns'] = [
 ]
 
 function formatTime(value: string) { return new Date(value).toLocaleString('zh-CN', { hour12: false }) }
+function auditStatusText(value: string) { return ({ STARTED: '执行中', SUCCEEDED: '成功', FAILED: '失败', CANCELLED: '已取消' } as Record<string, string>)[value] ?? value }
 function formatBytes(value: number) { if (!value || value < 0) return '-'; const units = ['B', 'KB', 'MB', 'GB', 'TB']; let n = value; let i = 0; while (n >= 1024 && i < units.length - 1) { n /= 1024; i++ } return `${n.toFixed(i ? 1 : 0)} ${units[i]}` }
 async function load() {
   loading.value = true
@@ -86,9 +87,9 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
 <template>
   <main class="market-page agent-audit-page">
     <div class="page-heading"><div><p class="eyebrow">AGENT OPERATIONS</p><h1>Agent 运行与审计</h1><p class="page-subtitle">实时查看 Agent 全链路运行状态，并追踪 MCP 调用。</p></div></div>
-    <nav class="operations-tabs" aria-label="Agent 运维页面">
-      <button v-for="tab in [{ value: 'monitoring', label: '运行监控' }, { value: 'business', label: '业务链路' }, { value: 'alerts', label: '告警中心' }, { value: 'audit', label: '调用审计' }]" :key="tab.value" type="button" :class="{ active: activeTab === tab.value }" :aria-current="activeTab === tab.value ? 'page' : undefined" @click="changeTab(tab.value)">{{ tab.label }}</button>
-      <button v-if="canConfigureAlerts" type="button" :class="{ active: activeTab === 'alert-settings' }" :aria-current="activeTab === 'alert-settings' ? 'page' : undefined" @click="changeTab('alert-settings')">告警设置</button>
+    <nav class="status-tabs operations-tabs" role="tablist" aria-label="Agent 运维页面">
+      <button v-for="tab in [{ value: 'monitoring', label: '运行监控' }, { value: 'business', label: '业务链路' }, { value: 'alerts', label: '告警中心' }, { value: 'audit', label: '调用审计' }]" :key="tab.value" type="button" role="tab" class="status-tab" :aria-selected="activeTab === tab.value" :class="{ 'is-selected': activeTab === tab.value }" @click="changeTab(tab.value)">{{ tab.label }}</button>
+      <button v-if="canConfigureAlerts" type="button" role="tab" class="status-tab" :aria-selected="activeTab === 'alert-settings'" :class="{ 'is-selected': activeTab === 'alert-settings' }" @click="changeTab('alert-settings')">告警设置</button>
     </nav>
       <div v-if="activeTab === 'monitoring'">
         <div class="monitoring-panel">
@@ -121,7 +122,7 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
               <!-- 运行负载 -->
               <section class="panel-block">
                 <header class="block-head"><div class="block-title"><i class="block-bar" />运行负载<span class="block-sub">Active Queues &amp; Tasks</span></div><t-tag size="small" variant="light" :theme="dashboard.workload.running > 0 ? 'warning' : 'success'">{{ dashboard.workload.running > 0 ? 'BUSY / 负载中' : 'IDLE / 正常轻载' }}</t-tag></header>
-                <div class="metric-grid four">
+                <div class="metric-grid three">
                   <div class="metric-card"><span class="metric-label">Agent 活跃 Run</span><b class="metric-num">{{ dashboard.workload.runningNow }}</b><small>待执行 {{ dashboard.workload.pending }} · 近15分 {{ dashboard.workload.recentTotal }}</small></div>
                   <div class="metric-card"><span class="metric-label">DSH 活跃 Run</span><b class="metric-num">{{ dashboard.workload.dshActiveRuns }}<i>/ {{ dashboard.workload.dshMaxConcurrentRuns || '—' }}</i></b><small>累计并发拒绝 {{ dashboard.workload.dshBusyRejections }}</small></div>
                   <div class="metric-card"><span class="metric-label">Agent 执行队列</span><b class="metric-num">{{ dashboard.workload.agentExecutorQueued }}<i>/ {{ dashboard.workload.agentExecutorQueueCapacity }}</i></b><small>工作线程 {{ dashboard.workload.agentExecutorActive }} / {{ capacityNum('agentMaxConcurrentRuns') }}</small></div>
@@ -132,7 +133,7 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
               <!-- 资源与容量 -->
               <section class="panel-block">
                 <header class="block-head"><div class="block-title"><i class="block-bar" />资源与容量<span class="block-sub">System Provisioning</span></div><span class="block-meta">宿主节点资源利用度</span></header>
-                <div class="metric-grid four">
+                <div class="metric-grid three">
                   <div class="metric-card"><span class="metric-label">CPU 使用率</span><b class="metric-num">{{ dashboard.resources.cpuPercent < 0 ? '—' : dashboard.resources.cpuPercent.toFixed(1) }}<i v-if="dashboard.resources.cpuPercent >= 0">%</i></b><div class="meter"><i :style="{ width: meterWidth(dashboard.resources.cpuPercent, 100) }" /></div><small>轻载运行 · 上限 100%</small></div>
                   <div class="metric-card"><span class="metric-label">内存</span><b class="metric-num">{{ bytesNum(dashboard.resources.memoryUsedBytes) }}<i>{{ bytesUnit(dashboard.resources.memoryUsedBytes) }}</i></b><div class="meter"><i :style="{ width: meterWidth(dashboard.resources.memoryUsedBytes, dashboard.resources.memoryMaxBytes) }" /></div><small>{{ percent(dashboard.resources.memoryUsedBytes, dashboard.resources.memoryMaxBytes) }} · 上限 {{ formatBytes(dashboard.resources.memoryMaxBytes) }}</small></div>
                   <div class="metric-card"><span class="metric-label">磁盘</span><b class="metric-num">{{ bytesNum(dashboard.resources.diskUsedBytes) }}<i>{{ bytesUnit(dashboard.resources.diskUsedBytes) }}</i></b><div class="meter"><i :style="{ width: meterWidth(dashboard.resources.diskUsedBytes, dashboard.resources.diskTotalBytes) }" /></div><small>{{ percent(dashboard.resources.diskUsedBytes, dashboard.resources.diskTotalBytes) }} · 总量 {{ formatBytes(dashboard.resources.diskTotalBytes) }}</small></div>
@@ -179,7 +180,7 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
       <t-table row-key="id" :columns="columns" :data="rows" :loading="loading" bordered stripe>
       <template #startedAt="{ row }"><span class="cell-nowrap">{{ formatTime(row.startedAt) }}</span></template>
       <template #toolName="{ row }"><span class="cell-mono" :title="row.toolName">{{ row.toolName }}</span></template>
-      <template #status="{ row }"><t-tag :theme="row.status === 'SUCCEEDED' ? 'success' : row.status === 'FAILED' ? 'danger' : 'warning'">{{ row.status }}</t-tag></template>
+      <template #status="{ row }"><t-tag :theme="row.status === 'SUCCEEDED' ? 'success' : row.status === 'FAILED' ? 'danger' : 'warning'">{{ auditStatusText(row.status) }}</t-tag></template>
       <template #durationMs="{ row }">{{ row.durationMs == null ? '-' : `${row.durationMs} ms` }}</template>
       <template #runKey="{ row }"><span class="cell-mono" :title="row.runKey">{{ row.runKey }}</span></template>
       </t-table>
@@ -194,10 +195,7 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
 
 <style scoped>
 .agent-audit-page { display: grid; gap: 18px; min-width: 0; }
-.operations-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--border-1); }
-.operations-tabs button { border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text-2); cursor: pointer; padding: 11px 16px; font: inherit; }
-.operations-tabs button:hover { color: var(--text-1); }
-.operations-tabs button.active { color: var(--accent-500); border-bottom-color: var(--accent-500); }
+.operations-tabs { margin-bottom: 18px; }
 .table-scroll { min-width: 0; overflow-x: auto; }
 .table-scroll :deep(.t-table) { min-width: 980px; }
 .agent-audit-page :deep(.t-table) { background: var(--surface-1); }
@@ -237,16 +235,17 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
 .component-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .component-head strong { font-size: 13px; color: var(--text-1); }
 .component-latency { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border-1); }
-.component-latency span { font-size: 11px; color: var(--text-3); }
+.component-latency span { font-size: var(--font-meta); color: var(--text-3); }
 .component-latency b { font-size: 26px; font-weight: 700; color: var(--text-1); letter-spacing: -0.02em; }
 .component-latency b i { font-style: normal; font-size: 12px; font-weight: 500; color: var(--text-3); margin-left: 3px; }
 .component-card.tone-warning .component-latency b { color: var(--warning); }
 .component-card.tone-error .component-latency b { color: var(--error); }
-.component-error { margin: 0; font-size: 11px; color: var(--error); overflow-wrap: anywhere; }
+.component-error { margin: 0; font-size: var(--font-meta); color: var(--error); overflow-wrap: anywhere; }
 
 /* ===== 指标卡（负载/资源/延迟） ===== */
 .metric-grid { display: grid; gap: 12px; }
 .metric-grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.metric-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .metric-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .metric-card { display: grid; gap: 8px; align-content: start; padding: 14px 16px; border: 1px solid var(--border-1); border-radius: var(--radius-md); background: var(--surface-2); }
 .metric-label { font-size: 12px; color: var(--text-2); }
@@ -254,12 +253,12 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
 .metric-num i { font-style: normal; font-size: 13px; font-weight: 500; color: var(--text-3); margin-left: 3px; }
 .metric-num.num-ok { color: var(--success); }
 .metric-num.num-error { color: var(--error); }
-.metric-card small { font-size: 11px; color: var(--text-3); }
+.metric-card small { font-size: var(--font-meta); color: var(--text-3); }
 .meter { height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
 .meter i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent-500), var(--accent-300)); transition: width 0.6s var(--ease-out); }
 
 /* ===== 趋势点阵 ===== */
-.trend-legend { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-2); }
+.trend-legend { display: flex; align-items: center; gap: 6px; font-size: var(--font-meta); color: var(--text-2); }
 .trend-legend .lg { width: 8px; height: 8px; border-radius: 50%; margin-left: 10px; }
 .trend-legend .lg.p95 { background: var(--info); }
 .trend-legend .lg.p99 { background: var(--accent-400); }
@@ -270,7 +269,7 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
 .trend-line.p95 .trend-label { color: var(--info); }
 .trend-line.p99 .trend-label { color: var(--accent-400); }
 .trend-line.err .trend-label { color: var(--error); }
-.trend-base { font-size: 10px; }
+.trend-base { font-size: var(--font-meta); }
 .dots { display: flex; gap: 5px; flex-wrap: wrap; }
 .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--info); opacity: 0.75; }
 .trend-line.p99 .dots i { background: var(--accent-400); }
@@ -283,5 +282,5 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
 .binding-pills { display: inline-flex; gap: 8px; flex-wrap: wrap; }
 
 @media (max-width: 1100px) { .two-col, .two-col.latency-trend { grid-template-columns: 1fr; } }
-@media (max-width: 900px) { .metric-grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .metric-grid.four, .metric-grid.three { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

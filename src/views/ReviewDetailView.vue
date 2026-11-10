@@ -234,16 +234,20 @@ onMounted(loadReview)
 
         <!-- 主区 -->
         <section class="review-main">
-          <div class="tab-bar" role="tablist">
+          <div class="status-tabs tab-bar" role="tablist" aria-label="审核内容">
             <button
-              class="tab"
+              class="status-tab"
+              role="tab"
+              :aria-selected="activeTab === 'diff'"
               :class="{ 'is-selected': activeTab === 'diff' }"
               @click="activeTab = 'diff'"
             >
               变更对比<template v-if="diffs.length">（{{ diffs.length }}）</template>
             </button>
             <button
-              class="tab"
+              class="status-tab"
+              role="tab"
+              :aria-selected="activeTab === 'comment'"
               :class="{ 'is-selected': activeTab === 'comment' }"
               @click="activeTab = 'comment'"
             >
@@ -404,7 +408,7 @@ onMounted(loadReview)
 .btn-xs {
   height: 24px;
   padding: 0 9px;
-  font-size: 11px;
+  font-size: var(--font-meta);
 }
 .candidate-version {
   margin-left: 8px;
@@ -432,7 +436,7 @@ onMounted(loadReview)
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-1);
   color: var(--text-3);
-  font-size: 10px;
+  font-size: var(--font-meta);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -441,7 +445,7 @@ onMounted(loadReview)
 .file-panel__error {
   padding: 18px 12px;
   color: var(--text-3);
-  font-size: 11px;
+  font-size: var(--font-meta);
 }
 .file-panel__error {
   color: var(--error);
@@ -477,7 +481,7 @@ onMounted(loadReview)
   border-radius: 4px;
   color: var(--text-2);
   background: var(--surface-2);
-  font-size: 9px;
+  font-size: var(--font-meta);
 }
 .review-main {
   display: grid;
@@ -486,24 +490,7 @@ onMounted(loadReview)
   align-content: start;
 }
 .tab-bar {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--border-1);
-}
-.tab {
-  padding: 9px 14px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  color: var(--text-2);
-  background: transparent;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-.tab.is-selected {
-  border-bottom-color: var(--accent-500);
-  color: var(--accent-400);
-  font-weight: 650;
+  margin-bottom: 14px;
 }
 .tab-content {
   min-height: 120px;
@@ -547,12 +534,12 @@ onMounted(loadReview)
 }
 .diff-card__size {
   color: var(--text-3);
-  font-size: 11px;
+  font-size: var(--font-meta);
 }
 .diff-badge {
   padding: 3px 8px;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: var(--font-meta);
   font-weight: 650;
 }
 .diff-added {
@@ -579,7 +566,7 @@ onMounted(loadReview)
   margin: 0;
   padding: 7px 14px;
   color: var(--text-3);
-  font-size: 10px;
+  font-size: var(--font-meta);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -591,7 +578,7 @@ onMounted(loadReview)
   padding: 0 14px 14px;
   color: var(--text-1);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-meta);
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-all;
@@ -649,7 +636,7 @@ onMounted(loadReview)
   padding: 14px;
   color: var(--text-1);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-meta);
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-all;

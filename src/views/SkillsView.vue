@@ -335,9 +335,6 @@ onMounted(() => {
                 }}</span>
               </div>
               <div class="skill-card__actions">
-                <button class="link-button" @click.stop="openSkill(skill.skillKey)">
-                  查看
-                </button>
                 <button
                   v-if="canEditSkill(skill) && skill.status === 'ACTIVE'"
                   class="link-button link-button--primary"
@@ -366,36 +363,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.btn-primary,
-.btn-secondary {
-  height: 38px;
-  padding: 0 16px;
-  border-radius: 7px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 650;
-  cursor: pointer;
-}
-.btn-primary {
-  border: 0;
-  color: var(--text-on-accent);
-  background: var(--accent-500);
-}
-.btn-primary:hover:not(:disabled) {
-  background: var(--accent-400);
-}
-.btn-primary:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-.btn-secondary {
-  border: 1px solid var(--border-2);
-  color: var(--text-2);
-  background: var(--surface-1);
-}
-.btn-secondary:hover:not(:disabled) {
-  background: var(--surface-2);
-}
 .category-filter {
   display: flex;
   align-items: center;
@@ -405,11 +372,11 @@ onMounted(() => {
   white-space: nowrap;
 }
 .category-filter select {
-  height: 38px;
+  height: var(--control-height);
   min-width: 132px;
   padding: 0 30px 0 10px;
   border: 1px solid var(--border-1);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   color: var(--text-1);
   background: var(--surface-1);
   font: inherit;
@@ -454,7 +421,7 @@ onMounted(() => {
 .filter-label {
   margin: 5px 10px 9px;
   color: var(--text-3);
-  font-size: 10px;
+  font-size: var(--font-meta);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -489,7 +456,7 @@ onMounted(() => {
   padding-top: 6px;
   padding-bottom: 6px;
   color: var(--text-2);
-  font-size: 11px;
+  font-size: var(--font-meta);
 }
 .stage-option__marker {
   display: inline-block;
@@ -501,16 +468,24 @@ onMounted(() => {
 .stage-option small {
   margin-left: auto;
   color: var(--accent-300);
-  font-size: 9px;
+  font-size: var(--font-meta);
 }
 @media (max-width: 720px) {
   .market-body {
     grid-template-columns: 1fr;
   }
-  .stage-filter {
+  .stage-filter,
+  .stage-tree-node,
+  .stage-tree-children {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 4px;
-    overflow-x: auto;
+  }
+  .stage-tree-children {
+    margin: 0;
+    padding: 0;
+    border-left: 0;
   }
   .filter-label {
     display: none;
@@ -518,6 +493,10 @@ onMounted(() => {
   .stage-option {
     width: auto;
     white-space: nowrap;
+    border: 1px solid var(--border-1);
+  }
+  .stage-option.is-selected {
+    border-color: var(--border-accent);
   }
 }
 @container skills-market (max-width: 760px) {

@@ -40,6 +40,7 @@ const commentsLoading = ref(false)
 const loading = ref(true)
 const downloading = ref(false)
 const errorMessage = ref('')
+const feedbackError = ref('')
 const downloadable = computed(() =>
   versions.value.filter((version) =>
     ['PUBLISHED', 'DEPRECATED'].includes(version.lifecycleStatus),
@@ -94,12 +95,13 @@ async function updateRating(rating: number) {
   const previous = myRating.value
   myRating.value = rating
   feedbackBusy.value = true
+  feedbackError.value = ''
   try {
     await saveSkillRating(skillKey.value, rating)
     feedback.value = await getSkillFeedback(skillKey.value, feedback.value?.comments.number ?? 0)
   } catch (error: unknown) {
     myRating.value = previous
-    errorMessage.value = axios.isAxiosError(error)
+    feedbackError.value = axios.isAxiosError(error)
       ? String(error.response?.data?.message ?? '评分保存失败')
       : '评分保存失败'
   } finally { feedbackBusy.value = false }
@@ -108,12 +110,13 @@ async function submitComment() {
   const comment = commentDraft.value.trim()
   if (!comment || feedbackBusy.value) return
   feedbackBusy.value = true
+  feedbackError.value = ''
   try {
     await addSkillComment(skillKey.value, comment)
     commentDraft.value = ''
     feedback.value = await getSkillFeedback(skillKey.value)
   } catch (error: unknown) {
-    errorMessage.value = axios.isAxiosError(error)
+    feedbackError.value = axios.isAxiosError(error)
       ? String(error.response?.data?.message ?? '评论发布失败')
       : '评论发布失败'
   } finally { feedbackBusy.value = false }
@@ -121,11 +124,12 @@ async function submitComment() {
 async function removeComment(commentId: number) {
   if (feedbackBusy.value) return
   feedbackBusy.value = true
+  feedbackError.value = ''
   try {
     await deleteSkillComment(skillKey.value, commentId)
     feedback.value = await getSkillFeedback(skillKey.value, feedback.value?.comments.number ?? 0)
   } catch (error: unknown) {
-    errorMessage.value = axios.isAxiosError(error)
+    feedbackError.value = axios.isAxiosError(error)
       ? String(error.response?.data?.message ?? '评论删除失败')
       : '评论删除失败'
   } finally { feedbackBusy.value = false }
@@ -142,6 +146,10 @@ async function loadMoreComments() {
         content: [...feedback.value.comments.content, ...next.comments.content],
       },
     }
+  } catch (error: unknown) {
+    feedbackError.value = axios.isAxiosError(error)
+      ? String(error.response?.data?.message ?? '评论加载失败')
+      : '评论加载失败'
   } finally { commentsLoading.value = false }
 }
 
@@ -309,6 +317,7 @@ onMounted(load)
         </aside>
       </div>
       <section v-if="feedback" class="feedback-section">
+        <p v-if="feedbackError" class="inline-error feedback-error" role="alert">{{ feedbackError }}</p>
         <div class="feedback-summary"><strong>评分 {{ feedback.averageRating.toFixed(1) }} / 5</strong><span>{{ feedback.ratingCount }} 人评分 · {{ feedback.downloadCount }} 次下载</span></div>
         <div class="rating-editor">
           <div class="rating-heading"><strong>我的评分</strong><span v-if="myRating">点击星级即可更新</span><span v-else>请选择 1～5 星</span></div>
@@ -335,9 +344,9 @@ onMounted(load)
 </template>
 
 <style scoped>
-.feedback-section{margin-top:22px;padding:22px;border:1px solid var(--border-1);border-radius:10px;background:var(--surface-1);backdrop-filter:blur(12px);box-shadow:var(--inner-highlight)}.feedback-summary{display:flex;justify-content:space-between;align-items:center;color:var(--text-2);font-size:12px}.feedback-summary strong{color:var(--text-1);font-size:20px}.rating-editor,.comment-editor{display:grid;gap:10px;margin:18px 0;padding-bottom:18px;border-bottom:1px solid var(--border-1)}.rating-heading,.comment-editor__footer,.comment-list-heading,.feedback-item__head{display:flex;align-items:center;justify-content:space-between;gap:10px}.rating-heading span,.comment-editor__footer span,.comment-list-heading span,.feedback-item__head time{color:var(--text-3);font-size:11px}.stars{display:flex;gap:2px}.star-button{height:32px!important;padding:0 3px!important;color:var(--border-2)!important;font-size:25px!important;line-height:1!important}.star-button.active{color:var(--warning)!important}.comment-editor textarea{min-height:70px;padding:10px;border:1px solid var(--border-2);border-radius:6px;color:var(--text-1);background:var(--surface-2);font:inherit;resize:vertical}.feedback-item{padding:12px 0;border-bottom:1px solid var(--border-1)}.feedback-item strong{font-size:13px;color:var(--text-1)}.feedback-item p{margin:7px 0 0;color:var(--text-2);font-size:13px;white-space:pre-wrap}.feedback-item__head{justify-content:flex-start}.feedback-item__head time{margin-right:auto}.load-more-comments{display:block;margin:14px auto 0}
-.wiki-related-section{margin-top:22px;padding:22px;border:1px solid var(--border-1);border-radius:10px;background:var(--surface-1);backdrop-filter:blur(12px);box-shadow:var(--inner-highlight)}.wiki-related-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--border-1);color:var(--text-1);text-decoration:none}.wiki-related-card strong,.wiki-related-card small{display:block}.wiki-related-card small{margin-top:4px;color:var(--text-3);font-size:11px}.wiki-related-card__arrow{color:var(--accent-400);font-size:12px}
-.install-guide{display:grid;gap:8px;margin-top:14px;padding:13px;border:1px solid var(--border-accent);border-radius:8px;background:var(--accent-softer);color:var(--text-1)}.install-guide strong{font-size:13px}.install-guide__target{color:var(--accent-400);font-size:12px}.install-location{display:grid;gap:4px}.install-location span{color:var(--text-2);font-size:11px}.install-location code{overflow-wrap:anywhere;padding:7px 8px;border-radius:5px;background:var(--surface-2);color:var(--accent-300);font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.install-guide small{color:var(--text-3);font-size:11px;line-height:1.5}
+.feedback-section{margin-top:var(--space-5);padding:var(--card-padding);border:1px solid var(--border-1);border-radius:var(--card-radius);background:var(--surface-1);backdrop-filter:blur(12px);box-shadow:var(--inner-highlight)}.feedback-summary{display:flex;justify-content:space-between;align-items:center;color:var(--text-2);font-size:12px}.feedback-summary strong{color:var(--text-1);font-size:20px}.rating-editor,.comment-editor{display:grid;gap:10px;margin:18px 0;padding-bottom:18px;border-bottom:1px solid var(--border-1)}.rating-heading,.comment-editor__footer,.comment-list-heading,.feedback-item__head{display:flex;align-items:center;justify-content:space-between;gap:10px}.rating-heading span,.comment-editor__footer span,.comment-list-heading span,.feedback-item__head time{color:var(--text-3);font-size: var(--font-meta)}.stars{display:flex;gap:2px}.star-button{height:32px!important;padding:0 3px!important;color:var(--border-2)!important;font-size:25px!important;line-height:1!important}.star-button.active{color:var(--warning)!important}.comment-editor textarea{min-height:70px;padding:10px;border:1px solid var(--border-2);border-radius:6px;color:var(--text-1);background:var(--surface-2);font:inherit;resize:vertical}.feedback-item{padding:12px 0;border-bottom:1px solid var(--border-1)}.feedback-item strong{font-size:13px;color:var(--text-1)}.feedback-item p{margin:7px 0 0;color:var(--text-2);font-size:13px;white-space:pre-wrap}.feedback-item__head{justify-content:flex-start}.feedback-item__head time{margin-right:auto}.load-more-comments{display:block;margin:14px auto 0}.feedback-error{margin:0 0 14px;padding:9px 12px;border:1px solid color-mix(in srgb, var(--error) 30%, transparent);border-radius:var(--radius-sm);font-size:var(--font-meta)}
+.wiki-related-section{margin-top:var(--space-5);padding:var(--card-padding);border:1px solid var(--border-1);border-radius:var(--card-radius);background:var(--surface-1);backdrop-filter:blur(12px);box-shadow:var(--inner-highlight)}.wiki-related-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--border-1);color:var(--text-1);text-decoration:none}.wiki-related-card strong,.wiki-related-card small{display:block}.wiki-related-card small{margin-top:4px;color:var(--text-3);font-size: var(--font-meta)}.wiki-related-card__arrow{color:var(--accent-400);font-size:12px}
+.install-guide{display:grid;gap:8px;margin-top:14px;padding:13px;border:1px solid var(--border-accent);border-radius:8px;background:var(--accent-softer);color:var(--text-1)}.install-guide strong{font-size:13px}.install-guide__target{color:var(--accent-400);font-size:12px}.install-location{display:grid;gap:4px}.install-location span{color:var(--text-2);font-size: var(--font-meta)}.install-location code{overflow-wrap:anywhere;padding:7px 8px;border-radius:5px;background:var(--surface-2);color:var(--accent-300);font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.install-guide small{color:var(--text-3);font-size: var(--font-meta);line-height:1.5}
 .detail-header__badges {
   display: flex;
   flex: 0 0 auto;

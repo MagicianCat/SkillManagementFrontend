@@ -57,6 +57,17 @@
   --purple: #a78bfa;
   --purple-soft: rgb(167 139 250 / 12%);
 
+  /* 研发流程分类色（仅用于阶段类别标识，不表示状态） */
+  --cat-requirement: #6c8cff;
+  --cat-product: #a78bfa;
+  --cat-architecture: #2dd4bf;
+  --cat-ui: #f472b6;
+  --cat-backend: #34d399;
+  --cat-frontend: #60a5fa;
+  --cat-security: #f87171;
+  --cat-testing: #fbbf24;
+  --cat-deployment: #94a3b8;
+
   /* 徽标点缀色（KPI / 角标暖橙） */
   --badge-accent: #fbbf24;
 
@@ -94,8 +105,41 @@
 
   /* ===== 布局 ===== */
   --content-max-width: 1120px;
+  /* 统一页面内容最大宽度：所有标准页面共用同一容器，避免左右留白跳变 */
+  --page-max-width: 1240px;
+  /* 表单页统一宽度：单列填写，避免超宽行导致视线跳转 */
+  --form-max-width: 840px;
   --header-height: 56px;
   --sidebar-width: 240px;
+
+  /* 间距刻度：4 / 8 / 12 / 16 / 20 / 24 / 32 / 40 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* 字号刻度：页面标题 / 区块标题 / 卡片标题 / 正文 / 辅助 / 元信息 */
+  --font-page-title: 24px;
+  --font-section-title: 16px;
+  --font-card-title: 15px;
+  --font-body: 13px;
+  --font-label: 13px;
+  --font-meta: 12px;
+  --font-caption: 11px;
+
+  /* 控件高度：与 TDesign 中号控件对齐 */
+  --control-height-sm: 28px;
+  --control-height: 36px;
+  --control-height-lg: 40px;
+
+  /* 卡片 / 区块 */
+  --card-radius: 12px;
+  --card-padding: 20px;
+  --card-gap: 16px;
 
   /* 响应式页面布局 */
   --layout-page-padding-inline: 32px;
@@ -233,6 +277,11 @@
 
   /* ---- 字体 ---- */
   --td-font-family: var(--font-sans);
+
+  /* ---- 控件尺寸：统一为 36px 中号 / 28px 小号，与页面原生控件对齐 ---- */
+  --td-comp-size-s: var(--control-height-sm);
+  --td-comp-size-m: var(--control-height);
+  --td-comp-size-l: var(--control-height-lg);
 }
 
 /* ============================================================
@@ -325,6 +374,17 @@
   --info-soft: rgb(37 99 235 / 10%);
   --purple: #7c3aed;
   --purple-soft: rgb(124 58 237 / 10%);
+
+  /* 研发流程分类色（浅色下加深保证对比度） */
+  --cat-requirement: #4f46e5;
+  --cat-product: #7c3aed;
+  --cat-architecture: #0d9488;
+  --cat-ui: #db2777;
+  --cat-backend: #16a34a;
+  --cat-frontend: #2563eb;
+  --cat-security: #dc2626;
+  --cat-testing: #d97706;
+  --cat-deployment: #64748b;
 
   /* 徽标点缀橙（KPI 数字 / 角标） */
   --badge-accent: #f59e0b;

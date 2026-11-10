@@ -297,10 +297,10 @@ onMounted(() => { searchTeams(); fetchReviews() })
         <p class="page-subtitle">处理 Skill 版本的审核任务</p>
       </div>
     </div>
-    <t-tabs class="review-type-tabs" value="skill" @change="changeReviewType">
-      <t-tab-panel value="skill" label="Skill 审核" />
-      <t-tab-panel value="wiki" label="Wiki 审核" />
-    </t-tabs>
+    <nav class="status-tabs review-type-tabs" role="tablist" aria-label="审核类型">
+      <button type="button" role="tab" aria-selected="true" class="status-tab is-selected" @click="changeReviewType('skill')">Skill 审核</button>
+      <button type="button" role="tab" aria-selected="false" class="status-tab" @click="changeReviewType('wiki')">Wiki 审核</button>
+    </nav>
 
     <section class="market-toolbar" aria-label="审核任务搜索">
       <label class="search-box"
@@ -329,6 +329,8 @@ onMounted(() => { searchTeams(); fetchReviews() })
           v-for="tab in statusTabs"
           :key="tab.label"
           class="status-tab"
+          role="tab"
+          :aria-selected="selectedStatus === tab.value"
           :class="{ 'is-selected': selectedStatus === tab.value }"
           @click="selectStatus(tab.value)"
         >
@@ -426,9 +428,7 @@ onMounted(() => { searchTeams(); fetchReviews() })
                 拒绝
               </button>
             </template>
-            <button class="btn-secondary btn-sm" @click="openDetail(item)">
-              查看详情
-            </button>
+            <button class="link-button" @click="openDetail(item)">详情</button>
           </div>
         </article>
       </template>
@@ -568,25 +568,6 @@ onMounted(() => { searchTeams(); fetchReviews() })
 }
 
 .review-team-filter{width:240px;min-width:200px}
-.status-tabs {
-  display: flex;
-  gap: 4px;
-}
-.status-tab {
-  padding: 7px 12px;
-  border: 0;
-  border-radius: 6px;
-  color: var(--text-2);
-  background: transparent;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-.status-tab:hover,
-.status-tab.is-selected {
-  color: var(--accent-300);
-  background: var(--accent-soft);
-}
 .batch-bar {
   display: flex;
   align-items: center;
@@ -663,13 +644,13 @@ onMounted(() => { searchTeams(); fetchReviews() })
 }
 .review-card__title small {
   color: var(--text-2);
-  font-size: 11px;
+  font-size: var(--font-meta);
   font-weight: 400;
 }
 .review-card__meta {
   margin: 0;
   color: var(--text-3);
-  font-size: 11px;
+  font-size: var(--font-meta);
 }
 .review-card__comment {
   margin: 0;
@@ -687,7 +668,7 @@ onMounted(() => { searchTeams(); fetchReviews() })
   border-radius: 6px;
   color: var(--text-2);
   background: var(--surface-2);
-  font-size: 11px;
+  font-size: var(--font-meta);
   line-height: 1.6;
 }
 .review-card__actions {

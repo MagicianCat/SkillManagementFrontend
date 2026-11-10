@@ -25,14 +25,14 @@ const comment = ref('')
 .panel { padding: 16px 18px; border: 1px solid rgb(167 139 250 / 35%); border-radius: var(--radius-md); background: var(--purple-soft); box-shadow: var(--inner-highlight); }
 .panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .panel-head h3 { font-size: 14px; color: var(--text-1); font-weight: 600; }
-.tag { font-size: 10px; padding: 2px 9px; border-radius: var(--radius-full); color: var(--purple); border: 1px solid rgb(167 139 250 / 45%); }
+.tag { font-size: var(--font-meta); padding: 2px 9px; border-radius: var(--radius-full); color: var(--purple); border: 1px solid rgb(167 139 250 / 45%); }
 .muted { color: var(--text-2); font-size: 12px; margin: 0 0 10px; }
 textarea { box-sizing: border-box; width: 100%; margin: 0 0 10px; padding: 10px; font-size: 13px; color: var(--text-1); background: var(--bg-2); border: 1px solid var(--border-2); border-radius: var(--radius-sm); resize: vertical; }
 textarea::placeholder { color: var(--text-4); }
 .row { display: flex; gap: 8px; }
 button { padding: 9px 16px; font-size: 13px; border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; }
-.primary { color: #fff; background: var(--accent-600); }
+.primary { color: var(--text-on-accent); background: var(--accent-600); }
 .primary:hover:not(:disabled) { background: var(--accent-500); box-shadow: var(--shadow-accent); }
-.danger { color: #fff; background: #b94e55; }
+.danger { color: var(--text-on-accent); background: var(--error); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

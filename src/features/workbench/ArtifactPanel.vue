@@ -98,10 +98,10 @@ defineExpose({ summary, badge, count: computed(() => sorted.value.length) })
 .tabs { display: flex; gap: 4px; margin-bottom: 10px; }
 .tabs button { padding: 5px 12px; font-size: 12px; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--text-3); cursor: pointer; }
 .tabs button.on { color: var(--accent-300); background: var(--accent-softer); border-color: var(--border-accent); }
-.badge { margin-left: 5px; padding: 0 5px; border-radius: var(--radius-full); background: var(--error-soft); color: var(--error); font-size: 10px; }
+.badge { margin-left: 5px; padding: 0 5px; border-radius: var(--radius-full); background: var(--error-soft); color: var(--error); font-size: var(--font-meta); }
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .revisions { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-.rev-chip { padding: 5px 10px; font-size: 11px; border: 1px solid var(--border-2); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-2); cursor: pointer; }
+.rev-chip { padding: 5px 10px; font-size: var(--font-meta); border: 1px solid var(--border-2); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-2); cursor: pointer; }
 .rev-chip.on { color: var(--accent-300); border-color: var(--border-accent); background: var(--accent-softer); }
 /* 飞书发布状态条：挂在预览面板内，仅「预览」tab 展示；成功/失败用语义色描边 */
 .publication-status { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; padding: 8px 12px; border: 1px solid var(--border-1); border-radius: var(--radius-sm); background: var(--surface-2); font-size: 12px; color: var(--text-2); }
@@ -116,20 +116,20 @@ defineExpose({ summary, badge, count: computed(() => sorted.value.length) })
 .publication-status.is-running strong, .publication-status.is-retrying strong, .publication-status.is-pending strong { color: var(--accent-300); }
 .pub-link { color: var(--accent-300); text-decoration: none; font-weight: 600; }
 .pub-link:hover { color: var(--accent-200); text-decoration: underline; }
-.publication-error { color: var(--error); font-size: 11px; }
-.pub-retry { padding: 4px 10px; font-size: 11px; font-weight: 600; border: 1px solid var(--border-accent); border-radius: var(--radius-sm); background: var(--accent-softer); color: var(--accent-300); cursor: pointer; }
+.publication-error { color: var(--error); font-size: var(--font-meta); }
+.pub-retry { padding: 4px 10px; font-size: var(--font-meta); font-weight: 600; border: 1px solid var(--border-accent); border-radius: var(--radius-sm); background: var(--accent-softer); color: var(--accent-300); cursor: pointer; }
 .pub-retry:hover { background: var(--accent-soft); box-shadow: 0 0 10px var(--accent-glow); }
 .pane { flex: 1; overflow-y: auto; border-top: 1px solid var(--border-1); padding-top: 10px; min-height: 0; }
 .preview h4 { margin: 0 0 6px; font-size: 14px; color: var(--text-1); }
 .doc-link { color: var(--text-1); text-decoration: none; }
 .doc-link:hover { color: var(--accent-300); text-decoration: underline; }
-.open-doc-btn { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; padding: 7px 14px; font-size: 12px; font-weight: 600; color: #fff; background: var(--accent-600); border: none; border-radius: var(--radius-sm); text-decoration: none; }
+.open-doc-btn { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; padding: 7px 14px; font-size: 12px; font-weight: 600; color: var(--text-on-accent); background: var(--accent-600); border: none; border-radius: var(--radius-sm); text-decoration: none; }
 .open-doc-btn:hover { background: var(--accent-500); box-shadow: var(--shadow-accent); }
-.rev { font-size: 11px; color: var(--accent-300); }
+.rev { font-size: var(--font-meta); color: var(--accent-300); }
 .muted { color: var(--text-3); font-size: 12px; margin: 4px 0; }
 .compare { font-size: 12px; color: var(--accent-300); margin: 0 0 8px; }
 .issues ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .issues li { display: flex; gap: 8px; align-items: baseline; font-size: 12px; color: var(--text-2); padding: 8px 10px; border: 1px solid var(--border-1); border-radius: var(--radius-sm); background: var(--surface-2); }
-.sev { flex: none; padding: 1px 7px; border-radius: var(--radius-full); font-size: 10px; background: var(--warning-soft); color: var(--warning); }
+.sev { flex: none; padding: 1px 7px; border-radius: var(--radius-full); font-size: var(--font-meta); background: var(--warning-soft); color: var(--warning); }
 .empty { padding: 16px 0; }
 </style>

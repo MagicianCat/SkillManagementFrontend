@@ -107,7 +107,7 @@ onMounted(async () => { await load(); const id = Number(route.query.alertId); if
 .block-sub {
   margin-left: 8px;
   color: var(--text-3);
-  font-size: 11px;
+  font-size: var(--font-meta);
   font-weight: 400;
 }
 .alert-empty {

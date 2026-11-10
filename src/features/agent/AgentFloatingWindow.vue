@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AgentChat from './AgentChat.vue'
 import { useAgentStore } from './store'
@@ -9,7 +9,15 @@ const route = useRoute()
 const router = useRouter()
 const manuallyClosed = ref(false)
 
-onMounted(() => void store.refreshSessions().catch(() => undefined))
+/** 窄屏悬浮窗以全屏形式出现，若自动展开会直接盖住页面内容，因此仅桌面端自动展开。 */
+function canAutoOpen() {
+  return typeof window === 'undefined' || !window.matchMedia('(max-width: 640px)').matches
+}
+
+onMounted(() => {
+  if (!canAutoOpen()) store.floatingOpen = false
+  void store.refreshSessions().catch(() => undefined)
+})
 
 async function open() {
   manuallyClosed.value = false
@@ -26,7 +34,7 @@ function minimize() {
 watch(
   () => route.name,
   (name) => {
-    if (name === 'skills' && !manuallyClosed.value) {
+    if (name === 'skills' && canAutoOpen() && !manuallyClosed.value) {
       store.floatingOpen = true
       void store.ensureSession().catch(() => undefined)
     }
@@ -39,6 +47,13 @@ function maximize() {
   void router.push({ name: 'agent', query: session ? { session } : {} })
   store.floatingOpen = false
 }
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && store.floatingOpen) minimize()
+}
+
+onMounted(() => document.addEventListener('keydown', onKeydown))
+onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>

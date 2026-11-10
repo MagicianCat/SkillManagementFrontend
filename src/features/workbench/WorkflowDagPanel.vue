@@ -128,9 +128,9 @@ function onNodeClick(event: { node: { id: string } }) {
 .panel { padding: 14px 18px; border: 1px solid var(--border-1); border-radius: var(--radius-md); background: var(--surface-1); box-shadow: var(--inner-highlight); }
 .panel-head { display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px; gap: 12px; }
 .panel-head h3 { font-size: 14px; letter-spacing: 0.04em; color: var(--text-1); font-weight: 600; margin: 0; }
-.panel-sub { margin: 3px 0 0; font-size: 11px; color: var(--text-3); }
+.panel-sub { margin: 3px 0 0; font-size: var(--font-meta); color: var(--text-3); }
 .legend { display: flex; gap: 14px; list-style: none; margin: 0; padding: 0; flex: none; }
-.legend li { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-3); }
+.legend li { display: flex; align-items: center; gap: 6px; font-size: var(--font-meta); color: var(--text-3); }
 .dot { width: 8px; height: 8px; border-radius: 50%; }
 .dot.tone-success { background: var(--success); }
 .dot.tone-warning { background: var(--warning); }
@@ -152,8 +152,8 @@ function onNodeClick(event: { node: { id: string } }) {
 .stage-node.tone-purple .status-dot { background: var(--purple); }
 .stage-node .node-name { font-size: 13px; color: var(--text-1); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Loop 徽标浮动在节点右上角，不挤压阶段名。 */
-.loop-badge { position: absolute; top: -9px; right: 8px; padding: 1px 7px; border-radius: var(--radius-full); font-size: 9px; color: var(--warning); background: var(--surface-solid-1); border: 1px solid rgb(251 191 36 / 50%); box-shadow: var(--shadow-sm); }
-.stage-node .node-sub { font-size: 9px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 15px; }
+.loop-badge { position: absolute; top: -9px; right: 8px; padding: 1px 7px; border-radius: var(--radius-full); font-size: var(--font-meta); color: var(--warning); background: var(--surface-solid-1); border: 1px solid rgb(251 191 36 / 50%); box-shadow: var(--shadow-sm); }
+.stage-node .node-sub { font-size: var(--font-meta); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 15px; }
 .stage-node.tone-success { border-color: rgb(52 211 153 / 40%); }
 .stage-node.tone-warning { border-color: rgb(251 191 36 / 45%); }
 .stage-node.tone-error { border-color: rgb(248 113 113 / 45%); }

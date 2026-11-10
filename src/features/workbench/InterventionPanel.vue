@@ -81,7 +81,7 @@ function statusText(status: WorkflowHumanQuestion['status']) {
 .intervention { align-self: start; height: min(70vh, 680px); max-height: calc(100vh - 32px); box-sizing: border-box; overflow: hidden; }
 .panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .panel-head h3 { font-size: 13px; letter-spacing: 0.06em; color: var(--text-2); font-weight: 600; }
-.state { font-size: 10px; padding: 2px 8px; border-radius: var(--radius-full); border: 1px solid var(--border-2); color: var(--text-4); }
+.state { font-size: var(--font-meta); padding: 2px 8px; border-radius: var(--radius-full); border: 1px solid var(--border-2); color: var(--text-4); }
 .state.on { color: var(--warning); border-color: rgb(251 191 36 / 40%); background: var(--warning-soft); }
 .thread { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 6px 0; }
 .question-card{display:grid;gap:5px;padding:10px;margin-bottom:8px;border:1px solid var(--border-1);border-radius:var(--radius-sm);background:var(--surface-2)}.question-card.pending{border-color:var(--border-accent)}.question-card small{color:var(--accent-300)}.question-card strong{font-size:13px;line-height:1.5}.question-card p{margin:0;color:var(--text-2);font-size:12px}.answer-card{display:grid;gap:8px;padding:10px 0;border-top:1px solid var(--border-1)}.choices{display:flex;flex-wrap:wrap;gap:6px}
@@ -97,7 +97,7 @@ function statusText(status: WorkflowHumanQuestion['status']) {
 .composer select, .composer input { padding: 8px 10px; font-size: 13px; border: 1px solid var(--border-2); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-1); }
 .composer input { flex: 1; }
 .composer input::placeholder { color: var(--text-4); }
-.composer .send { padding: 8px 16px; font-size: 13px; border: none; border-radius: var(--radius-sm); background: var(--accent-600); color: #fff; cursor: pointer; }
+.composer .send { padding: 8px 16px; font-size: 13px; border: none; border-radius: var(--radius-sm); background: var(--accent-600); color: var(--text-on-accent); cursor: pointer; }
 .composer .send:hover:not(:disabled) { background: var(--accent-500); box-shadow: var(--shadow-accent); }
 .composer .send:disabled { opacity: 0.45; cursor: not-allowed; }
 </style>

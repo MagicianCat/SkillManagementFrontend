@@ -795,7 +795,7 @@ onBeforeUnmount(() => {
 }
 .inline-success {
   margin: 0;
-  color: var(--success, #16825d);
+  color: var(--success);
   font-size: 13px;
 }
 .draft-header__actions {
@@ -826,7 +826,7 @@ onBeforeUnmount(() => {
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-1);
   color: var(--text-3);
-  font-size: 10px;
+  font-size: var(--font-meta);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -837,7 +837,7 @@ onBeforeUnmount(() => {
 .file-tree__empty {
   padding: 18px 12px;
   color: var(--text-3);
-  font-size: 11px;
+  font-size: var(--font-meta);
   line-height: 1.7;
 }
 .file-row {
@@ -870,7 +870,7 @@ onBeforeUnmount(() => {
   border-radius: 4px;
   color: var(--text-2);
   background: var(--surface-2);
-  font-size: 9px;
+  font-size: var(--font-meta);
 }
 .editor-pane__bar {
   display: flex;
@@ -919,7 +919,7 @@ onBeforeUnmount(() => {
 }
 .meta-field span {
   color: var(--text-2);
-  font-size: 11px;
+  font-size: var(--font-meta);
   font-weight: 650;
 }
 .meta-field input,
@@ -946,7 +946,7 @@ onBeforeUnmount(() => {
 }
 .meta-message {
   color: var(--success);
-  font-size: 11px;
+  font-size: var(--font-meta);
 }
 /* 本页按钮密度更高：收窄高度与内边距 */
 .btn-primary,

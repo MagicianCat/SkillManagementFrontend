@@ -12,6 +12,7 @@ import {
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { getTeamMembers } from '../api/org.api'
+import { chartTheme, onThemeChange } from '../utils/theme'
 import { searchWikiTeams } from '../api/wiki.api'
 import {
   getEfficiencyDashboard,
@@ -51,9 +52,8 @@ const memberOptions = computed(() => members.value.map((member) => ({
   value: member.userId,
 })))
 
-// ---- 图表配色 ----
-const axisLabel = { color: '#8b9bb5', fontSize: 11 }
-const splitLine = { lineStyle: { color: 'rgba(160,195,255,0.09)' } }
+// ---- 图表配色（随主题切换重渲） ----
+let unsubscribeTheme: (() => void) | undefined
 
 const trendRef = ref<HTMLElement | null>(null)
 const stageBarRef = ref<HTMLElement | null>(null)
@@ -82,7 +82,10 @@ function mountChart(el: HTMLElement | null, option: echarts.EChartsCoreOption) {
   chart.setOption(option, { notMerge: true })
 }
 
-function horizontalBar(labels: string[], values: number[], color = '#26c6ff') {
+function horizontalBar(labels: string[], values: number[], color?: string) {
+  const c = chartTheme()
+  const axisLabel = { color: c.axisLabel, fontSize: 11 }
+  const splitLine = { lineStyle: { color: c.splitLine } }
   return {
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: { left: 6, right: 34, top: 6, bottom: 2, containLabel: true },
@@ -94,7 +97,7 @@ function horizontalBar(labels: string[], values: number[], color = '#26c6ff') {
       axisTick: { show: false },
       axisLabel: { ...axisLabel, width: 118, overflow: 'truncate' },
     },
-    series: [{ type: 'bar' as const, data: values, barMaxWidth: 14, itemStyle: { color, borderRadius: [0, 6, 6, 0] } }],
+    series: [{ type: 'bar' as const, data: values, barMaxWidth: 14, itemStyle: { color: color ?? c.primary, borderRadius: [0, 6, 6, 0] } }],
   }
 }
 
@@ -115,38 +118,40 @@ function renderCharts() {
   const o = dashboard.value
   if (!o) return
 
+  const c = chartTheme()
+  const axisLabel = { color: c.axisLabel, fontSize: 11 }
   const series = trendSeries(o)
   mountChart(trendRef.value, {
     tooltip: { trigger: 'axis' },
     grid: { left: 6, right: 6, top: 30, bottom: 4, containLabel: true },
-    xAxis: { type: 'category', boundaryGap: false, data: series.labels, axisLine: { lineStyle: { color: 'rgba(160,195,255,0.20)' } }, axisLabel },
-    yAxis: [{ type: 'value', splitLine, axisLabel }],
-    series: [{ name: series.name, type: 'line', smooth: true, symbol: 'circle', symbolSize: 5, data: series.values, itemStyle: { color: '#26c6ff' }, lineStyle: { color: '#26c6ff', width: 2.5 }, areaStyle: { color: 'rgba(38,198,255,.12)' } }],
+    xAxis: { type: 'category', boundaryGap: false, data: series.labels, axisLine: { lineStyle: { color: c.axisLine } }, axisLabel },
+    yAxis: [{ type: 'value', splitLine: { lineStyle: { color: c.splitLine } }, axisLabel }],
+    series: [{ name: series.name, type: 'line', smooth: true, symbol: 'circle', symbolSize: 5, data: series.values, itemStyle: { color: c.primary }, lineStyle: { color: c.primary, width: 2.5 }, areaStyle: { color: c.primaryArea } }],
   })
 
   const top = <T,>(arr: T[], n: number) => arr.slice(0, n)
-  mountChart(stageBarRef.value, horizontalBar(top(o.stageRanking, 8).map((i) => stageLabel(i.key)).reverse(), top(o.stageRanking, 8).map((i) => i.linesAdded).reverse(), '#60a5fa'))
+  mountChart(stageBarRef.value, horizontalBar(top(o.stageRanking, 8).map((i) => stageLabel(i.key)).reverse(), top(o.stageRanking, 8).map((i) => i.linesAdded).reverse(), c.palette[2]))
   mountChart(teamBarRef.value, horizontalBar(top(o.teamRanking, 6).map((i) => i.name).reverse(), top(o.teamRanking, 6).map((i) => i.linesAdded).reverse()))
-  mountChart(projectBarRef.value, horizontalBar(top(o.projectRanking, 6).map((i) => i.name).reverse(), top(o.projectRanking, 6).map((i) => i.linesAdded).reverse(), '#4dd2ff'))
-  mountChart(skillBarRef.value, horizontalBar(top(o.skillRanking, 8).map((i) => i.displayName || i.skillKey).reverse(), top(o.skillRanking, 8).map((i) => i.generations).reverse(), '#a78bfa'))
+  mountChart(projectBarRef.value, horizontalBar(top(o.projectRanking, 6).map((i) => i.name).reverse(), top(o.projectRanking, 6).map((i) => i.linesAdded).reverse(), c.palette[3]))
+  mountChart(skillBarRef.value, horizontalBar(top(o.skillRanking, 8).map((i) => i.displayName || i.skillKey).reverse(), top(o.skillRanking, 8).map((i) => i.generations).reverse(), c.palette[5]))
 
   const ft = o.fileTypes.slice(0, 8)
-  mountChart(fileTypeRef.value, horizontalBar(ft.map((i) => i.category).reverse(), ft.map((i) => i.linesAdded).reverse(), '#34d399'))
+  mountChart(fileTypeRef.value, horizontalBar(ft.map((i) => i.category).reverse(), ft.map((i) => i.linesAdded).reverse(), c.palette[4]))
 
   const tb = o.tokenBreakdown
   mountChart(tokenPieRef.value, {
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-    legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, textStyle: { color: '#8b9bb5', fontSize: 11 } },
+    legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, textStyle: { color: c.axisLabel, fontSize: 11 } },
     series: [{
       type: 'pie', radius: ['46%', '68%'], center: ['50%', '44%'],
-      itemStyle: { borderRadius: 6, borderColor: '#0d1420', borderWidth: 2 },
+      itemStyle: { borderRadius: 6, borderColor: c.donutBorder, borderWidth: 2 },
       label: { show: false },
       data: [
-        { name: '缓存命中', value: tb.cacheReadTokens, itemStyle: { color: '#34d399' } },
-        { name: '缓存未命中', value: tb.cacheMissTokens, itemStyle: { color: '#fbbf24' } },
-        { name: '缓存写入', value: tb.cacheWriteTokens, itemStyle: { color: '#60a5fa' } },
-        { name: '思考 Token', value: tb.thinkingTokens, itemStyle: { color: '#a78bfa' } },
-        { name: '回答 Token', value: tb.answerTokens, itemStyle: { color: '#26c6ff' } },
+        { name: '缓存命中', value: tb.cacheReadTokens, itemStyle: { color: c.palette[4] } },
+        { name: '缓存未命中', value: tb.cacheMissTokens, itemStyle: { color: c.palette[6] } },
+        { name: '缓存写入', value: tb.cacheWriteTokens, itemStyle: { color: c.palette[2] } },
+        { name: '思考 Token', value: tb.thinkingTokens, itemStyle: { color: c.palette[5] } },
+        { name: '回答 Token', value: tb.answerTokens, itemStyle: { color: c.primary } },
       ].filter((d) => d.value > 0),
     }],
   })
@@ -278,6 +283,7 @@ watch(selectedTeamId, () => { void loadMembers() })
 onMounted(async () => {
   applyPreset('30d')
   window.addEventListener('resize', onResize)
+  unsubscribeTheme = onThemeChange(() => { void nextTick().then(() => renderCharts()) })
   if (typeof ResizeObserver !== 'undefined') {
     chartResizeObserver = new ResizeObserver(() => onResize())
     const dashboardElement = document.querySelector<HTMLElement>('.usage-page')
@@ -292,6 +298,7 @@ onMounted(async () => {
   } catch (error) { errorMessage.value = errorText(error, '看板权限范围加载失败') }
 })
 onBeforeUnmount(() => {
+  unsubscribeTheme?.()
   window.removeEventListener('resize', onResize)
   chartResizeObserver?.disconnect()
   chartResizeObserver = undefined
@@ -419,7 +426,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.usage-page{width:min(100%,1360px);margin:0 auto;color:var(--text-1)}
+.usage-page{width:100%;max-width:var(--page-max-width);margin:0 auto;color:var(--text-1)}
 
 /* ---------- 头部卡片：标题 + 筛选（右上） ---------- */
 .usage-heading{display:block;margin-bottom:14px}
@@ -427,7 +434,7 @@ onBeforeUnmount(() => {
 .usage-heading .eyebrow{display:flex;align-items:center;gap:7px;margin:0;font-size:12px;font-weight:600;letter-spacing:.1em;color:var(--accent-400)}
 .usage-heading .eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent-500)}
 .usage-heading__main{display:flex;align-items:flex-start;justify-content:space-between;gap:28px;flex-wrap:wrap}
-.usage-heading__title h1{margin:0 0 6px;font-size:27px;font-weight:700;color:var(--text-1);letter-spacing:-0.02em}
+.usage-heading__title h1{margin:0 0 6px;font-size:var(--font-page-title);font-weight:700;color:var(--text-1);letter-spacing:-0.02em}
 .usage-heading__title p{margin:0;color:var(--text-2);font-size:13px;max-width:520px;line-height:1.6}
 .scope-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border-accent);border-radius:999px;color:var(--accent-300);background:var(--accent-soft);font-size:12px;white-space:nowrap}
 
@@ -443,7 +450,8 @@ onBeforeUnmount(() => {
 .date-range{display:inline-flex;align-items:center;gap:5px;padding:0 10px;height:34px;border:1px solid var(--border-1);border-radius:8px;background:var(--surface-2)}
 .date-range input{height:100%;padding:0;border:0;color:var(--text-1);background:transparent;font:inherit;font-size:12px;outline:none;width:118px}
 .date-sep{color:var(--text-3);font-size:12px}
-.usage-filters .t-select{width:172px}
+.usage-filters :deep(.t-select),
+.usage-filters :deep(.t-select__wrap){width:172px}
 
 /* ---------- 指标卡：突出大数字 ---------- */
 .usage-page{min-width:0;container:usage-dashboard / inline-size}.summary-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:14px}
@@ -453,20 +461,20 @@ onBeforeUnmount(() => {
 .metric-card header{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .metric-card header span{color:var(--text-2);font-size:12px}
 .metric-card strong{color:var(--text-1);font-size:31px;font-weight:750;letter-spacing:-0.03em;line-height:1;font-variant-numeric:tabular-nums}
-.metric-card small{color:var(--text-3);font-size:11px}
+.metric-card small{color:var(--text-3);font-size:var(--font-meta)}
 .metric-dot{width:8px;height:8px;border-radius:50%;background:var(--metric,var(--accent-500))}
-.metric-chip{padding:2px 8px;border-radius:999px;color:var(--metric,var(--accent-400));background:color-mix(in srgb,var(--metric,var(--accent-500)) 14%,transparent);font-size:10px;font-style:normal;font-weight:600;letter-spacing:.02em}
+.metric-chip{padding:2px 8px;border-radius:999px;color:var(--metric,var(--accent-400));background:color-mix(in srgb,var(--metric,var(--accent-500)) 14%,transparent);font-size:var(--font-meta);font-style:normal;font-weight:600;letter-spacing:.02em}
 .metric-card--primary{--metric:var(--accent-500)}
-.metric-card--info{--metric:#60a5fa}
+.metric-card--info{--metric:var(--info)}
 .metric-card--success{--metric:var(--success)}
 .metric-card--purple{--metric:var(--purple)}
 .metric-card--warning{--metric:var(--badge-accent)}
 
 .usage-card{min-width:0;padding:16px 18px;border:1px solid var(--border-1);border-radius:12px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px);margin-bottom:14px}
 .card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
-.card-heading h2{font-size:15px;margin:0;color:var(--text-1)}
-.card-heading p{margin:4px 0 0;color:var(--text-3);font-size:11px}
-.card-heading span{color:var(--text-3);font-size:11px}
+.card-heading h2{font-size:var(--font-section-title);margin:0;color:var(--text-1)}
+.card-heading p{margin:4px 0 0;color:var(--text-3);font-size:var(--font-meta)}
+.card-heading span{color:var(--text-3);font-size:var(--font-meta)}
 
 /* 趋势指标分段控件 */
 .metric-switch{display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;border:1px solid var(--border-1);border-radius:999px;background:var(--surface-2)}
@@ -481,18 +489,18 @@ onBeforeUnmount(() => {
 .rank-list{list-style:none;margin:8px 0 0;padding:8px 0 0;border-top:1px solid var(--border-1);display:grid;gap:2px}
 .rank-list li{display:flex;justify-content:space-between;gap:8px;padding:5px 6px;border-radius:6px;font-size:12px;cursor:pointer;color:var(--text-2)}
 .rank-list li:hover{background:var(--surface-2);color:var(--text-1)}
-.rank-list em{font-style:normal;color:var(--text-3);font-size:11px}
+.rank-list em{font-style:normal;color:var(--text-3);font-size:var(--font-meta)}
 .token-breakdown{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border-1)}
 .token-breakdown div{display:grid;gap:2px}
-.token-breakdown span{color:var(--text-3);font-size:11px}
+.token-breakdown span{color:var(--text-3);font-size:var(--font-meta)}
 .token-breakdown strong{color:var(--text-1);font-size:15px}
-.events-card{margin-top:0;overflow-x:auto}.events-card :deep(.t-table){min-width:1180px}
-.cell-subtitle{display:block;color:var(--text-3);font-size:11px}
+.events-card{margin-top:0;overflow-x:auto}.events-card :deep(.t-table){min-width:1180px}.events-card :deep(.t-table th){white-space:nowrap}
+.cell-subtitle{display:block;color:var(--text-3);font-size:var(--font-meta)}
 .cell-link{color:var(--accent-300);cursor:pointer}
 .lines-added{color:var(--success);font-weight:600}
 .lines-deleted{color:var(--error);font-weight:600}
 @media(max-width:1100px){.summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.dimension-grid{grid-template-columns:1fr}.usage-heading__main{flex-direction:column}.usage-filters{min-width:0;width:100%}.filter-row{justify-content:flex-start}}
-@media(max-width:760px){.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.usage-heading__title h1{font-size:23px}}
+@media(max-width:760px){.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.usage-heading__title h1{font-size:var(--font-page-title)}}
 @container usage-dashboard (max-width: 1050px){.summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @container usage-dashboard (max-width: 620px){.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @container usage-dashboard (max-width: 380px){.summary-grid{grid-template-columns:minmax(0,1fr)}}

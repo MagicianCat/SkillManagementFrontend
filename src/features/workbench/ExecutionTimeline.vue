@@ -71,7 +71,7 @@ defineExpose({ summary, live, count: computed(() => items.value.length) })
 .row { display: flex; justify-content: space-between; gap: 8px; }
 .row strong { font-size: 12px; color: var(--text-1); font-weight: 550; }
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-time { font-size: 10px; color: var(--text-4); flex: none; }
-.detail { margin: 2px 0 0; font-size: 11px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+time { font-size: var(--font-meta); color: var(--text-4); flex: none; }
+.detail { margin: 2px 0 0; font-size: var(--font-meta); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .empty { color: var(--text-3); font-size: 12px; }
 </style>

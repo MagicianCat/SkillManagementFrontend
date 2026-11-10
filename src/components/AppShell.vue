@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { hasPermission } from '../types/permissions'
@@ -114,6 +114,15 @@ const visibleNav = computed(() => navEntries.value.filter((e) => e.visible))
 const userInitial = computed(
   () => authStore.user?.displayName?.slice(0, 1) || 'U',
 )
+
+/** 移动端导航横向滚动：切换页面后把当前项滚进可视区。 */
+const navRef = ref<HTMLElement | null>(null)
+function revealActiveNav() {
+  navRef.value
+    ?.querySelector<HTMLElement>('.workspace-nav__item.is-active')
+    ?.scrollIntoView({ block: 'nearest', inline: 'center' })
+}
+watch(() => route.name, () => void nextTick(revealActiveNav))
 
 // 通知中心
 const showNotifications = ref(false)
@@ -231,6 +240,7 @@ onMounted(() => {
   window.addEventListener('focus', refreshRolePermissions)
   document.addEventListener('visibilitychange', refreshRolePermissions)
   document.addEventListener('click', onDocumentClick)
+  void nextTick(revealActiveNav)
 })
 onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer)
@@ -253,7 +263,7 @@ async function signOut() {
         ><span class="workspace-brand__mark">SP</span
         ><span>研途助手</span></RouterLink
       >
-      <nav class="workspace-nav" aria-label="主导航">
+      <nav ref="navRef" class="workspace-nav" aria-label="主导航">
         <RouterLink
           v-for="entry in visibleNav"
           :key="entry.routeName"

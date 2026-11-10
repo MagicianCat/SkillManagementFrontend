@@ -241,6 +241,8 @@ onMounted(fetchNotifications)
       <div class="status-tabs" role="tablist" aria-label="已读状态">
         <button
           class="status-tab"
+          role="tab"
+          :aria-selected="!unreadOnly"
           :class="{ 'is-selected': !unreadOnly }"
           @click="setFilter(false)"
         >
@@ -248,6 +250,8 @@ onMounted(fetchNotifications)
         </button>
         <button
           class="status-tab"
+          role="tab"
+          :aria-selected="unreadOnly"
           :class="{ 'is-selected': unreadOnly }"
           @click="setFilter(true)"
         >
@@ -314,24 +318,9 @@ onMounted(fetchNotifications)
 </template>
 
 <style scoped>
-.status-tabs {
-  display: flex;
-  gap: 4px;
-}
-.status-tab {
-  padding: 7px 12px;
-  border: 0;
-  border-radius: 6px;
-  color: var(--text-2);
-  background: transparent;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-.status-tab:hover,
-.status-tab.is-selected {
-  color: var(--accent-300);
-  background: var(--accent-soft);
+.market-toolbar {
+  width: fit-content;
+  max-width: 100%;
 }
 .select-all {
   display: flex;
@@ -395,7 +384,7 @@ onMounted(fetchNotifications)
 }
 .notification-row__main small {
   color: var(--text-3);
-  font-size: 10px;
+  font-size: var(--font-meta);
 }
 .unread-dot {
   width: 8px;

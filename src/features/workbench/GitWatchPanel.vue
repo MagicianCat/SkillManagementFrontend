@@ -39,16 +39,16 @@ watch(()=>[props.runId,props.stageRunId],()=>void load());watch(()=>props.eventS
 .panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .panel-head h3{margin:3px 0 0;color:var(--text-1);font-size:15px;font-weight:600}
 .panel-head p{margin:0;color:var(--text-3);font-size:12px}
-.eyebrow{color:var(--accent-400)!important;font-size:11px;letter-spacing:.14em;font-family:var(--font-mono)}
+.eyebrow{color:var(--accent-400)!important;font-size: var(--font-meta);letter-spacing:.14em;font-family:var(--font-mono)}
 .watch-list{display:grid;gap:10px;overflow:auto}
 .watch-card{display:grid;gap:10px;padding:14px;border:1px solid var(--border-1);border-radius:var(--radius-sm);background:var(--surface-2)}
 .watch-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .watch-head strong,.watch-head small{display:block}
 .watch-head small{margin-top:4px;color:var(--text-3);overflow-wrap:anywhere}
-.status{padding:3px 8px;border-radius:10px;color:var(--info);background:var(--info-soft);font-size:11px}
+.status{padding:3px 8px;border-radius:10px;color:var(--info);background:var(--info-soft);font-size: var(--font-meta)}
 .status.error,.status.branch_missing{color:var(--error);background:var(--error-soft)}
 .status.changed{color:var(--success);background:var(--success-soft)}
-.sha-row{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:12px;color:var(--text-3);font-size:11px}
+.sha-row{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:12px;color:var(--text-3);font-size: var(--font-meta)}
 .sha-row code,.commits code{color:var(--accent-300)}
 .commits{display:grid;gap:7px;margin:0;padding:0;list-style:none}
 .commits li{display:grid;grid-template-columns:80px 1fr auto;gap:10px;color:var(--text-2);font-size:12px}
@@ -56,7 +56,7 @@ watch(()=>[props.runId,props.stageRunId],()=>void load());watch(()=>props.eventS
 footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:auto;padding-top:10px;border-top:1px solid var(--border-1)}
 footer textarea{flex:1;padding:9px;border:1px solid var(--border-2);border-radius:6px;background:var(--bg-2);color:var(--text-1)}
 button{padding:8px 12px;border:1px solid var(--border-2);border-radius:6px;background:var(--surface-2);color:var(--text-1);cursor:pointer}
-.primary{border-color:var(--accent-500);background:var(--accent-600);color:#fff}
+.primary{border-color:var(--accent-500);background:var(--accent-600);color:var(--text-on-accent)}
 .error{color:var(--error);margin:0}
 .empty{color:var(--text-3);margin:0}
 </style>

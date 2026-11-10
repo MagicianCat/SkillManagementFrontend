@@ -7,6 +7,7 @@ import {
   type GenerationPage,
   type StageDetail,
 } from '../api/skill-usage.api'
+import { chartTheme } from '../utils/theme'
 import {
   formatDuration,
   formatNumber,
@@ -41,11 +42,11 @@ function render() {
   const tm = d.teamRanking.slice(0, 8)
   charts.mountReactive(teamRef.value, () => charts.horizontalBar(tm.map((i) => i.name).reverse(), tm.map((i) => i.linesAdded).reverse()))
   const pj = d.projectRanking.slice(0, 8)
-  charts.mountReactive(projectRef.value, () => charts.horizontalBar(pj.map((i) => i.name).reverse(), pj.map((i) => i.linesAdded).reverse(), '#60a5fa'))
+  charts.mountReactive(projectRef.value, () => charts.horizontalBar(pj.map((i) => i.name).reverse(), pj.map((i) => i.linesAdded).reverse(), chartTheme().palette[2]))
   const sk = d.skillRanking.slice(0, 8)
-  charts.mountReactive(skillRef.value, () => charts.horizontalBar(sk.map((i) => i.displayName || i.skillKey).reverse(), sk.map((i) => i.generations).reverse(), '#a78bfa'))
+  charts.mountReactive(skillRef.value, () => charts.horizontalBar(sk.map((i) => i.displayName || i.skillKey).reverse(), sk.map((i) => i.generations).reverse(), chartTheme().palette[5]))
   const ft = d.fileTypes.slice(0, 8)
-  charts.mountReactive(fileTypeRef.value, () => charts.horizontalBar(ft.map((i) => i.category).reverse(), ft.map((i) => i.linesAdded).reverse(), '#34d399'))
+  charts.mountReactive(fileTypeRef.value, () => charts.horizontalBar(ft.map((i) => i.category).reverse(), ft.map((i) => i.linesAdded).reverse(), chartTheme().palette[4]))
 }
 
 async function load() {
@@ -146,14 +147,14 @@ onBeforeUnmount(() => { window.removeEventListener('resize', charts.resize); cha
 </template>
 
 <style scoped>
-.usage-page{width:min(100%,1360px);margin:0 auto;color:var(--text-1)}
+.usage-page{width:100%;max-width:var(--page-max-width);margin:0 auto;color:var(--text-1)}
 .usage-heading{margin-bottom:14px}
-.usage-heading h1{margin:5px 0 8px;font-size:28px;color:var(--text-1);letter-spacing:-0.03em}
+.usage-heading h1{margin:0;font-size:var(--font-page-title);color:var(--text-1);letter-spacing:-0.02em}
 .usage-heading p:not(.eyebrow){margin:0;color:var(--text-2);font-size:13px}
 .back-link{border:0;background:transparent;color:var(--accent-300);font-size:12px;cursor:pointer;padding:0}
 .usage-alert{margin:12px 0;padding:12px 14px;border:1px solid rgb(251 191 36 / 30%);border-radius:9px;color:var(--warning);background:var(--warning-soft)}
 .usage-filters{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding:13px;border:1px solid var(--border-1);border-radius:13px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px)}
-.usage-filters label{display:grid;gap:4px;color:var(--text-2);font-size:11px}
+.usage-filters label{display:grid;gap:4px;color:var(--text-2);font-size:var(--font-meta)}
 .usage-filters input{height:32px;padding:0 8px;border:1px solid var(--border-2);border-radius:6px;color:var(--text-1);background:var(--surface-1);font:inherit;font-size:12px}
 .preset-group{display:flex;gap:4px}
 .preset-group button{height:32px;padding:0 10px;border:1px solid var(--border-2);border-radius:6px;color:var(--text-2);background:var(--surface-1);font:inherit;font-size:12px;cursor:pointer}
@@ -162,22 +163,22 @@ onBeforeUnmount(() => { window.removeEventListener('resize', charts.resize); cha
 .summary-grid article{display:grid;min-height:92px;gap:8px;padding:14px 16px;border:1px solid var(--border-1);border-radius:10px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px)}
 .summary-grid span,.summary-grid small{color:var(--text-2);font-size:12px}
 .summary-grid strong{color:var(--text-1);font-size:24px;letter-spacing:-.04em}
-.summary-grid small{font-size:11px}
+.summary-grid small{font-size:var(--font-meta)}
 .usage-card{min-width:0;padding:16px;border:1px solid var(--border-1);border-radius:10px;background:var(--surface-1);box-shadow:var(--inner-highlight);backdrop-filter:blur(12px);margin-bottom:12px}
 .card-heading{display:flex;justify-content:space-between;gap:12px;margin-bottom:12px}
-.card-heading h2{font-size:15px;margin:0;color:var(--text-1)}
-.card-heading span{color:var(--text-3);font-size:11px}
+.card-heading h2{font-size:var(--font-section-title);margin:0;color:var(--text-1)}
+.card-heading span{color:var(--text-3);font-size:var(--font-meta)}
 .dashboard-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .chart-box{width:100%;height:220px}
 .chart-tall{height:280px}
 .rank-list{list-style:none;margin:8px 0 0;padding:8px 0 0;border-top:1px solid var(--border-1);display:grid;gap:2px}
 .rank-list li{display:flex;justify-content:space-between;gap:8px;padding:5px 6px;border-radius:6px;font-size:12px;cursor:pointer;color:var(--text-2)}
 .rank-list li:hover{background:var(--surface-2);color:var(--text-1)}
-.rank-list em{font-style:normal;color:var(--text-3);font-size:11px}
-.cell-subtitle{display:block;color:var(--text-3);font-size:11px}
+.rank-list em{font-style:normal;color:var(--text-3);font-size:var(--font-meta)}
+.cell-subtitle{display:block;color:var(--text-3);font-size:var(--font-meta)}
 .cell-link{color:var(--accent-300);cursor:pointer}
-.lines-added{color:#34d399;font-weight:600}
-.lines-deleted{color:#f87171;font-weight:600}
+.lines-added{color:var(--success);font-weight:600}
+.lines-deleted{color:var(--error);font-weight:600}
 .events-card{margin-top:0;overflow-x:auto}.events-card :deep(.t-table){min-width:960px}
 @media(max-width:1100px){.summary-grid{grid-template-columns:repeat(3,1fr)}.dashboard-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.summary-grid{grid-template-columns:repeat(2,1fr)}}

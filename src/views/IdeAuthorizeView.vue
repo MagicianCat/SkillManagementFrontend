@@ -234,7 +234,7 @@ onMounted(loadAuthorization)
 .eyebrow {
   margin: 0 0 10px;
   color: var(--color-primary);
-  font-size: 11px;
+  font-size: var(--font-meta);
   font-weight: 800;
   letter-spacing: .14em;
 }
@@ -282,7 +282,7 @@ h1 {
 .security-note {
   margin: 14px 0 0;
   color: var(--text-3);
-  font-size: 11px;
+  font-size: var(--font-meta);
   line-height: 1.5;
 }
 

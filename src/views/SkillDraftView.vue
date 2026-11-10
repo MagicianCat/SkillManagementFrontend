@@ -18,6 +18,7 @@ import { getFileContent, getFiles, saveFileContent } from '../api/files.api'
 import {
   getOfflineImpact,
   submitReview,
+  publishTeamVersion,
   takeVersionOffline,
   pushToCompany,
   validateVersion,
@@ -331,11 +332,15 @@ async function startSubmit() {
 }
 
 async function confirmSubmit() {
-  if (!draft.value || !submitComment.value.trim()) return
+  if (!draft.value || (skill.value?.scopeType !== 'TEAM' && !submitComment.value.trim())) return
   submitting.value = true
   actionError.value = ''
   try {
-    await submitReview(draft.value.id, {
+    if (skill.value?.scopeType === 'TEAM') {
+      const result = await publishTeamVersion(draft.value.id, draft.value.versionNo)
+      if (result.status !== 'SUCCEEDED' && result.status !== 'COMPLETED') throw new Error(result.errorMessage || '团队发布失败')
+    }
+    else await submitReview(draft.value.id, {
       versionNo: draft.value.versionNo,
       comment: submitComment.value.trim(),
     })
@@ -344,7 +349,7 @@ async function confirmSubmit() {
   } catch (error: unknown) {
     actionError.value = axios.isAxiosError(error)
       ? String(error.response?.data?.message ?? '提交失败')
-      : '提交失败'
+      : error instanceof Error ? error.message : '提交失败'
     if (axios.isAxiosError(error) && error.response?.status === 409) {
       draft.value = await getActiveDraft(skillKey.value)
     }
@@ -551,7 +556,7 @@ onBeforeUnmount(() => {
             :disabled="submitting"
             @click="startSubmit"
           >
-            提交审核
+            {{ skill?.scopeType === 'TEAM' ? '发布到团队' : '提交审核' }}
           </button>
           <button
             v-if="isDraft"
@@ -676,7 +681,7 @@ onBeforeUnmount(() => {
     <!-- 提交审核对话框 -->
     <div v-if="showSubmitDialog" class="modal-mask">
       <div class="modal" role="dialog" aria-labelledby="submit-title">
-        <h2 id="submit-title">提交审核</h2>
+        <h2 id="submit-title">{{ skill?.scopeType === 'TEAM' ? '发布到团队' : '提交审核' }}</h2>
         <div v-if="submitWarnings.length" class="warnings">
           <p>校验发现以下告警：</p>
           <ul>
@@ -685,7 +690,7 @@ onBeforeUnmount(() => {
             </li>
           </ul>
         </div>
-        <label class="modal-field">
+        <label v-if="skill?.scopeType !== 'TEAM'" class="modal-field">
           审核说明 <em style="color: var(--error)">*</em>
           <textarea
             v-model="submitComment"
@@ -700,7 +705,7 @@ onBeforeUnmount(() => {
           </button>
           <button
             class="btn-primary"
-            :disabled="submitting || !submitComment.trim()"
+            :disabled="submitting || (skill?.scopeType !== 'TEAM' && !submitComment.trim())"
             @click="confirmSubmit"
           >
             {{ submitting ? '提交中…' : '确认提交' }}
@@ -735,7 +740,7 @@ onBeforeUnmount(() => {
     <div v-if="showPlatformPromotionDialog" class="modal-mask">
       <div class="modal" role="dialog" aria-labelledby="platform-promotion-title" aria-modal="true">
         <h2 id="platform-promotion-title">推送到全平台</h2>
-        <p class="modal-desc">提交后由平台管理员单独审核此 Skill。关联 Wiki 不会随 Skill 一起推送；如需推广，请在 Wiki 页面单独提交，届时关联 Skill 会自动纳入该 Wiki 的审核。</p>
+        <p class="modal-desc">提交后由来源团队管理员审核此 Skill。关联 Wiki 需在 Wiki 页面单独提交推广申请，届时关联 Skill 会自动纳入整树审核。</p>
         <label class="modal-field">
           推广说明 <em style="color: var(--error)">*</em>
           <textarea v-model="platformPromotionComment" rows="4" placeholder="说明该 Skill 面向全平台开放的原因"></textarea>

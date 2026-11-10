@@ -1,15 +1,16 @@
 /** 审核任务状态，与后端 ReviewStatus 枚举一致 */
 export type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
-export type WikiReviewStatus = ReviewStatus
+export type WikiReviewStatus = ReviewStatus | 'STALE'
 
-export const REVIEW_STATUS_LABELS: Record<ReviewStatus, string> = {
+export const REVIEW_STATUS_LABELS: Record<WikiReviewStatus, string> = {
   PENDING: '待审核',
   APPROVED: '已通过',
   REJECTED: '已拒绝',
   CANCELLED: '已取消',
+  STALE: '已过期',
 }
 
-export function reviewStatusLabel(status: ReviewStatus): string {
+export function reviewStatusLabel(status: WikiReviewStatus): string {
   return REVIEW_STATUS_LABELS[status] ?? status
 }
 
@@ -78,4 +79,9 @@ export interface WikiReviewSummary {
 export interface WikiReview extends WikiReviewSummary {
   markdownContent: string | null
   skills: WikiReviewSkillLink[]
+  wikiCount: number | null
+  skillCount: number | null
+  treeFingerprint: string | null
+  wikiItems: Array<{ documentId: number; title: string; parentId: number | null; revisionId: number; revisionNo: number }>
+  skillItems: Array<{ skillId: number; skillKey: string; displayName: string; scopeAtSubmit: 'TEAM' | 'PLATFORM'; versionId: number }>
 }

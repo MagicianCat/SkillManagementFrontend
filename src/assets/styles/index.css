@@ -601,6 +601,52 @@ a {
   margin-top: 10px;
 }
 
+/* ============ 通用面板块 ============ */
+.panel-block {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: var(--inner-highlight);
+}
+.block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.block-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-1);
+  font-size: 14px;
+  font-weight: 600;
+}
+.block-title .block-bar {
+  flex: none;
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--accent-500);
+}
+.block-sub {
+  margin-left: 8px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 400;
+}
+.block-meta {
+  color: var(--text-3);
+  font-size: 11px;
+}
+.result-state .btn-primary {
+  margin-top: 10px;
+}
+
 /* ============ 分页 ============ */
 .market-toolbar {
   display: flex;

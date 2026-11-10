@@ -1,11 +1,10 @@
 import { http } from './http'
-import type { PageResponse, WikiDocument, WikiDocumentType, WikiRevision, WikiTeam } from '../types/skill'
+import type { PageResponse, WikiDocument, WikiRevision, WikiTeam } from '../types/skill'
 import type { WikiReview, WikiReviewSummary, WikiReviewStatus } from '../types/review'
 
 export interface WikiDocumentQuery {
   teamId?: number
   skillKey?: string
-  documentType?: WikiDocumentType
   keyword?: string
   page?: number
   size?: number
@@ -51,7 +50,7 @@ export async function downloadWikiDocuments(documentIds: number[]) {
   return http.post<Blob>('/wiki/documents:download', { documentIds }, { responseType: 'blob' })
 }
 
-export async function createWikiDocument(request: { title: string; documentType: WikiDocumentType; teamId?: number | null; skillIds?: number[]; markdownContent: string; parentId?: number | null }) {
+export async function createWikiDocument(request: { title: string; teamId: number | null; skillIds?: number[]; markdownContent: string; parentId?: number | null }) {
   const { data } = await http.post<WikiDocument>('/wiki/documents', request)
   return data
 }
@@ -77,6 +76,11 @@ export async function archiveWikiDocument(id: number) {
 
 export async function submitWikiPlatformReview(id: number, request: { versionNo: number; comment: string }) {
   const { data } = await http.post<WikiReview>(`/wiki/documents/${id}:submit-platform-review`, request)
+  return data
+}
+
+export async function previewWikiPlatformPromotion(id: number) {
+  const { data } = await http.get<{ rootWikiId: number; sourceTeamId: number; wikiCount: number; skillCount: number; teamSkillsToPromote: number; treeFingerprint: string; wikiItems: WikiReview['wikiItems']; skillItems: WikiReview['skillItems'] }>(`/wiki/documents/${id}/platform-promotion-preview`)
   return data
 }
 

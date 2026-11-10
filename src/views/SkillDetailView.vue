@@ -328,7 +328,7 @@ onMounted(load)
       </section>
       <section v-if="wikiDocuments.length" class="wiki-related-section">
         <div class="section-heading"><div><h2>相关 Wiki 文档</h2><p>查看这个 Skill 的使用说明与团队套组文档</p></div><span>{{ wikiDocuments.length }} 篇</span></div>
-        <RouterLink v-for="document in wikiDocuments" :key="document.id" class="wiki-related-card" :to="{ name: 'wiki', query: { documentId: String(document.id) } }"><span><strong>{{ document.title }}</strong><small>{{ document.documentType === 'SKILL_README' ? 'Skill README' : '团队套组说明' }} · {{ document.platformVisible ? '全公司可见' : '团队内部可见' }}</small></span><span class="wiki-related-card__arrow">查看 →</span></RouterLink>
+        <RouterLink v-for="document in wikiDocuments" :key="document.id" class="wiki-related-card" :to="{ name: 'wiki', query: { documentId: String(document.id) } }"><span><strong>{{ document.title }}</strong><small>{{ document.platformVisible ? '全公司可见' : '团队内部可见' }}</small></span><span class="wiki-related-card__arrow">查看 →</span></RouterLink>
       </section>
     </template>
   </div>

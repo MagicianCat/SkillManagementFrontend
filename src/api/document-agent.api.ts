@@ -15,7 +15,7 @@ export type TurnMode = 'DISCUSS'|'CREATE_ARTIFACT'|'UPDATE_ARTIFACT'
 export type DocumentAgentJob = { jobKey: string; sessionKey: string; sequenceNo: number; status: string; runtimeJobId?: string | null; errorCode?: string | null; errorMessage?: string | null; retryable?: boolean; artifactId?: number | null; revisionId?: number | null; documentUrl?: string | null; startedAt?: string | null; finishedAt?: string | null; turnMode: TurnMode; targetDocumentId?: number|null; targetTitle?: string|null }
 export type DocumentAgentMessage = { jobKey:string; sequenceNo:number; turnMode:TurnMode; instruction:string; requestedBy:number; requestedByName:string; assistantContent:string; status:string; errorCode?:string|null; errorMessage?:string|null; artifactId?:number|null; revisionId?:number|null; createdAt:string; finishedAt?:string|null }
 export type FeishuDocument = { docId: string; docType: string; title?: string; readable?: boolean; open_url?: string }
-export type WikiContext = { documentId:number; title:string; documentType:string; latestRevisionNo:number }
+export type WikiContext = { documentId:number; title:string; latestRevisionNo:number }
 export type WikiContextList = { items:WikiContext[]; limit:number }
 
 function key() { return clientToken() }

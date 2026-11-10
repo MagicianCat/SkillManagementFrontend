@@ -11,7 +11,7 @@ import BusinessMetricsView from '../features/operations/BusinessMetricsView.vue'
 import { useAuthStore } from '../stores/auth'
 
 const route = useRoute(); const router = useRouter()
-const activeTab = ref(['audit', 'alerts', 'business', 'alert-settings'].includes(String(route.query.tab)) ? String(route.query.tab) : 'monitoring')
+const activeTab = ref(['monitoring', 'audit', 'alerts', 'business', 'alert-settings'].includes(String(route.query.tab)) ? String(route.query.tab) : 'monitoring')
 const auth = useAuthStore()
 const canConfigureAlerts = computed(() => auth.user?.permissions.includes('admin:alert:configure') && auth.user?.roles.includes('ADMIN'))
 const dashboardWindow = ref('PT15M')
@@ -20,14 +20,13 @@ const dashboardLoading = ref(false); const dashboardError = ref(false); let time
 
 /* ===== 监控看板派生状态 ===== */
 /** 组件卡过滤：Skill Platform Backend 是宿主自身，不在监控看板展示。 */
-const visibleComponents = computed(() => (dashboard.value?.components ?? []).filter(c => c.key !== 'skill-platform-backend' && c.name !== 'Skill Platform Backend'))
+const visibleComponents = computed(() => (dashboard.value?.components ?? []).filter(c => c.key !== 'skill-platform-backend' && c.key !== 'codeGraphWorker' && c.name !== 'Skill Platform Backend'))
 const trendPoints = computed(() => dashboard.value?.trend.slice(-36) ?? [])
 const bannerTone = computed(() => (dashboard.value?.alerts.length || dashboard.value?.dataStatus !== 'OK' ? 'has-alert' : 'clear'))
 const lastCheckText = computed(() => { const at = dashboard.value?.generatedAt; if (!at) return '—'; const diff = Date.now() - new Date(at).getTime(); return diff < 10_000 ? '刚刚' : formatTime(at) })
 function componentTone(status: string) { return status === 'healthy' ? 'success' : status === 'degraded' ? 'warning' : status === 'unknown' ? 'neutral' : 'error' }
 function componentTheme(status: string): 'success' | 'warning' | 'default' | 'danger' { return status === 'healthy' ? 'success' : status === 'degraded' ? 'warning' : status === 'unknown' ? 'default' : 'danger' }
 function componentStatusText(status: string) { return status === 'healthy' ? '正常' : status === 'degraded' ? '降级' : status === 'unknown' ? '未知' : '异常' }
-function bindingTheme(key: string): 'success' | 'default' | 'warning' { const k = key.toUpperCase(); if (k === 'READY') return 'success'; if (k === 'DEGRADED') return 'warning'; return 'default' }
 function capacityNum(key: string): number { const v = dashboard.value?.capacity?.[key]; return typeof v === 'number' ? v : 0 }
 function percent(part: number, total: number) { if (!total) return '—'; return `${((part / total) * 100).toFixed(1)}% 已用` }
 function meterWidth(part: number, total: number) { if (!total || total <= 0) return '0%'; return `${Math.min(100, Math.max(0, (part / total) * 100)).toFixed(1)}%` }
@@ -66,7 +65,7 @@ async function load() {
     const result = await listAgentMcpAudits({ page: page.value - 1, size: pageSize.value, toolName: toolName.value || undefined, status: status.value || undefined, traceId: traceFilter.value || undefined, errorCode: errorFilter.value || undefined })
     rows.value = result.items
     total.value = result.totalElements
-  } catch (error) {
+  } catch {
     await MessagePlugin.error('MCP 审计记录加载失败')
   } finally { loading.value = false }
 }
@@ -80,15 +79,18 @@ async function loadDashboard() {
 function startPolling() { stopPolling(); if (activeTab.value !== 'monitoring') return; void loadDashboard(); timer = window.setInterval(() => { if (document.visibilityState === 'visible') void loadDashboard() }, 5000) }
 function stopPolling() { if (timer) { window.clearInterval(timer); timer = undefined } }
 function changeTab(value: string) { activeTab.value = value; void router.replace({ query: { ...route.query, tab: value } }); startPolling() }
-watch(() => route.query.tab, value => { const next = ['audit', 'alerts', 'business', 'alert-settings'].includes(String(value)) ? String(value) : 'monitoring'; if (next !== activeTab.value) { activeTab.value = next; startPolling() } })
+watch(() => route.query.tab, value => { const next = ['monitoring', 'audit', 'alerts', 'business', 'alert-settings'].includes(String(value)) ? String(value) : 'monitoring'; if (next !== activeTab.value) { activeTab.value = next; startPolling() } })
 onMounted(() => startPolling()); onUnmounted(() => stopPolling())
 </script>
 
 <template>
   <main class="market-page agent-audit-page">
     <div class="page-heading"><div><p class="eyebrow">AGENT OPERATIONS</p><h1>Agent 运行与审计</h1><p class="page-subtitle">实时查看 Agent 全链路运行状态，并追踪 MCP 调用。</p></div></div>
-    <t-tabs :value="activeTab" @change="changeTab">
-      <t-tab-panel value="monitoring" label="运行监控">
+    <nav class="operations-tabs" aria-label="Agent 运维页面">
+      <button v-for="tab in [{ value: 'monitoring', label: '运行监控' }, { value: 'business', label: '业务链路' }, { value: 'alerts', label: '告警中心' }, { value: 'audit', label: '调用审计' }]" :key="tab.value" type="button" :class="{ active: activeTab === tab.value }" :aria-current="activeTab === tab.value ? 'page' : undefined" @click="changeTab(tab.value)">{{ tab.label }}</button>
+      <button v-if="canConfigureAlerts" type="button" :class="{ active: activeTab === 'alert-settings' }" :aria-current="activeTab === 'alert-settings' ? 'page' : undefined" @click="changeTab('alert-settings')">告警设置</button>
+    </nav>
+      <div v-if="activeTab === 'monitoring'">
         <div class="monitoring-panel">
           <div class="market-toolbar"><span>观察窗口</span><t-select v-model="dashboardWindow" style="width: 130px" @change="loadDashboard"><t-option value="PT15M" label="15 分钟" /><t-option value="PT1H" label="1 小时" /><t-option value="P1D" label="24 小时" /></t-select></div>
           <t-alert v-if="dashboardError" theme="warning" message="监控数据暂时不可用，正在继续重试" />
@@ -118,14 +120,11 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
             <div class="two-col">
               <!-- 运行负载 -->
               <section class="panel-block">
-                <header class="block-head"><div class="block-title"><i class="block-bar" />运行负载<span class="block-sub">Active Queues &amp; Tasks</span></div><t-tag size="small" variant="light" :theme="dashboard.workload.running + dashboard.workload.buildRunning + dashboard.workload.queryRunning > 0 ? 'warning' : 'success'">{{ dashboard.workload.running + dashboard.workload.buildRunning + dashboard.workload.queryRunning > 0 ? 'BUSY' : 'IDLE' }} / {{ dashboard.workload.running + dashboard.workload.buildRunning + dashboard.workload.queryRunning > 0 ? '负载中' : '正常轻载' }}</t-tag></header>
+                <header class="block-head"><div class="block-title"><i class="block-bar" />运行负载<span class="block-sub">Active Queues &amp; Tasks</span></div><t-tag size="small" variant="light" :theme="dashboard.workload.running > 0 ? 'warning' : 'success'">{{ dashboard.workload.running > 0 ? 'BUSY / 负载中' : 'IDLE / 正常轻载' }}</t-tag></header>
                 <div class="metric-grid four">
                   <div class="metric-card"><span class="metric-label">Agent 活跃 Run</span><b class="metric-num">{{ dashboard.workload.runningNow }}</b><small>待执行 {{ dashboard.workload.pending }} · 近15分 {{ dashboard.workload.recentTotal }}</small></div>
                   <div class="metric-card"><span class="metric-label">DSH 活跃 Run</span><b class="metric-num">{{ dashboard.workload.dshActiveRuns }}<i>/ {{ dashboard.workload.dshMaxConcurrentRuns || '—' }}</i></b><small>累计并发拒绝 {{ dashboard.workload.dshBusyRejections }}</small></div>
                   <div class="metric-card"><span class="metric-label">Agent 执行队列</span><b class="metric-num">{{ dashboard.workload.agentExecutorQueued }}<i>/ {{ dashboard.workload.agentExecutorQueueCapacity }}</i></b><small>工作线程 {{ dashboard.workload.agentExecutorActive }} / {{ capacityNum('agentMaxConcurrentRuns') }}</small></div>
-                  <div class="metric-card"><span class="metric-label">构建负载</span><b class="metric-num">{{ dashboard.workload.buildRunning }}</b><small>运行中 · 排队 {{ dashboard.workload.buildQueued }}</small></div>
-                  <div class="metric-card"><span class="metric-label">查询负载</span><b class="metric-num">{{ dashboard.workload.queryRunning }}</b><small>当前运行查询</small></div>
-                  <div class="metric-card"><span class="metric-label">语义索引</span><b class="metric-num">{{ dashboard.workload.semanticIndexing }}</b><small>INDEXING Binding</small></div>
                 </div>
                 <footer class="block-foot"><span>后端执行槽 {{ dashboard.workload.agentExecutorActive }}/{{ capacityNum('agentMaxConcurrentRuns') }} · DSH {{ dashboard.workload.dshActiveRuns }}/{{ dashboard.workload.dshMaxConcurrentRuns || '—' }}</span><span :class="dashboard.workload.agentExecutorQueued ? '' : 'ok-dot'">{{ dashboard.workload.agentExecutorQueued ? `排队 ${dashboard.workload.agentExecutorQueued} 项` : '无积压任务' }}</span></footer>
               </section>
@@ -137,7 +136,6 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
                   <div class="metric-card"><span class="metric-label">CPU 使用率</span><b class="metric-num">{{ dashboard.resources.cpuPercent < 0 ? '—' : dashboard.resources.cpuPercent.toFixed(1) }}<i v-if="dashboard.resources.cpuPercent >= 0">%</i></b><div class="meter"><i :style="{ width: meterWidth(dashboard.resources.cpuPercent, 100) }" /></div><small>轻载运行 · 上限 100%</small></div>
                   <div class="metric-card"><span class="metric-label">内存</span><b class="metric-num">{{ bytesNum(dashboard.resources.memoryUsedBytes) }}<i>{{ bytesUnit(dashboard.resources.memoryUsedBytes) }}</i></b><div class="meter"><i :style="{ width: meterWidth(dashboard.resources.memoryUsedBytes, dashboard.resources.memoryMaxBytes) }" /></div><small>{{ percent(dashboard.resources.memoryUsedBytes, dashboard.resources.memoryMaxBytes) }} · 上限 {{ formatBytes(dashboard.resources.memoryMaxBytes) }}</small></div>
                   <div class="metric-card"><span class="metric-label">磁盘</span><b class="metric-num">{{ bytesNum(dashboard.resources.diskUsedBytes) }}<i>{{ bytesUnit(dashboard.resources.diskUsedBytes) }}</i></b><div class="meter"><i :style="{ width: meterWidth(dashboard.resources.diskUsedBytes, dashboard.resources.diskTotalBytes) }" /></div><small>{{ percent(dashboard.resources.diskUsedBytes, dashboard.resources.diskTotalBytes) }} · 总量 {{ formatBytes(dashboard.resources.diskTotalBytes) }}</small></div>
-                  <div class="metric-card"><span class="metric-label">队列容量</span><b class="metric-num">{{ dashboard.workload.buildQueued }}<i>/ {{ capacityNum('workerMaxConcurrentBuilds') }}</i></b><div class="meter"><i :style="{ width: meterWidth(dashboard.workload.buildQueued, capacityNum('workerMaxConcurrentBuilds')) }" /></div><small>构建队列 · 并发配置 {{ capacityNum('workerMaxConcurrentBuilds') }}</small></div>
                 </div>
                 <footer class="block-foot"><span>存储与计算富余容量良好，无扩容预警</span><span class="mono">Free: {{ formatBytes(dashboard.resources.diskTotalBytes - dashboard.resources.diskUsedBytes) }}</span></footer>
               </section>
@@ -164,17 +162,13 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
                   <div class="trend-line p99"><span class="trend-label">P99</span><span class="trend-base muted">稳定基线 {{ dashboard.latency.p99Ms }}ms</span><div class="dots"><i v-for="(point, index) in trendPoints" :key="`p99-${index}`" :class="{ hot: point.p99Ms > dashboard.latency.p99Ms }" :title="`${point.at} · P99 ${point.p99Ms}ms`" /></div><b class="mono">{{ dashboard.latency.p99Ms }} ms</b></div>
                   <div class="trend-line err"><span class="trend-label">错误率</span><span class="trend-base muted">{{ trendPoints.some(p => p.errorRatePercent > 0) ? '存在异常上报' : '零异常上报' }}</span><div class="dots"><i v-for="(point, index) in trendPoints" :key="`err-${index}`" :class="{ hot: point.errorRatePercent > 0 }" :title="`${point.at} · 错误率 ${point.errorRatePercent}%`" /></div><b class="mono">{{ dashboard.workload.errorRatePercent }}%</b></div>
                 </div>
-                <footer class="block-foot binding"><span>Code Graph Binding <small class="muted">图节点绑定拓扑</small></span><span class="binding-pills"><t-tag v-for="(value, key) in dashboard.codeGraphBindings" :key="key" size="small" variant="light" :theme="bindingTheme(String(key))">{{ key }} {{ value }}</t-tag><span v-if="!Object.keys(dashboard.codeGraphBindings).length" class="muted">暂无 Binding 数据</span></span></footer>
               </section>
             </div>
           </template>
           <t-loading v-if="dashboardLoading && !dashboard" text="加载监控数据中…" />
         </div>
-      </t-tab-panel>
-      <t-tab-panel value="business" label="业务链路" />
-      <t-tab-panel value="alerts" label="告警中心" />
-      <t-tab-panel v-if="canConfigureAlerts" value="alert-settings" label="告警设置" />
-      <t-tab-panel value="audit" label="调用审计">
+      </div>
+      <div v-if="activeTab === 'audit'">
     <section class="market-toolbar" aria-label="MCP 审计筛选">
       <t-input v-model="toolName" clearable placeholder="工具名称，如 search_feishu_documents" @enter="search" /><t-input v-model="traceFilter" clearable placeholder="Trace ID" @enter="search" /><t-input v-model="errorFilter" clearable placeholder="错误码" @enter="search" />
       <t-select v-model="status" clearable placeholder="执行状态" :options="[{ label: '执行中', value: 'STARTED' }, { label: '成功', value: 'SUCCEEDED' }, { label: '失败', value: 'FAILED' }]" />
@@ -191,8 +185,7 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
       </t-table>
     </div>
     <t-pagination v-model="page" v-model:page-size="pageSize" :total="total" :page-size-options="[20, 50, 100]" show-page-size @change="load" @page-size-change="onPageSizeChange" />
-      </t-tab-panel>
-    </t-tabs>
+      </div>
     <BusinessMetricsView v-if="activeTab === 'business'" />
     <AlertCenter v-if="activeTab === 'alerts'" />
     <AlertSettings v-if="activeTab === 'alert-settings' && canConfigureAlerts" />
@@ -201,6 +194,10 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
 
 <style scoped>
 .agent-audit-page { display: grid; gap: 18px; min-width: 0; }
+.operations-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--border-1); }
+.operations-tabs button { border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text-2); cursor: pointer; padding: 11px 16px; font: inherit; }
+.operations-tabs button:hover { color: var(--text-1); }
+.operations-tabs button.active { color: var(--accent-500); border-bottom-color: var(--accent-500); }
 .table-scroll { min-width: 0; overflow-x: auto; }
 .table-scroll :deep(.t-table) { min-width: 980px; }
 .agent-audit-page :deep(.t-table) { background: var(--surface-1); }
@@ -212,12 +209,6 @@ onMounted(() => startPolling()); onUnmounted(() => stopPolling())
 
 /* ===== 监控看板骨架 ===== */
 .monitoring-panel { display: grid; gap: 16px; padding-top: 16px; }
-.panel-block { display: grid; gap: 14px; padding: 18px 20px; border: 1px solid var(--border-1); border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--inner-highlight); }
-.block-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.block-title { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 600; color: var(--text-1); }
-.block-title .block-bar { width: 3px; height: 14px; border-radius: 2px; background: var(--accent-500); flex: none; }
-.block-sub { margin-left: 8px; font-size: 11px; font-weight: 400; color: var(--text-3); }
-.block-meta { font-size: 11px; color: var(--text-3); }
 .block-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 2px; padding-top: 12px; border-top: 1px solid var(--border-1); font-size: 12px; color: var(--text-2); flex-wrap: wrap; }
 .ok-dot { display: inline-flex; align-items: center; gap: 6px; color: var(--success); }
 .ok-dot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 8px var(--success); }

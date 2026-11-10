@@ -41,7 +41,13 @@ onMounted(async () => { await load(); const id = Number(route.query.alertId); if
       <t-input v-model="module" placeholder="模块编码" style="width: 180px" />
     </div>
     <t-loading v-if="busy && !items.length" text="正在加载告警…" />
-    <p v-else-if="!items.length && !error">暂无符合条件的告警</p>
+    <div v-else-if="!items.length && !error" class="alert-empty">
+      <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+      <p>暂无符合条件的告警</p>
+    </div>
     <article v-for="alert in items" :key="alert.id" class="panel-block">
       <t-tag :theme="alert.severity === 'P0' ? 'danger' : 'warning'">{{ alert.severity }}</t-tag>
       <a href="#" @click.prevent="open(alert.id)">{{ alert.alert_no || `#${alert.id}` }} · {{ alert.title }}</a> · {{ alert.state }}
@@ -65,3 +71,57 @@ onMounted(async () => { await load(); const id = Number(route.query.alertId); if
     </t-drawer>
   </section>
 </template>
+
+<style scoped>
+.panel-block {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: var(--inner-highlight);
+}
+.block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.block-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-1);
+  font-size: 14px;
+  font-weight: 600;
+}
+.block-title .block-bar {
+  flex: none;
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--accent-500);
+}
+.block-sub {
+  margin-left: 8px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 400;
+}
+.alert-empty {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  padding: 40px 0;
+  color: var(--text-3);
+}
+.alert-empty svg {
+  opacity: 0.35;
+}
+.alert-empty p {
+  margin: 0;
+  font-size: 12px;
+}
+</style>

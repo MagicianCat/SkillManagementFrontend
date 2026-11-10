@@ -32,6 +32,12 @@ export async function submitReview(
   return data
 }
 
+export async function publishTeamVersion(versionId: number, versionNo: number) {
+  const { data } = await http.post<{ status: string; errorMessage: string | null }>(`/skill-versions/${versionId}:publish-team`,
+    { versionNo }, { headers: { 'Idempotency-Key': crypto.randomUUID() } })
+  return data
+}
+
 export async function pushToCompany(
   versionId: number,
   payload: { comment: string },

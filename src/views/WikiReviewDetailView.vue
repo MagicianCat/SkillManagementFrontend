@@ -87,6 +87,12 @@ onMounted(load)
               <MarkdownView :content="review.markdownContent" class="markdown-content" />
             </t-card>
 
+            <t-card :title="`本次公开范围：${review.wikiCount ?? 1} 篇 Wiki，${review.skillCount ?? review.skills.length} 个 Skill`" :bordered="true">
+              <p class="detail-copy">管理员批准后，以下整棵子树及其关联的团队 Skill 将一起公开。</p>
+              <ul><li v-for="item in review.wikiItems" :key="item.documentId">{{ item.title }} · 修订 {{ item.revisionNo }} · ID {{ item.documentId }}</li></ul>
+              <p v-if="!review.wikiItems?.length" class="detail-copy">历史单篇审核任务</p>
+            </t-card>
+
             <t-card :title="`关联 Skill（${review.skills.length}）`" :bordered="true">
               <p class="detail-copy skill-promotion-note">通过本次 Wiki 审核时，关联的团队 Skill 也会同步转为全平台可见。</p>
               <t-space break-line>

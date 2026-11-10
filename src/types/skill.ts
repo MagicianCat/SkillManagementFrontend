@@ -178,7 +178,6 @@ export interface CreateSkillRequest {
   sourceUrl?: string | null
 }
 
-export type WikiDocumentType = 'SKILL_README' | 'SKILL_GUIDE'
 
 export interface WikiTeam {
   id: number
@@ -197,7 +196,6 @@ export interface WikiDocument {
   parentId?: number | null
   sourceResourceId?: string | null
   title: string
-  documentType: WikiDocumentType
   teamId: number | null
   platformVisible: boolean
   markdownContent: string

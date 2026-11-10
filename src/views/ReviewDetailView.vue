@@ -126,7 +126,7 @@ async function act(kind: 'approve' | 'reject') {
     }
     await router.push({ name: 'reviews' })
   } catch (error: unknown) {
-    if (axios.isAxiosError(error) && error.response?.status === 409) {
+    if (axios.isAxiosError(error) && error.response?.data?.code === 'REVIEW_NOT_PENDING') {
       actionError.value = '该任务已被其他审核人处理，正在刷新…'
       review.value = await getReview(reviewId.value)
     } else {

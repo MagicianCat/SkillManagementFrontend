@@ -24,12 +24,23 @@ const selectedWiki = ref<Record<string, number[]>>({})
 const downloadingWiki = ref(false)
 const wikiTitles = ref<Record<number, string>>({})
 const wikiTitleRequests = new Set<number>()
+const asdmTitles = ref<Record<number, string>>({})
+const asdmTitleRequests = new Set<number>()
 const wikiByMessage = computed(() => new Map(store.visibleMessages
   .filter(message => message.role === 'ASSISTANT' && message.status !== 'STREAMING' && message.content)
   .map(message => [message.sequence, citedWikiDocuments(message.content)])))
 const asdmByMessage = computed(() => new Map(store.visibleMessages
   .filter(message => message.role === 'ASSISTANT' && message.status !== 'STREAMING' && message.content)
-  .map(message => [message.sequence, citedAsdmTools(message.content).slice(0, 1)])))
+  .map(message => [message.sequence, citedAsdmTools(message.content)])))
+watch(asdmByMessage, groups => {
+  for (const tools of groups.values()) for (const tool of tools) {
+    if (asdmTitleRequests.has(tool.assetId)) continue
+    asdmTitleRequests.add(tool.assetId)
+    void http.get<{ wikiTitle: string; filename: string }>(`/asdm-tool-assets/${tool.assetId}`)
+      .then(response => { asdmTitles.value[tool.assetId] = response.data.wikiTitle || response.data.filename })
+      .catch(() => { asdmTitles.value[tool.assetId] = '工具包已不可访问' })
+  }
+}, { immediate: true })
 watch(wikiByMessage, groups => {
   for (const documents of groups.values()) for (const wiki of documents) {
     if (wikiTitleRequests.has(wiki.id) || wikiTitles.value[wiki.id]) continue
@@ -79,6 +90,7 @@ function openSkill(item: { skillKey: string; platform?: string | null; osType?: 
 function openBatch(runKey: string | null | undefined, recommendation: AgentRecommendation | null | undefined) { if (!runKey || !recommendation?.items.length) return; batchRunKey.value = runKey; batchRecommendation.value = recommendation; batchVisible.value = true }
 function wikiDocuments(sequence: number) { return wikiByMessage.value.get(sequence) ?? [] }
 function asdmTools(sequence: number) { return asdmByMessage.value.get(sequence) ?? [] }
+function asdmTitle(tool: { assetId: number; title: string }) { return asdmTitles.value[tool.assetId] || (/^https?:\/\//i.test(tool.title) ? '正在读取工具包名称…' : tool.title) }
 function wikiTitle(wiki: AgentWikiDocument) { return wikiTitles.value[wiki.id] || (wiki.title.startsWith('Wiki 文档 #') ? '正在读取文档名称…' : wiki.title) }
 function wikiKey(sequence: number) { return `${store.current?.session.sessionKey ?? 'unknown'}:${sequence}` }
 function selectedWikiIds(sequence: number, documents: AgentWikiDocument[]) { return selectedWiki.value[wikiKey(sequence)] ?? documents.map(document => document.id) }
@@ -167,8 +179,8 @@ onUnmounted(() => { stopThinkingRotation(); stopElapsedTimer() })
         <section v-if="message.role === 'ASSISTANT' && asdmTools(message.sequence).length" class="agent-wiki-downloads" aria-label="ASDM 工具包下载">
           <div class="agent-wiki-downloads__heading"><strong>ASDM 工具包</strong></div>
           <div v-for="tool in asdmTools(message.sequence)" :key="tool.assetId" class="agent-wiki-downloads__item">
-            <span>{{ tool.title }}</span>
-            <t-button size="small" theme="primary" :disabled="downloadingAsdm" :loading="downloadingAsdm" @click="downloadAsdmTool(tool.assetId)">下载工具包</t-button>
+            <span>{{ asdmTitle(tool) }}</span>
+            <t-button size="small" theme="primary" :disabled="downloadingAsdm || asdmTitles[tool.assetId] === '工具包已不可访问'" :loading="downloadingAsdm" @click="downloadAsdmTool(tool.assetId)">下载工具包</t-button>
           </div>
         </section>
         <section v-if="message.role === 'ASSISTANT' && (message.recommendation || (message.status === 'STREAMING' && store.streamingRecommendation))" class="agent-recommendations" aria-label="本轮 Skill 推荐">

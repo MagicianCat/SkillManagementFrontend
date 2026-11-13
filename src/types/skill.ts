@@ -13,6 +13,7 @@ export type DevelopmentStage =
   | 'SECURITY_REVIEW'
   | 'TESTING'
   | 'DEPLOYMENT'
+  | 'OTHER'
 
 export interface SkillTag {
   id: number
@@ -44,6 +45,7 @@ export const DEVELOPMENT_STAGES: Array<{
   { value: 'SECURITY_REVIEW', label: '安全审核' },
   { value: 'TESTING', label: '测试' },
   { value: 'DEPLOYMENT', label: '部署' },
+  { value: 'OTHER', label: '其他' },
 ]
 
 export function developmentStageLabel(

@@ -267,7 +267,7 @@ function stageLabel(stage: string | null | undefined) {
   return ({
     REQUIREMENT: '需求', PRODUCT: '产品', ARCHITECTURE_DESIGN: '架构设计', UI_DESIGN: 'UI设计',
     BACKEND_CODING: '后端编码', FRONTEND_CODING: '前端编码', SECURITY_REVIEW: '安全评审',
-    TESTING: '测试', DEPLOYMENT: '部署', MULTI_STAGE: '多阶段', UNKNOWN: '未分类',
+    TESTING: '测试', DEPLOYMENT: '部署', OTHER: '其他', MULTI_STAGE: '多阶段', UNKNOWN: '未分类',
   } as Record<string, string>)[stage ?? 'UNKNOWN'] ?? stage ?? '未分类'
 }
 function statusTheme(status: string) { return status === 'COMPLETED' ? 'success' : status === 'FAILED' ? 'danger' : status === 'RUNNING' ? 'warning' : 'default' }

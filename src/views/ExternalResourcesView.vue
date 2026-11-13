@@ -9,9 +9,9 @@ import type { SkillCategory, WikiTeam } from '../types/skill'
 import {
   downloadExternalZip, getExternalDocument,
   getExternalImportJob, importExternalSkill, listExternalDocuments, listExternalImports, listExternalResources,
-  listExternalRoles, listExternalVersions, prepareExternalSkill, startBulkSkillImport, startBulkWikiImport, getAsdmToolStatus, importAsdmTool, refreshAsdmToolLink,
+  listExternalRoles, listExternalVersions, prepareExternalSkill, startBulkSkillImport, startBulkWikiImport, getAsdmToolStatus, importAsdmTool, refreshAsdmToolLink, listAsdmCommands,
   type DocumentEntry, type ExternalImport, type ExternalResource,
-  type ExternalRole, type ExternalVersion, type SkillPreparation, type ExternalImportJob, type AsdmToolStatus, type AsdmToolImportResult,
+  type ExternalRole, type ExternalVersion, type SkillPreparation, type ExternalImportJob, type AsdmToolStatus, type AsdmToolImportResult, type AsdmCommand,
 } from '../api/external-resources.api'
 
 const router = useRouter()
@@ -22,6 +22,12 @@ const versions = ref<ExternalVersion[]>([])
 const imports = ref<ExternalImport[]>([])
 const asdmStatus = ref<AsdmToolStatus | null>(null)
 const asdmResult = ref<AsdmToolImportResult | null>(null)
+const asdmCommands = ref<AsdmCommand[]>([])
+const asdmCommandsLoaded = ref(false)
+const asdmSyncOnly = computed(() => Boolean(
+  asdmStatus.value?.imported && asdmStatus.value?.wikiActive
+  && ['OUTDATED', 'PENDING'].includes(asdmStatus.value?.commandMappingStatus ?? ''),
+))
 const categories = ref<SkillCategory[]>([])
 const teams = ref<WikiTeam[]>([])
 const teamLoading = ref(false)
@@ -94,6 +100,9 @@ function searchTeams(keyword = '') {
 }
 
 function bulkStatusText(status: string) { return ({ PENDING: '排队中', RUNNING: '导入中', SUCCEEDED: '已完成', FAILED: '失败', PARTIAL: '部分完成', CANCELLED: '已取消' } as Record<string, string>)[status] ?? status }
+function mappingStatusText(status: string | null | undefined) {
+  return ({ NOT_PROVIDED: '未提供命令分类', PENDING: '待同步', SYNCED: '已同步', OUTDATED: '待同步（元数据已变化）', FAILED: '同步失败' } as Record<string, string>)[status ?? ''] ?? status ?? ''
+}
 function message(e: unknown) {
   const err = e as { response?: { data?: { message?: string } }; message?: string }
   return err.response?.data?.message || err.message || '操作失败'
@@ -191,12 +200,14 @@ function syncVersionCategory(id: number) {
 async function selectResource(item: ExternalResource) {
   selected.value = item; versionId.value = item.currentVersionId
   asdmStatus.value = null; asdmResult.value = null
+  asdmCommands.value = []; asdmCommandsLoaded.value = false
   preparation.value = null; entries.value = []; preview.value = ''; teamId.value = null; categoryId.value = null
   try { versions.value = await listExternalVersions(item.id); await selectVersion(item.currentVersionId) }
   catch (e) { error.value = message(e) }
 }
 async function selectVersion(id: number) {
   versionId.value = id; preparation.value = null; entries.value = []; preview.value = ''
+  asdmCommands.value = []; asdmCommandsLoaded.value = false
   syncVersionCategory(id)
   try {
     imports.value = await listExternalImports(id)
@@ -214,6 +225,7 @@ async function importAsdm() {
     asdmResult.value = await importAsdmTool(versionId.value, { confirmUpdate: updating, expectedWikiVersionNo: updating ? prior?.wikiVersionNo ?? null : null })
     asdmStatus.value = await getAsdmToolStatus(versionId.value)
     imports.value = await listExternalImports(versionId.value)
+    if (asdmCommandsLoaded.value) await loadAsdmCommands()
   } catch (e) { error.value = message(e) }
   finally { busy.value = false }
 }
@@ -223,6 +235,15 @@ async function refreshAsdmLink() {
   try {
     asdmResult.value = await refreshAsdmToolLink(versionId.value)
     asdmStatus.value = await getAsdmToolStatus(versionId.value)
+  } catch (e) { error.value = message(e) }
+  finally { busy.value = false }
+}
+async function loadAsdmCommands() {
+  if (!versionId.value) return
+  busy.value = true; error.value = ''
+  try {
+    asdmCommands.value = await listAsdmCommands(versionId.value)
+    asdmCommandsLoaded.value = true
   } catch (e) { error.value = message(e) }
   finally { busy.value = false }
 }
@@ -337,7 +358,7 @@ watch(() => route.query.jobId, (value) => { const id = Number(value); if (Number
       <section class="panel"><h2>资源</h2><div class="filters"><input v-model="keyword" placeholder="搜索名称或外部 ID" @keyup.enter="searchResources"><select v-model="type"><option value="">全部类型</option><option value="SKILL">Skill</option><option value="DOCUMENT">文档 ZIP</option><option value="ASDM-TOOL">ASDM 工具</option></select><button @click="searchResources">搜索</button></div><button v-for="item in resources" :key="item.id" class="resource" :class="{ active: selected?.id === item.id }" @click="selectResource(item)"><span class="badge">{{ item.resourceType }}</span><strong>{{ item.name }}</strong><small>版本 {{ item.externalVersion || '未标记' }} · {{ Math.ceil((item.sizeBytes || 0) / 1024) }} KB</small></button><p v-if="!resources.length">当前角色暂无资源</p><div class="filters"><button :disabled="page === 0" @click="movePage(-1)">上一页</button><span>第 {{ page + 1 }} 页</span><button :disabled="resources.length < 50" @click="movePage(1)">下一页</button></div></section>
       <section class="panel details"><template v-if="selected"><h2>{{ selected.name }}</h2><p>{{ selected.description }}</p><label>原始版本 <select v-model.number="versionId" @change="versionId && selectVersion(versionId)"><option v-for="v in versions" :key="v.id" :value="v.id">{{ v.externalVersion || '无版本号' }} · {{ v.receivedAt }}</option></select></label><button @click="download">下载原始 ZIP</button>
         <template v-if="selected.resourceType === 'SKILL'"><h3>推送到平台草稿</h3><button :disabled="busy" @click="prepare">解析并校验 ZIP</button><div v-if="preparation" class="form"><p>文件数 {{ preparation.fileCount }}；{{ preparation.exists ? '同 Key 已存在' : '尚无同 Key Skill' }}</p><p v-if="preparation.activeDraftVersionId" class="alert">该 Skill 已有草稿；导入将更新此草稿的 ZIP 和元数据。</p><label>Skill Key <input v-model="skillKey" :disabled="Boolean(preparation.skillKey)"></label><label>名称 <input v-model="displayName"></label><label>说明 <textarea v-model="description"></textarea></label><label>研发阶段 <t-cascader v-model="categoryId" :options="categoryOptions" clearable filterable placeholder="请选择具体阶段" /></label><label>归属团队 <t-select v-model="teamId" filterable clearable :loading="teamLoading" :options="[{ label: '平台 Skill', value: null }, ...teamOptions.filter((option) => option.value !== null)]" placeholder="平台 Skill 或搜索团队" @search="searchTeams" /></label><button class="btn-primary" :disabled="busy" @click="importSkill">确认导入草稿</button></div></template>
-        <template v-else-if="selected.resourceType === 'ASDM-TOOL'"><h3>ASDM 工具包</h3><p>来源：{{ selected.sourceSystem }} · 资源 ID：{{ selected.externalResourceId }}</p><p>原始文件：{{ versions.find((item) => item.id === versionId)?.fileName || '未知' }}</p><p v-if="asdmStatus?.imported && asdmStatus.wikiActive">已导入平台 Wiki #{{ asdmStatus.wikiDocumentId }} · {{ asdmStatus.toolFilename }}</p><p v-else-if="asdmStatus?.imported">原 Wiki #{{ asdmStatus.wikiDocumentId }} 已归档，可重新导入为新文档</p><p v-else-if="asdmStatus?.wikiDocumentId">此资源已有平台 Wiki #{{ asdmStatus.wikiDocumentId }}；当前版本尚未导入</p><button class="btn-primary" :disabled="busy || !versionId || (asdmStatus?.imported && asdmStatus.wikiActive)" @click="importAsdm">{{ asdmStatus?.wikiDocumentId && asdmStatus.wikiActive && !asdmStatus.imported ? '更新平台 Wiki' : '导入为新平台 Wiki' }}</button><div v-if="asdmResult || (asdmStatus?.imported && asdmStatus.wikiActive)" class="form"><RouterLink v-if="asdmStatus?.wikiActive && asdmStatus.wikiDocumentId" :to="{ name: 'wiki', query: { documentId: asdmStatus.wikiDocumentId } }">查看平台 Wiki</RouterLink><RouterLink v-if="asdmStatus?.wikiActive && asdmStatus.assetId" :to="{ name: 'asdm-tool-download', params: { assetId: asdmStatus.assetId } }">下载 ASDM 工具包</RouterLink><button v-if="asdmStatus?.imported && asdmStatus.wikiActive" :disabled="busy" @click="refreshAsdmLink">重建下载链接</button></div></template><template v-else><h3>ZIP 内 Markdown</h3><button :disabled="busy" @click="openDocuments">查看文档</button><div v-if="entries.length"><p>导入请使用左侧“按角色批量导入”。</p><div v-for="entry in entries" :key="entry.path" class="entry"><button @click="showDocument(entry.path)">{{ entry.path }}</button></div><div v-if="previewPath"><h4>{{ previewPath }}</h4><details><summary>查看 Markdown 原文</summary><pre>{{ preview }}</pre></details><div class="markdown-body" v-html="safePreview"></div></div></div><p v-else>点击“查看文档”读取 ZIP 中的 Markdown 文件</p></template>
+        <template v-else-if="selected.resourceType === 'ASDM-TOOL'"><h3>ASDM 工具包</h3><p>来源：{{ selected.sourceSystem }} · 资源 ID：{{ selected.externalResourceId }}</p><p>原始文件：{{ versions.find((item) => item.id === versionId)?.fileName || '未知' }}</p><p v-if="asdmStatus?.imported && asdmStatus.wikiActive">已导入平台 Wiki #{{ asdmStatus.wikiDocumentId }} · {{ asdmStatus.toolFilename }}</p><p v-else-if="asdmStatus?.imported">原 Wiki #{{ asdmStatus.wikiDocumentId }} 已归档，可重新导入为新文档</p><p v-else-if="asdmStatus?.wikiDocumentId">此资源已有平台 Wiki #{{ asdmStatus.wikiDocumentId }}；当前版本尚未导入</p><p v-if="asdmStatus">命令分类 {{ asdmStatus.commandMappingCount }} 条 · {{ mappingStatusText(asdmStatus.commandMappingStatus) }}</p><button class="btn-primary" :disabled="busy || !versionId || (asdmStatus?.imported && asdmStatus.wikiActive && !asdmSyncOnly)" @click="importAsdm">{{ asdmSyncOnly ? '同步命令分类' : asdmStatus?.wikiDocumentId && asdmStatus.wikiActive && !asdmStatus.imported ? '更新平台 Wiki' : '导入为新平台 Wiki' }}</button><div v-if="asdmResult || (asdmStatus?.imported && asdmStatus.wikiActive)" class="form"><RouterLink v-if="asdmStatus?.wikiActive && asdmStatus.wikiDocumentId" :to="{ name: 'wiki', query: { documentId: asdmStatus.wikiDocumentId } }">查看平台 Wiki</RouterLink><RouterLink v-if="asdmStatus?.wikiActive && asdmStatus.assetId" :to="{ name: 'asdm-tool-download', params: { assetId: asdmStatus.assetId } }">下载 ASDM 工具包</RouterLink><button v-if="asdmStatus?.imported && asdmStatus.wikiActive" :disabled="busy" @click="refreshAsdmLink">重建下载链接</button></div><button v-if="asdmStatus?.imported" :disabled="busy" @click="loadAsdmCommands">{{ asdmCommandsLoaded ? '刷新命令分类' : '查看命令分类' }}</button><div v-if="asdmCommandsLoaded" class="command-list"><p v-if="!asdmCommands.length">该工具包当前没有命令分类映射。</p><p v-for="item in asdmCommands" :key="item.id">{{ item.toolName }} → {{ item.firstCategoryCode }} · {{ item.developmentStage }} · {{ item.status === 'ACTIVE' ? '生效' : '已替代' }}</p></div></template><template v-else><h3>ZIP 内 Markdown</h3><button :disabled="busy" @click="openDocuments">查看文档</button><div v-if="entries.length"><p>导入请使用左侧“按角色批量导入”。</p><div v-for="entry in entries" :key="entry.path" class="entry"><button @click="showDocument(entry.path)">{{ entry.path }}</button></div><div v-if="previewPath"><h4>{{ previewPath }}</h4><details><summary>查看 Markdown 原文</summary><pre>{{ preview }}</pre></details><div class="markdown-body" v-html="safePreview"></div></div></div><p v-else>点击“查看文档”读取 ZIP 中的 Markdown 文件</p></template>
         <h3>导入记录</h3><p v-for="row in imports" :key="row.id">{{ row.createdAt }} · {{ row.targetType }} {{ row.entryPath || '' }} → {{ row.targetId }} · {{ row.result }}</p>
       </template><p v-else>选择资源查看版本、原始 ZIP 和导入操作。</p></section>
     </div>
@@ -348,4 +369,5 @@ watch(() => route.query.jobId, (value) => { const id = Number(value); if (Number
 .external-page{width:100%;max-width:var(--page-max-width);margin:0 auto;color:var(--text-1)}header{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);margin-bottom:var(--space-5)}h1{margin:0;font-size:var(--font-page-title)}h2{font-size:var(--font-section-title);margin:0 0 16px}h3{margin:var(--space-6) 0 var(--space-3)}.eyebrow{letter-spacing:.14em;color:var(--accent-400);font-size:12px;font-weight:700}.layout{display:grid;grid-template-columns:minmax(190px,1fr) minmax(240px,1.2fr) minmax(360px,2fr);gap:16px}.panel{background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--card-radius);padding:var(--card-padding);min-height:360px}.role,.resource{display:flex;flex-direction:column;align-items:flex-start;text-align:left;width:100%;margin:8px 0;padding:12px;border:1px solid var(--border-1);border-radius:var(--radius-sm);background:transparent;color:inherit;cursor:pointer;gap:4px}.role-heading{display:flex;align-items:center;justify-content:space-between;width:100%;gap:8px}.role-heading strong{min-width:0;overflow-wrap:anywhere}.role-status{flex:none;padding:2px 8px;border-radius:var(--radius-full);font-size:var(--font-meta);font-weight:600}.role-status--active{color:var(--success);background:var(--success-soft)}.role-status--inactive{color:var(--error);background:var(--error-soft)}.active{border-color:var(--border-accent);background:var(--accent-soft)}small{color:var(--text-3)}.badge{font-size:var(--font-meta);color:var(--accent-400);font-weight:700}.filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}.filters input{min-width:0;flex:1 1 100%}input,select,textarea{box-sizing:border-box;min-height:var(--control-height);padding:8px 10px;border:1px solid var(--border-2);border-radius:var(--radius-sm);background:var(--surface-2);color:var(--text-1);font:inherit;font-size:var(--font-body)}button{min-height:var(--control-height);padding:0 12px;border:1px solid var(--border-2);border-radius:var(--radius-sm);background:var(--surface-2);color:var(--text-2);cursor:pointer;font:inherit;font-size:var(--font-meta);font-weight:600;transition:border-color var(--duration-fast) var(--ease-out),background var(--duration-fast) var(--ease-out),color var(--duration-fast) var(--ease-out)}button:hover:not(:disabled){border-color:var(--border-accent);color:var(--accent-300);background:var(--surface-3)}button:disabled{opacity:.5;cursor:not-allowed}.bulk-controls{display:grid;gap:10px;margin-top:20px;border-top:1px solid var(--border-1);padding-top:14px}.bulk-controls label{display:grid;gap:6px}.bulk-controls .bulk-checkbox{display:flex;align-items:center;font-size:13px}.form{display:grid;gap:12px;margin-top:14px}.form label,.details>label{display:grid;gap:6px}.entry{display:flex;align-items:center;gap:8px;margin:7px 0}.entry button{border:0;background:transparent;text-align:left;padding:3px}.alert{padding:10px 12px;background:var(--error-soft);color:var(--error);border-radius:var(--radius-sm);font-size:var(--font-meta)}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:250px;overflow:auto}.details{overflow-wrap:anywhere}@media(max-width:1000px){.layout{grid-template-columns:1fr}.panel{min-height:auto}}
 .skill-selection{border:1px solid var(--border-1);border-radius:var(--radius-sm);padding:10px}.skill-selection-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px}.skill-selection-heading div{display:flex;gap:4px}.skill-selection-heading button{padding:4px 6px}.skill-selection-list{max-height:260px;overflow:auto;margin-top:8px}.skill-selection-list label{padding:5px 0;overflow-wrap:anywhere}.skill-selection-list input{flex:none}
 .wiki-selection{border:1px solid var(--border-1);border-radius:var(--radius-sm);padding:10px;font-size:var(--font-body)}.wiki-selection-list{max-height:320px;overflow:auto;margin-top:8px}.wiki-zip{padding:8px 0;border-top:1px solid var(--border-1)}.wiki-zip label{overflow-wrap:anywhere}.wiki-document-list{padding:6px 0 4px 18px}.wiki-document-list label{padding:4px 0}.wiki-document-list input{flex:none}
+.command-list{max-height:260px;overflow:auto;font-size:var(--font-meta)}.command-list p{margin:6px 0;overflow-wrap:anywhere}
 </style>

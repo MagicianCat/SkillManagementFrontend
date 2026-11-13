@@ -81,6 +81,7 @@ const stageFilterTree: Array<{
   { id: 'security', label: '安全审核', values: ['SECURITY_REVIEW'] },
   { id: 'testing', label: '测试', values: ['TESTING'] },
   { id: 'deployment', label: '部署', values: ['DEPLOYMENT'] },
+  { id: 'other', label: '其他', values: ['OTHER'] },
 ]
 
 async function fetchSkills() {
@@ -545,5 +546,9 @@ onMounted(() => {
 .stage-deployment {
   color: var(--success);
   background: var(--success-soft);
+}
+.stage-other {
+  color: var(--text-2);
+  background: var(--surface-2);
 }
 </style>

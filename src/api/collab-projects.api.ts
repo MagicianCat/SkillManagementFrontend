@@ -24,6 +24,7 @@ export interface CollabProject {
   members?: CollabMember[]
 }
 export interface CollabFeishuBinding { status: string; chatId?: string | null; wikiSpaceId?: string | null; wikiParentNodeToken?: string | null; lastError?: string | null; pendingTasks: number }
+export interface CollabProgressDocument { requirementKey: string; status: string; documentUrl?: string | null; lastSyncedAt?: string | null; desiredRevision: number; appliedRevision: number; outOfSync: boolean; lastErrorCode?: string | null; bootstrapState: string; bootstrapCompletedAt?: string | null }
 export interface CollabStage {
   id?: number; stageId: number; stageKey: string; title?: string; stageOrder?: number; order?: number; status: string
   asdmStatus?: string
@@ -65,6 +66,8 @@ export async function createCollabProject(payload: {
   stageAssignments: { stageKey: string; ownerUserId: number; reviewerUserId: number | null }[]; memberUserIds: number[]; includedStageKeys: string[]
 }) { return (await http.post<CollabProject>(root, payload)).data }
 export async function getCollabProject(projectKey: string) { const data=(await http.get<CollabProject & {requirementKey?:string}>(`${requirementRoot}/${key(projectKey)}`)).data; return { ...data, projectKey:data.projectKey||data.requirementKey||projectKey } }
+export async function getCollabProgressDocument(projectKey: string) { return (await http.get<CollabProgressDocument>(`${requirementRoot}/${key(projectKey)}/progress-document`)).data }
+export async function refreshCollabProgressDocument(projectKey: string) { return (await http.post<CollabProgressDocument>(`${requirementRoot}/${key(projectKey)}/progress-document:refresh`, {}, { headers: { 'Idempotency-Key': crypto.randomUUID() } })).data }
 export async function getCollabFeishuBinding(projectKey: string) { return (await http.get<CollabFeishuBinding>(`${requirementRoot}/${key(projectKey)}/feishu`)).data }
 export async function configureCollabWikiRoot(projectKey: string, url: string) { return (await http.put<CollabFeishuBinding>(`${requirementRoot}/${key(projectKey)}/feishu/wiki-root`, { url })).data }
 export async function retryCollabFeishu(projectKey: string) { return (await http.post<CollabFeishuBinding>(`${requirementRoot}/${key(projectKey)}/feishu:retry`)).data }

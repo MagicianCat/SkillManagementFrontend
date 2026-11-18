@@ -1,8 +1,9 @@
 import { http } from './http'
-import type { PageResponse, WikiDocument, WikiRevision, WikiTeam } from '../types/skill'
+import type { PageResponse, WikiDocument, WikiRevision, WikiTeam, WikiKnowledgeCategory } from '../types/skill'
 import type { WikiReview, WikiReviewSummary, WikiReviewStatus } from '../types/review'
 
 export interface WikiDocumentQuery {
+  knowledgeCategory?: WikiKnowledgeCategory
   teamId?: number
   skillKey?: string
   keyword?: string
@@ -32,8 +33,8 @@ export async function getWikiDocuments(params: WikiDocumentQuery = {}) {
   return data
 }
 
-export async function getWikiDocument(id: number) {
-  const { data } = await http.get<WikiDocument>(`/wiki/documents/${id}`)
+export async function getWikiDocument(id: number, audience?: 'PLATFORM') {
+  const { data } = await http.get<WikiDocument>(`/wiki/documents/${id}`, { params: audience ? { audience } : undefined })
   return data
 }
 
@@ -50,12 +51,12 @@ export async function downloadWikiDocuments(documentIds: number[]) {
   return http.post<Blob>('/wiki/documents:download', { documentIds }, { responseType: 'blob' })
 }
 
-export async function createWikiDocument(request: { title: string; teamId: number | null; skillIds?: number[]; markdownContent: string; parentId?: number | null }) {
+export async function createWikiDocument(request: { title: string; teamId: number | null; skillIds?: number[]; markdownContent: string; parentId?: number | null; knowledgeCategory?: WikiKnowledgeCategory }) {
   const { data } = await http.post<WikiDocument>('/wiki/documents', request)
   return data
 }
 
-export async function updateWikiDocument(id: number, request: { title: string; markdownContent: string; versionNo: number; skillIds?: number[] | null; parentId?: number | null; parentSpecified?: boolean }) {
+export async function updateWikiDocument(id: number, request: { title: string; markdownContent: string; versionNo: number; skillIds?: number[] | null; parentId?: number | null; parentSpecified?: boolean; knowledgeCategory?: WikiKnowledgeCategory }) {
   const { data } = await http.put<WikiDocument>(`/wiki/documents/${id}`, request)
   return data
 }

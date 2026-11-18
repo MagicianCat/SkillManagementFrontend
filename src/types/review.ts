@@ -82,6 +82,6 @@ export interface WikiReview extends WikiReviewSummary {
   wikiCount: number | null
   skillCount: number | null
   treeFingerprint: string | null
-  wikiItems: Array<{ documentId: number; title: string; parentId: number | null; revisionId: number; revisionNo: number }>
+  wikiItems: Array<{ documentId: number; title: string; parentId: number | null; revisionId: number; revisionNo: number; knowledgeCategory: import('./skill').WikiKnowledgeCategory }>
   skillItems: Array<{ skillId: number; skillKey: string; displayName: string; scopeAtSubmit: 'TEAM' | 'PLATFORM'; versionId: number }>
 }

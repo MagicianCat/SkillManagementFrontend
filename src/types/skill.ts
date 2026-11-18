@@ -193,7 +193,10 @@ export interface WikiSkillLink {
   displayName: string
 }
 
+export type WikiKnowledgeCategory = 'SKILL_TOOL' | 'PROJECT_CONTEXT' | 'INTERNAL_KNOWLEDGE' | 'OTHER'
+
 export interface WikiDocument {
+  knowledgeCategory: WikiKnowledgeCategory
   id: number
   parentId?: number | null
   sourceResourceId?: string | null

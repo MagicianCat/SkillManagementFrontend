@@ -193,7 +193,7 @@ export interface WikiSkillLink {
   displayName: string
 }
 
-export type WikiKnowledgeCategory = 'SKILL_TOOL' | 'PROJECT_CONTEXT' | 'INTERNAL_KNOWLEDGE' | 'OTHER'
+export type WikiKnowledgeCategory = 'SKILL_TOOL' | 'PROJECT_CONTEXT' | 'INTERNAL_KNOWLEDGE' | 'FDE_WIKI' | 'OTHER'
 
 export interface WikiDocument {
   knowledgeCategory: WikiKnowledgeCategory

@@ -5,6 +5,7 @@ export type Permission =
   | 'skill:edit'
   | 'skill:review'
   | 'wiki:review'
+  | 'wiki:publish:direct'
   | 'skill:publish'
   | 'skill:offline'
   | 'admin:identity'

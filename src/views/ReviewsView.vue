@@ -18,6 +18,7 @@ import {
 import type { PageResponse } from '../types/skill'
 import type { WikiTeam } from '../types/skill'
 import { searchWikiTeams } from '../api/wiki.api'
+import ReviewTypeTabs from '../components/ReviewTypeTabs.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -272,9 +273,6 @@ function formatTime(value: string) {
   }
 }
 
-function changeReviewType(value: string | number) {
-  if (String(value) === 'wiki') void router.push({ name: 'wiki-reviews' })
-}
 
 watch(
   () => route.query,
@@ -297,10 +295,7 @@ onMounted(() => { searchTeams(); fetchReviews() })
         <p class="page-subtitle">处理 Skill 版本的审核任务</p>
       </div>
     </div>
-    <nav class="status-tabs review-type-tabs" role="tablist" aria-label="审核类型">
-      <button type="button" role="tab" aria-selected="true" class="status-tab is-selected" @click="changeReviewType('skill')">Skill 审核</button>
-      <button type="button" role="tab" aria-selected="false" class="status-tab" @click="changeReviewType('wiki')">Wiki 审核</button>
-    </nav>
+    <ReviewTypeTabs active="skill" />
 
     <section class="market-toolbar" aria-label="审核任务搜索">
       <label class="search-box"

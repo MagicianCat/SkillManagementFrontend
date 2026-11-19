@@ -69,6 +69,12 @@ const router = createRouter({
           meta: { title: '团队 Wiki', permissions: ['skill:browse'] },
         },
         {
+          path: 'wiki/fde',
+          name: 'wiki-fde',
+          component: () => import('../views/WikiView.vue'),
+          meta: { title: 'FDE 专区', permissions: ['skill:browse'] },
+        },
+        {
           path: 'asdm-tools/download/:assetId',
           name: 'asdm-tool-download',
           component: () => import('../views/AsdmToolDownloadView.vue'),
@@ -151,6 +157,12 @@ const router = createRouter({
           name: 'wiki-review-detail',
           component: () => import('../views/WikiReviewDetailView.vue'),
           meta: { title: 'Wiki 审核详情', permissions: ['wiki:review'] },
+        },
+        {
+          path: 'wiki-category-review',
+          name: 'wiki-category-review',
+          component: () => import('../views/WikiCategoryReviewView.vue'),
+          meta: { title: '审核中心 · 知识分类', roles: ['ADMIN'] },
         },
         {
           path: 'notifications',

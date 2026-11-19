@@ -116,6 +116,10 @@ a {
   color: var(--text-1);
   background: var(--surface-2);
 }
+.workspace-nav__wiki-group { padding: 0 8px 4px 38px; }
+.workspace-nav__wiki-children { display: flex; flex-direction: column; gap: 2px; }
+.workspace-nav__wiki-child { display: block; padding: 7px 10px; border-radius: var(--radius-sm); color: var(--text-2); font-size: 12px; text-decoration: none; }
+.workspace-nav__wiki-child:hover, .workspace-nav__wiki-child.is-active { color: var(--accent-300); background: var(--accent-soft); }
 .workspace-nav__item.is-active {
   border-color: var(--border-accent);
   color: var(--accent-300);
@@ -1959,6 +1963,9 @@ h1 {
     padding: 6px 10px;
     font-size: 12px;
   }
+  .workspace-nav__wiki-group { display: flex; align-items: center; gap: 6px; padding: 0; flex: 0 0 auto; }
+  .workspace-nav__wiki-children { flex-direction: row; }
+  .workspace-nav__wiki-child { white-space: nowrap; }
   .workspace-nav__item.is-active::before {
     display: none;
   }

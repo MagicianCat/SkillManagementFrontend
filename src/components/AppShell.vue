@@ -64,11 +64,12 @@ const navEntries = computed<NavEntry[]>(() => [
   },
   {
     label: '审核中心',
-    routeName: 'reviews',
+    routeName: hasPermission(authStore.user?.permissions, 'skill:review') ? 'reviews' : hasPermission(authStore.user?.permissions, 'wiki:review') ? 'wiki-reviews' : 'wiki-category-review',
     icon: 'review',
     visible:
       hasPermission(authStore.user?.permissions, 'skill:review') ||
-      hasPermission(authStore.user?.permissions, 'wiki:review'),
+      hasPermission(authStore.user?.permissions, 'wiki:review') ||
+      Boolean(authStore.user?.roles.includes('ADMIN') && hasPermission(authStore.user?.permissions, 'admin:identity')),
   },
   {
     label: 'Agent 运行与审计',
@@ -264,18 +265,20 @@ async function signOut() {
         ><span>研途助手</span></RouterLink
       >
       <nav ref="navRef" class="workspace-nav" aria-label="主导航">
+        <template v-for="entry in visibleNav" :key="entry.routeName">
         <RouterLink
-          v-for="entry in visibleNav"
-          :key="entry.routeName"
           class="workspace-nav__item"
           :class="{
             'is-active':
               route.name === entry.routeName ||
+              (entry.routeName === 'wiki' && route.name === 'wiki-fde') ||
               (entry.routeName === 'skills' &&
                 (route.name === 'skill-detail' ||
                   route.name === 'skill-draft' ||
                   route.name === 'skill-create')) ||
-              (entry.routeName === 'collab-projects' && String(route.name || '').startsWith('collab-')),
+              (entry.routeName === 'collab-projects' && String(route.name || '').startsWith('collab-')) ||
+              (['reviews', 'wiki-reviews', 'wiki-category-review'].includes(entry.routeName) &&
+                ['reviews', 'wiki-reviews', 'wiki-category-review', 'review-detail', 'wiki-review-detail'].includes(String(route.name))),
           }"
           :to="{ name: entry.routeName }"
           ><span class="workspace-nav__icon" aria-hidden="true"
@@ -407,6 +410,12 @@ async function signOut() {
             >{{ notificationStore.unreadCount > 99 ? '99+' : notificationStore.unreadCount }}</em
           ></RouterLink
         >
+        <div v-if="entry.routeName === 'wiki'" class="workspace-nav__wiki-group">
+          <div class="workspace-nav__wiki-children">
+            <RouterLink class="workspace-nav__wiki-child" :class="{ 'is-active': route.name === 'wiki-fde' }" :to="{ name: 'wiki-fde' }">FDE 专区</RouterLink>
+          </div>
+        </div>
+        </template>
       </nav>
       <div class="workspace-sidebar__spacer"></div>
       <div class="workspace-user">

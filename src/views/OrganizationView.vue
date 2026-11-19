@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import { backfillFeishuDefaultRoles, getTeamHierarchy, getTeamMembersPage, getTeamTree, grantPlatformMaintainer, grantTeamRole, revokePlatformMaintainer, revokeTeamRole, syncFeishuDirectory, type TeamMember, type TeamView } from '../api/org.api'
+import { backfillFeishuDefaultRoles, getTeamHierarchy, getTeamMembersPage, getTeamTree, grantPlatformMaintainer, grantTeamRole, revokePlatformMaintainer, revokeTeamRole, syncFeishuDirectory, getWikiDirectPublisherStatus, grantWikiDirectPublisher, revokeWikiDirectPublisher, type TeamMember, type TeamView } from '../api/org.api'
 
 const authStore = useAuthStore()
 const teams = ref<TeamView[]>([])
@@ -14,6 +14,8 @@ const memberKeyword = ref('')
 const activeMember = ref<TeamMember | null>(null)
 const selectedRole = ref('')
 const roleBusy = ref(false)
+const wikiDirectGranted = ref(false)
+const wikiDirectLoading = ref(false)
 const teamLoading = ref(false)
 const membersLoading = ref(false)
 const loading = ref(false)
@@ -154,7 +156,25 @@ async function select(team: TeamView) {
   if (team.manageable !== false) await loadMembers(0)
   else clearMembers()
 }
-function openMember(member: TeamMember) { activeMember.value = member; selectedRole.value = '' }
+async function openMember(member: TeamMember) {
+  activeMember.value = member; selectedRole.value = ''; wikiDirectGranted.value = false
+  if (!isSuperAdmin.value) return
+  wikiDirectLoading.value = true
+  try { wikiDirectGranted.value = (await getWikiDirectPublisherStatus(member.userId)).granted }
+  catch { message.value = 'Wiki 直推权限状态加载失败' }
+  finally { wikiDirectLoading.value = false }
+}
+async function toggleWikiDirectPublisher() {
+  if (!activeMember.value || !isSuperAdmin.value || wikiDirectLoading.value) return
+  wikiDirectLoading.value = true
+  try {
+    if (wikiDirectGranted.value) await revokeWikiDirectPublisher(activeMember.value.userId)
+    else await grantWikiDirectPublisher(activeMember.value.userId)
+    wikiDirectGranted.value = !wikiDirectGranted.value
+    message.value = wikiDirectGranted.value ? '已授予 Wiki 全平台直推员' : '已撤销 Wiki 全平台直推员'
+  } catch { message.value = 'Wiki 直推权限更新失败' }
+  finally { wikiDirectLoading.value = false }
+}
 async function grantRole() { if (!selected.value || !activeMember.value || !selectedRole.value) return; const userId = activeMember.value.userId; roleBusy.value = true; try { if (selectedRole.value === 'PLATFORM_MAINTAINER') await grantPlatformMaintainer(userId); else await grantTeamRole(selected.value.id, userId, selectedRole.value); message.value = '角色授予成功'; await loadMembers(membersPage.value); activeMember.value = members.value.find((member) => member.userId === userId) ?? null; selectedRole.value = '' } catch (error) { message.value = error instanceof Error ? error.message : '角色授予失败' } finally { roleBusy.value = false } }
 async function revokeRole(role: TeamMember['roles'][number]) { if (!selected.value || !activeMember.value || !window.confirm(`确认撤销“${roleLabel(role.roleKey)}”吗？`)) return; const userId = activeMember.value.userId; roleBusy.value = true; try { if (role.roleKey === 'PLATFORM_MAINTAINER') await revokePlatformMaintainer(userId); else await revokeTeamRole(selected.value.id, userId, role.roleKey); message.value = '角色已撤销'; await loadMembers(membersPage.value); activeMember.value = members.value.find((member) => member.userId === userId) ?? null } catch (error) { message.value = error instanceof Error ? error.message : '角色撤销失败' } finally { roleBusy.value = false } }
 async function sync() { loading.value = true; message.value = ''; try { const result = await syncFeishuDirectory(); message.value = result.message; } catch (error) { message.value = error instanceof Error ? error.message : '同步任务提交失败' } finally { loading.value = false } }
@@ -230,6 +250,7 @@ onMounted(async () => {
       <p class="eyebrow">ROLE MANAGEMENT</p><h2 id="role-dialog-title">{{ activeMember.displayName }} 的权限</h2><p class="muted">{{ activeMember.username }}</p><h3>当前角色</h3>
       <div v-if="activeMember.roles.length" class="current-roles"><div v-for="role in activeMember.roles" :key="`${role.scopeType}-${role.roleKey}-${role.teamId}`" class="current-role"><span>{{ roleText(role) }}</span><button class="link-button danger" :disabled="roleBusy" @click="revokeRole(role)">撤销</button></div></div>
       <p v-else class="muted">暂无特殊角色</p>
+      <div v-if="isSuperAdmin" class="current-role"><span>Wiki 全平台直推员：{{ wikiDirectLoading ? '加载中…' : wikiDirectGranted ? '已授予' : '未授予' }}</span><button class="link-button" :class="{ danger: wikiDirectGranted }" :disabled="wikiDirectLoading" @click="toggleWikiDirectPublisher">{{ wikiDirectGranted ? '撤销' : '授予' }}</button></div>
       <div v-if="roleOptions.length" class="grant-row"><select v-model="selectedRole" aria-label="选择要授予的角色"><option value="">选择要授予的角色</option><option v-for="role in roleOptions" :key="role.key" :value="role.key">{{ role.label }}</option></select><button class="primary" :disabled="roleBusy || !selectedRole" @click="grantRole">{{ roleBusy ? '处理中…' : '授予角色' }}</button></div>
     </section>
   </div>

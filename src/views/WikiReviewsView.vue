@@ -12,6 +12,7 @@ import {
 } from '../api/wiki.api'
 import { reviewStatusLabel, type WikiReviewStatus, type WikiReviewSummary } from '../types/review'
 import type { PageResponse, WikiTeam } from '../types/skill'
+import ReviewTypeTabs from '../components/ReviewTypeTabs.vue'
 
 const router = useRouter()
 const response = ref<PageResponse<WikiReviewSummary> | null>(null)
@@ -151,9 +152,6 @@ function changePage(value: number) {
   void load()
 }
 
-function changeReviewType(value: string | number) {
-  if (String(value) === 'skill') void router.push({ name: 'reviews' })
-}
 
 onMounted(() => {
   void loadTeams()
@@ -171,10 +169,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <nav class="status-tabs review-type-tabs" role="tablist" aria-label="审核类型">
-      <button type="button" role="tab" aria-selected="false" class="status-tab" @click="changeReviewType('skill')">Skill 审核</button>
-      <button type="button" role="tab" aria-selected="true" class="status-tab is-selected" @click="changeReviewType('wiki')">Wiki 审核</button>
-    </nav>
+    <ReviewTypeTabs active="wiki" />
 
     <section class="market-toolbar wiki-review-toolbar" aria-label="Wiki 审核任务搜索">
       <t-input v-model="keyword" class="review-keyword-filter" clearable placeholder="按文档标题搜索" @enter="page = 0; load()" />
@@ -228,7 +223,7 @@ onMounted(() => {
       </template>
     </t-loading>
 
-    <t-pagination v-if="response && response.totalPages > 1" :current="page + 1" :total="response.totalElements" :page-size="12" :total-content="false" show-jumper @change="changePage" />
+    <t-pagination v-if="response && response.totalPages > 1" :current="page + 1" :total="response.totalElements" :page-size="12" :total-content="false" show-jumper @current-change="changePage" />
 
     <t-dialog v-model:visible="showAction" :header="actionKind === 'approve' ? '通过 Wiki 审核' : '拒绝 Wiki 审核'" :confirm-btn="{ content: '确认', loading: acting, disabled: !actionComment.trim() }" cancel-btn="取消" @confirm="confirmAction">
       <t-textarea v-model="actionComment" :autosize="{ minRows: 4, maxRows: 8 }" placeholder="审核意见（必填）" />

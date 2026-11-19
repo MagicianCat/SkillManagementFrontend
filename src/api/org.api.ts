@@ -12,5 +12,9 @@ export async function grantTeamRole(teamId: number, userId: number, roleKey: str
 export async function revokeTeamRole(teamId: number, userId: number, roleKey: string) { await http.delete(`/admin/teams/${teamId}/members/${userId}/roles/${roleKey}`) }
 export async function grantPlatformMaintainer(userId: number) { const { data } = await http.post<ScopedAssignment>(`/admin/platform-maintainers/${userId}`); return data }
 export async function revokePlatformMaintainer(userId: number) { await http.delete(`/admin/platform-maintainers/${userId}`) }
+export async function getWikiDirectPublisherStatus(userId: number) { const { data } = await http.get<{ granted: boolean }>(`/admin/wiki-direct-publishers/${userId}`); return data }
+export async function grantWikiDirectPublisher(userId: number) { await http.put(`/admin/wiki-direct-publishers/${userId}`) }
+export async function revokeWikiDirectPublisher(userId: number) { await http.delete(`/admin/wiki-direct-publishers/${userId}`) }
+export async function listWikiDirectPublishers(page = 0, size = 25, keyword = '') { const { data } = await http.get<PageResponse<{ id: number; displayName: string; username: string }>>('/admin/wiki-direct-publishers', { params: { page, size, keyword: keyword || undefined } }); return data }
 export async function syncFeishuDirectory() { const { data } = await http.post<{ status: string; message: string }>('/admin/feishu/sync'); return data }
 export async function backfillFeishuDefaultRoles() { const { data } = await http.post<{ status: string; message: string }>('/admin/feishu/backfill-default-roles'); return data }

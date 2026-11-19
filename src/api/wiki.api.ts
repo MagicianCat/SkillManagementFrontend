@@ -3,6 +3,7 @@ import type { PageResponse, WikiDocument, WikiRevision, WikiTeam, WikiKnowledgeC
 import type { WikiReview, WikiReviewSummary, WikiReviewStatus } from '../types/review'
 
 export interface WikiDocumentQuery {
+  scope?: 'ALL' | 'TEAM' | 'PLATFORM'
   knowledgeCategory?: WikiKnowledgeCategory
   teamId?: number
   skillKey?: string
@@ -56,6 +57,22 @@ export async function createWikiDocument(request: { title: string; teamId: numbe
   return data
 }
 
+export interface WikiCategorySuggestion {
+  recommendedCategory: WikiKnowledgeCategory
+  confidence: number | null
+  probabilities: Partial<Record<WikiKnowledgeCategory, number>>
+  model: string
+  promptVersion: string
+  inputFingerprint: string
+  requiresConfirmation: boolean
+  lowContext: boolean
+}
+
+export async function suggestWikiCategory(request: { title: string; markdownContent: string; teamId: number | null; skillIds: number[]; parentId: number | null }) {
+  const { data } = await http.post<WikiCategorySuggestion>('/wiki/knowledge-category:suggest', request)
+  return data
+}
+
 export async function updateWikiDocument(id: number, request: { title: string; markdownContent: string; versionNo: number; skillIds?: number[] | null; parentId?: number | null; parentSpecified?: boolean; knowledgeCategory?: WikiKnowledgeCategory }) {
   const { data } = await http.put<WikiDocument>(`/wiki/documents/${id}`, request)
   return data
@@ -82,6 +99,23 @@ export async function submitWikiPlatformReview(id: number, request: { versionNo:
 
 export async function previewWikiPlatformPromotion(id: number) {
   const { data } = await http.get<{ rootWikiId: number; sourceTeamId: number; wikiCount: number; skillCount: number; teamSkillsToPromote: number; treeFingerprint: string; wikiItems: WikiReview['wikiItems']; skillItems: WikiReview['skillItems'] }>(`/wiki/documents/${id}/platform-promotion-preview`)
+  return data
+}
+export interface WikiDirectPublicationResult { publicationId: number; status: 'PUBLISHED'; rootWikiId: number; sourceTeamId: number; wikiCount: number; skillCount: number; promotedTeamSkillCount: number; publishedAt: string; indexStatus: 'PENDING' | 'READY' | 'FAILED' }
+export async function publishWikiDirect(id: number, request: { versionNo: number; treeFingerprint: string; comment: string }) {
+  const { data } = await http.post<WikiDirectPublicationResult>(`/wiki/documents/${id}:publish-direct`, request)
+  return data
+}
+export async function getWikiPublicationIndexStatus(publicationId: number) {
+  const { data } = await http.get<{ rootWikiId: number; indexStatus: 'PENDING' | 'READY' | 'FAILED' }>(`/wiki/publications/${publicationId}/index-status`)
+  return data
+}
+export async function getWikiDocumentIndexStatus(documentId: number) {
+  const { data } = await http.get<{ rootWikiId: number; indexStatus: 'PENDING' | 'READY' | 'FAILED' }>(`/wiki/documents/${documentId}/index-status`)
+  return data
+}
+export async function getWikiPublicationState(documentId: number) {
+  const { data } = await http.get<{ upToDate: boolean }>(`/wiki/documents/${documentId}/publication-state`)
   return data
 }
 

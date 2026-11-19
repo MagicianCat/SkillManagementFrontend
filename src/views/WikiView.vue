@@ -11,6 +11,7 @@ import MarkdownView from '../components/MarkdownView.vue'
 import { previewWikiCategoryBatch, createWikiCategoryBatch } from '../api/wiki-category-batch.api'
 import type { WikiCategoryPreview } from '../api/wiki-category-batch.api'
 import type { SkillView, WikiDocument, WikiRevision, WikiTeam, WikiKnowledgeCategory } from '../types/skill'
+import { wikiKnowledgeCategoryOptions, wikiKnowledgeCategoryLabel } from '../constants/wiki-knowledge-categories'
 
 const route = useRoute()
 const router = useRouter()
@@ -37,14 +38,8 @@ const showSuggestionDialog = ref(false)
 const categorySuggestion = ref<WikiCategorySuggestion | null>(null)
 const categorySuggestionError = ref('')
 let cachedSuggestion: { signature: string; value: WikiCategorySuggestion; at: number } | null = null
-const knowledgeCategoryOptions = [
-  { label: 'Skill 与工具', value: 'SKILL_TOOL' },
-  { label: '项目上下文', value: 'PROJECT_CONTEXT' },
-  { label: '企业内部知识', value: 'INTERNAL_KNOWLEDGE' },
-  { label: 'FDE 专区', value: 'FDE_WIKI' },
-  { label: '其他', value: 'OTHER' },
-]
-function knowledgeCategoryLabel(value: WikiKnowledgeCategory) { return knowledgeCategoryOptions.find((option) => option.value === value)?.label ?? '其他' }
+const knowledgeCategoryOptions = wikiKnowledgeCategoryOptions
+const knowledgeCategoryLabel = wikiKnowledgeCategoryLabel
 const loading = ref(false)
 const saving = ref(false)
 const errorMessage = ref('')

@@ -184,6 +184,8 @@ async function openNotification(item: NotificationView) {
     void router.push({ name: 'wiki-category-review', query: { batchId: String(item.targetId) } })
   } else if (item.targetType === 'EXTERNAL_IMPORT_JOB' && item.targetId) {
     void router.push({ name: 'external-resources', query: { jobId: String(item.targetId) } })
+  } else if (item.targetType === 'WIKI_FEISHU_TRANSFER' && item.targetId) {
+    void router.push({ name: 'wiki', query: { feishuJobId: String(item.targetId) } })
   } else if (item.targetType === 'WIKI_DOCUMENT' && item.targetId) {
     void router.push({
       name: 'wiki',

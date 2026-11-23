@@ -12,7 +12,7 @@ export interface ExternalImport { id: number; entryPath?: string; targetType: st
 export interface SkillPreparation { skillKey?: string; fileCount: number; exists: boolean; skillId?: number; activeDraftVersionId?: number }
 export interface DocumentEntry { path: string; sizeBytes: number }
 export interface Readiness { ready: boolean; pendingSkills: { id: number; name: string; externalResourceId: string; versionId: number }[]; skillIds: number[] }
-export interface ExternalImportJob { job: { id: number; roleId: number; kind: 'SKILL' | 'DOCUMENT'; status: string; knowledgeCategory: WikiKnowledgeCategory | null; totalCount: number; successCount: number; failureCount: number; errorMessage?: string | null }; items: Array<{ resourceId: number; versionId: number; entryPath?: string | null; status: string; targetId?: number | null; errorCode?: string | null; errorMessage?: string | null }> }
+export interface ExternalImportJob { job: { id: number; roleId: number; kind: 'SKILL' | 'DOCUMENT' | 'ASDM_TOOL'; publicationMode: 'REVIEW' | 'DIRECT_PLATFORM'; status: string; knowledgeCategory: WikiKnowledgeCategory | null; totalCount: number; successCount: number; failureCount: number; errorMessage?: string | null }; items: Array<{ resourceId: number; versionId: number; entryPath?: string | null; status: string; targetId?: number | null; errorCode?: string | null; errorMessage?: string | null }> }
 
 export async function listExternalRoles() { return (await http.get<ExternalRole[]>('/external-resources/roles')).data }
 export async function listExternalResources(roleId?: number, type?: string, keyword?: string, page = 0, size = 50) { return (await http.get<ExternalResource[]>('/external-resources', { params: { roleId, type, keyword, page, size } })).data }
@@ -25,6 +25,7 @@ export async function listExternalDocuments(id: number) { return (await http.get
 export async function getExternalDocument(id: number, path: string) { return (await http.get<string>(`/external-resource-versions/${id}/documents/content`, { params: { path }, responseType: 'text' })).data }
 export async function getExternalReadiness(roleId: number) { return (await http.get<Readiness>(`/external-resources/roles/${roleId}/import-readiness`)).data }
 export async function startBulkSkillImport(roleId: number, resourceIds: number[]) { return (await http.post<{ jobId: number }>(`/external-resources/roles/${roleId}/skills:import-all`, { resourceIds })).data }
+export async function startBulkSkillPublish(roleId: number, resourceIds: number[]) { return (await http.post<{ jobId: number }>(`/external-resources/roles/${roleId}/skills:publish-all`, { resourceIds })).data }
 export async function startBulkWikiImport(roleId: number, request: { teamId: number | null; parentWikiId: number | null; linkRoleSkills: boolean; knowledgeCategory: WikiKnowledgeCategory; selections: Array<{ resourceId: number; paths: string[] }> }) { return (await http.post<{ jobId: number }>(`/external-resources/roles/${roleId}/wikis:import-all`, request)).data }
 export async function getExternalImportJob(id: number) { return (await http.get<ExternalImportJob>(`/external-import-jobs/${id}`)).data }
 export async function getAsdmToolStatus(versionId: number) { return (await http.get<AsdmToolStatus>(`/external-resource-versions/${versionId}/asdm-tool/status`)).data }

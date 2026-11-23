@@ -207,6 +207,8 @@ async function openNotification(item: NotificationView) {
     else void router.push({ name: 'wiki-reviews' })
   } else if (item.targetType === 'EXTERNAL_IMPORT_JOB' && item.targetId) {
     void router.push({ name: 'external-resources', query: { jobId: String(item.targetId) } })
+  } else if (item.targetType === 'EXTERNAL_ROLE_CARD') {
+    void router.push({ name: 'external-resources' })
   } else if (item.targetType === 'WIKI_DOCUMENT' && item.targetId) {
     void router.push({ name: 'wiki', query: { documentId: String(item.targetId) } })
   } else if (item.skillKey) {

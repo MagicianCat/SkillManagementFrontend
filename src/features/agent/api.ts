@@ -129,3 +129,23 @@ export async function streamAgentRun(
   }
   return null
 }
+
+export async function getAgentCatalog(runKey: string, page: number, catalogId = 't1') {
+  const { data } = await http.get<{
+    total: number
+    page: number
+    pageSize: number
+    items: Array<{ id: number; title: string; sourceUrl: string; downloadUrl?: string; skillKey?: string }>
+  }>(`/agent/runs/${encodeURIComponent(runKey)}/catalogs/${encodeURIComponent(catalogId)}`, { params: { page } })
+  return data
+}
+
+
+export async function createAgentCatalogBundle(runKey: string, request: {
+  catalogId: string; skillIds?: number[]; all: boolean; expectedTotal?: number
+}) {
+  const { data } = await http.post<BatchDownloadResult>(
+    `/agent/runs/${encodeURIComponent(runKey)}/catalog-bundles`, request,
+  )
+  return data
+}

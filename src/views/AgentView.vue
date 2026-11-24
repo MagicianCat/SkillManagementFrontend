@@ -6,7 +6,7 @@ import { useAgentStore } from '../features/agent/store'
 import { useAuthStore } from '../stores/auth'
 import { DialogPlugin } from 'tdesign-vue-next'
 import AgentBatchDownloadDialog from '../features/agent/AgentBatchDownloadDialog.vue'
-import { getAgentRun } from '../features/agent/api'
+import { getAgentRun, getAgentCatalog, createAgentCatalogBundle, downloadAgentBundle } from '../features/agent/api'
 import type { AgentRecommendation } from '../features/agent/types'
 
 const store = useAgentStore()
@@ -16,6 +16,61 @@ const router = useRouter()
 const batchVisible = ref(false)
 const batchRunKey = ref<string | null>(null)
 const batchRecommendation = ref<AgentRecommendation | null>(null)
+
+const catalog = ref<Awaited<ReturnType<typeof getAgentCatalog>> | null>(null)
+const catalogError = ref('')
+const selectedCatalogIds = ref<number[]>([])
+const catalogDownloadBusy = ref(false)
+const catalogDownloadMessage = ref('')
+
+async function downloadCatalog(all: boolean) {
+  const key = route.query.catalogRun
+  if (typeof key !== 'string' || !catalog.value) return
+  if (all && !window.confirm(`打包当前目录的全部 ${catalog.value.total} 个 Skill？`)) return
+  catalogDownloadMessage.value = ''
+  catalogDownloadBusy.value = true
+  try {
+    const bundle = await createAgentCatalogBundle(key, {
+      catalogId: typeof route.query.catalogId === 'string' ? route.query.catalogId : 't1',
+      skillIds: all ? undefined : selectedCatalogIds.value,
+      all,
+      expectedTotal: all ? catalog.value.total : undefined,
+    })
+    if (bundle.status !== 'AVAILABLE') throw new Error('No downloadable bundle')
+    const response = await downloadAgentBundle(bundle.id)
+    const url = URL.createObjectURL(response.data)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = bundle.fileName || 'skill-catalog.zip'
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    if (bundle.failures?.length) catalogDownloadMessage.value = `已下载成功项，${bundle.failures.length} 项未打包。`
+  } catch {
+    catalogDownloadMessage.value = '无法生成下载包，请刷新目录并检查当前目标环境。'
+  } finally {
+    catalogDownloadBusy.value = false
+  }
+}
+let catalogRequest = 0
+
+async function loadCatalog() {
+  const request = ++catalogRequest
+  catalog.value = null
+  selectedCatalogIds.value = []
+  catalogDownloadMessage.value = ''
+  catalogError.value = ''
+  const key = route.query.catalogRun
+  if (typeof key !== 'string') return
+  const page = Math.max(0, Number.parseInt(String(route.query.catalogPage ?? '0'), 10) || 0)
+  try {
+    const result = await getAgentCatalog(key, page, typeof route.query.catalogId === 'string' ? route.query.catalogId : undefined)
+    if (request === catalogRequest) catalog.value = result
+  } catch {
+    if (request === catalogRequest) catalogError.value = '目录暂时无法加载，请刷新后重试。'
+  }
+}
+
+watch(() => [route.query.catalogRun, route.query.catalogPage, route.query.catalogId], () => void loadCatalog(), { immediate: true })
 
 async function loadRequestedSession() {
   await store.refreshSessions()
@@ -83,7 +138,29 @@ watch(() => route.query.session, () => void loadRequestedSession())
         <RouterLink :to="{ name: 'login', query: { redirect: '/agent' } }">授权飞书文档</RouterLink>
       </div>
       <header><div><h1>研途助手</h1><p>研发全流程助手 · Skill 推荐、公司资料问答与研发知识支持</p></div><div class="agent-selectors"><t-select :value="store.platform" label="平台" :options="[{ label: '默认', value: '' }, { label: 'CodeBuddy', value: 'CODEBUDDY' }, { label: 'OpenCode', value: 'OPENCODE' }]" @change="changePlatform" /><t-select :value="store.osType" label="系统" :options="[{ label: '默认', value: '' }, { label: '通用', value: 'ANY' }, { label: 'Windows', value: 'WINDOWS' }, { label: 'macOS', value: 'MACOS' }, { label: 'Linux', value: 'LINUX' }]" @change="changeOsType" /></div></header>
-      <AgentChat />
+      <section v-if="typeof route.query.catalogRun === 'string'" class="context-card">
+        <h2>资源目录</h2>
+        <p v-if="catalogError" role="alert">{{ catalogError }}</p>
+        <template v-else-if="catalog">
+          <p>共 {{ catalog.total }} 项 · 第 {{ catalog.page + 1 }} 页</p>
+          <ul>
+            <li v-for="item in catalog.items" :key="item.id">
+              <input v-if="item.skillKey" v-model="selectedCatalogIds" type="checkbox" :value="item.id" :aria-label="`选择 ${item.title}`" />
+              <a :href="item.sourceUrl">{{ item.title }}</a>
+              <a v-if="item.downloadUrl" :href="item.downloadUrl"> · 下载工具包</a>
+            </li>
+          </ul>
+          <div v-if="catalog.items.some(item => item.skillKey)">
+            <button :disabled="catalogDownloadBusy || !selectedCatalogIds.length" @click="downloadCatalog(false)">下载所选 Skill</button>
+            <button :disabled="catalogDownloadBusy" @click="downloadCatalog(true)">下载目录全部 Skill</button>
+            <p v-if="catalogDownloadMessage" role="status">{{ catalogDownloadMessage }}</p>
+          </div>
+          <RouterLink v-if="catalog.page > 0" :to="{ query: { ...route.query, catalogPage: catalog.page - 1 } }">上一页</RouterLink>
+          <RouterLink v-if="(catalog.page + 1) * catalog.pageSize < catalog.total" :to="{ query: { ...route.query, catalogPage: catalog.page + 1 } }">下一页</RouterLink>
+        </template>
+        <p v-else>正在加载目录…</p>
+      </section>
+      <AgentChat v-else />
     </section>
     <aside class="agent-context">
       <h2>推荐上下文</h2>
